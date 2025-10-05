@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from timetable.models import Cabinet, Patient, Doctor, MedicalService
+from timetable.models import (
+    Cabinet,
+    Patient,
+    Doctor,
+    MedicalService,
+    MedicalServiceCategory,
+)
 
 
 @admin.register(Cabinet)
@@ -36,28 +42,50 @@ class PatientAdmin(admin.ModelAdmin):
 class DoctorAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "surname",  # Ставим фамилию первой для удобства
+        "surname",
         "first_name",
         "last_name",
-        "specialization",
-        "view_provided_services",  # Заменяем стандартное отображение
+        "get_specialization_display",
+        "get_provided_services",
     )
     search_fields = (
         "first_name",
         "last_name",
         "surname",
-        "specialization",
     )
-    # Добавляем удобный виджет для выбора услуг
-    filter_horizontal = ("provided_services",)
-    # Включаем поиск услуг при редактировании врача:cite[6]
-    autocomplete_fields = ("provided_services",)
 
-    def view_provided_services(self, obj):
-        """Кастомный метод для отображения услуг в списке врачей."""
-        return ", ".join([service.name for service in obj.provided_services.all()[:3]])
+    def get_specialization_display(self, obj):
+        """
+        Возвращает строку с читаемыми названиями специализаций врача.
+        """
+        selected_specializations = obj.specialization
+        if not selected_specializations:
+            return "-"
 
-    view_provided_services.short_description = "Оказываемые услуги"
+        specializations_dict = dict(Doctor.DoctorSpecialization.choices)
+        readable_specializations = [
+            str(specializations_dict.get(spec, spec))
+            for spec in selected_specializations
+        ]
+
+        return ", ".join(readable_specializations)
+
+    get_specialization_display.short_description = "Специализации врача"
+
+    def get_provided_services(self, obj):
+        """
+        Возвращает строку с читаемыми названиями оказываемых категорий услуг.
+        """
+        selected_services = obj.provided_services
+        if not selected_services:
+            return "-"
+        services_dict = dict(MedicalServiceCategory.choices)
+        readable_services = [
+            services_dict.get(service, service) for service in selected_services
+        ]
+        return ", ".join(str(service) for service in readable_services)
+
+    get_provided_services.short_description = "Оказываемые категории услуг"
 
 
 @admin.register(MedicalService)
@@ -77,20 +105,14 @@ class MedicalServiceAdmin(admin.ModelAdmin):
         """
         Возвращает строку с читаемыми названиями разрешенных специализаций.
         """
-        # Получаем список ключей выбранных специализаций
         selected_specializations = obj.allowed_specializations
-
-        # Если список пуст, возвращаем прочерк
         if not selected_specializations:
             return "-"
-
-        # Сопоставляем ключи с человекочитаемыми названиями
         specializations_dict = dict(Doctor.DoctorSpecialization.choices)
         readable_specializations = [
             specializations_dict.get(spec, spec) for spec in selected_specializations
         ]
 
-        # ВАЖНО: Преобразуем каждый элемент в строку перед объединением
         return ", ".join(str(spec) for spec in readable_specializations)
 
     get_allowed_specializations.short_description = "Разрешенные специализации"
