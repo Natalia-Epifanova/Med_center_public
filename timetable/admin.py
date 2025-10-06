@@ -6,6 +6,7 @@ from timetable.models import (
     Doctor,
     MedicalService,
     MedicalServiceCategory,
+    TimeSlot,
 )
 
 
@@ -116,3 +117,36 @@ class MedicalServiceAdmin(admin.ModelAdmin):
         return ", ".join(str(spec) for spec in readable_specializations)
 
     get_allowed_specializations.short_description = "Разрешенные специализации"
+
+
+@admin.register(TimeSlot)
+class TimeSlotAdmin(admin.ModelAdmin):
+    list_display = (
+        "date",
+        "start_time",
+        "end_time",
+        "cabinet",
+        "doctor",
+        "slot_type",
+        "get_duration",
+    )
+    list_filter = ("date", "cabinet", "doctor", "slot_type")
+    search_fields = ("doctor__surname", "cabinet__number")
+    list_editable = (
+        "start_time",
+        "end_time",
+        "slot_type",
+    )  # Быстрое редактирование в списке
+
+    # Фильтры сверху для удобной навигации
+    date_hierarchy = "date"
+
+    def get_duration(self, obj):
+        """Отображает продолжительность слота в минутах."""
+        if obj.start_time and obj.end_time:
+            start_minutes = obj.start_time.hour * 60 + obj.start_time.minute
+            end_minutes = obj.end_time.hour * 60 + obj.end_time.minute
+            return f"{end_minutes - start_minutes} мин"
+        return "-"
+
+    get_duration.short_description = "Продолжительность"

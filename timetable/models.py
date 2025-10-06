@@ -169,3 +169,138 @@ class MedicalService(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.price} руб."
+
+
+class TimeSlot(models.Model):
+    """
+    Модель для хранения временных слотов расписания.
+    Каждый слот привязан к конкретному врачу, кабинету и дате.
+    """
+
+    # Основные связи
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, verbose_name="Врач")
+    cabinet = models.ForeignKey(
+        Cabinet, on_delete=models.CASCADE, verbose_name="Кабинет"
+    )
+    date = models.DateField(verbose_name="Дата расписания")
+
+    # Временные интервалы
+    start_time = models.TimeField(verbose_name="Время начала")
+    end_time = models.TimeField(verbose_name="Время окончания")
+
+    # Тип слота: рабочий слот или перерыв
+    SLOT_TYPE_CHOICES = (
+        ("working", "Рабочий слот"),
+        ("break", "Перерыв"),
+    )
+    slot_type = models.CharField(
+        max_length=10,
+        choices=SLOT_TYPE_CHOICES,
+        default="working",
+        verbose_name="Тип слота",
+    )
+
+    # Описание (например, "Обед", "Перерыв на кофе")
+    description = models.CharField(max_length=100, blank=True, verbose_name="Описание")
+
+    class Meta:
+        verbose_name = "Слот расписания"
+        verbose_name_plural = "Слоты расписания"
+        ordering = ["date", "cabinet", "start_time"]
+        # Запрещаем дублирование слотов для одного врача
+        constraints = [
+            models.UniqueConstraint(
+                fields=["doctor", "date", "start_time"], name="unique_doctor_time_slot"
+            ),
+        ]
+
+    def __str__(self):
+        slot_type_display = "Перерыв" if self.slot_type == "break" else "Слот"
+        return f"{self.date} {self.start_time}-{self.end_time} - {self.doctor.surname} ({slot_type_display})"
+
+
+class Appointment(models.Model):
+    # Статусы записи
+    class AppointmentStatus(models.TextChoices):
+        SCHEDULED = "scheduled", _("Запланирован")
+        CONFIRMED = "confirmed", _("Подтвержден")
+        COMPLETED = "completed", _("Завершен")
+        CANCELLED = "cancelled", _("Отменен пациентом")
+        NO_SHOW = "no_show", _("Не явился")
+
+    # Типы оплаты
+    class InsuranceType(models.TextChoices):
+        OMS = "oms", _("ОМС")
+        DMS = "dms", _("ДМС")
+        PAID = "paid", _("Платный")
+
+    # Основные связи
+    patient = models.ForeignKey(
+        Patient, on_delete=models.CASCADE, verbose_name="Пациент"
+    )
+    doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, verbose_name="Врач")
+    service = models.ForeignKey(
+        MedicalService, on_delete=models.PROTECT, verbose_name="Услуга"
+    )
+    cabinet = models.ForeignKey(
+        Cabinet, on_delete=models.PROTECT, verbose_name="Кабинет", blank=True, null=True
+    )
+
+    # Временные метки
+    date = models.DateField(verbose_name="Дата приема")
+    start_time = models.TimeField(verbose_name="Время начала")
+    end_time = models.TimeField(verbose_name="Время окончания")
+
+    # Статусы и пометки
+    status = models.CharField(
+        max_length=20,
+        choices=AppointmentStatus.choices,
+        default=AppointmentStatus.SCHEDULED,
+        verbose_name="Статус записи",
+    )
+    insurance_type = models.CharField(
+        max_length=10, choices=InsuranceType.choices, verbose_name="Тип оплаты"
+    )
+    guarantee_letter_received = models.BooleanField(
+        default=False, verbose_name="Гарантийное письмо получено"
+    )
+    needs_reschedule = models.BooleanField(
+        default=False, verbose_name="Требуется перезапись на более ранний срок"
+    )
+    comment = models.TextField(blank=True, verbose_name="Комментарий администратора")
+
+    # Метка, если пациент записан на несколько процедур подряд
+    is_consecutive = models.BooleanField(
+        default=False, verbose_name="Запись подряд (второе и последующее 'окно')"
+    )
+    previous_appointment = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        verbose_name="Предыдущая запись в цепочке",
+    )
+
+    class Meta:
+        verbose_name = "Запись на прием"
+        verbose_name_plural = "Записи на прием"
+        ordering = ["date", "start_time"]
+        # Запрещаем дублирование времени для врача и кабинета
+        constraints = [
+            models.UniqueConstraint(
+                fields=["doctor", "date", "start_time"],
+                name="unique_appointment_doctor_time",
+            ),
+            models.UniqueConstraint(
+                fields=["cabinet", "date", "start_time"],
+                condition=models.Q(cabinet__isnull=False),
+                name="unique_appointment_cabinet_time",
+            ),
+            models.UniqueConstraint(
+                fields=["patient", "date", "start_time"],
+                name="unique_appointment_patient_time",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.patient.surname} - {self.doctor.surname} - {self.date} {self.start_time}"
