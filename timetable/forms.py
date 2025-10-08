@@ -1,27 +1,43 @@
 from django import forms
+from django.forms import ModelForm
 
 from .models import Cabinet, Doctor, TimeSlot
 
 
-class TimeSlotForm(forms.Form):
-    """Форма для добавления одного слота или нескольких слотов с интервалом"""
+class StyleFormMixin:
+    """
+    Миксин для стилизации форм. Добавляет CSS-класс 'form-control' ко всем полям формы.
+    """
 
-    date = forms.DateField(
-        label="Дата расписания",
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
-    )
-    cabinet = forms.ModelChoiceField(
-        label="Кабинет",
-        queryset=Cabinet.objects.all(),
-        widget=forms.Select(attrs={"class": "form-control"}),
-    )
-    doctor = forms.ModelChoiceField(
-        label="Врач",
-        queryset=Doctor.objects.all(),
-        widget=forms.Select(attrs={"class": "form-control"}),
-    )
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if "class" not in field.widget.attrs:
+                field.widget.attrs["class"] = "form-control"
 
-    # Выбор типа добавления
+
+class TimeSlotForm(StyleFormMixin, ModelForm):
+    """Упрощенная форма для добавления временных слотов"""
+
+    class Meta:
+        model = TimeSlot
+        fields = (
+            [  # Убираем отсюда поля времени и типа, так как они будут в кастомных полях
+                "date",
+                "cabinet",
+                "doctor",
+            ]
+        )
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+        }
+        labels = {
+            "date": "Дата расписания",
+            "cabinet": "Кабинет",
+            "doctor": "Врач",
+        }
+
+    # Оставляем только кастомные поля
     ADD_TYPE_CHOICES = [
         ("single", "Добавить один слот"),
         ("multiple", "Добавить несколько слотов с интервалом"),
@@ -33,42 +49,39 @@ class TimeSlotForm(forms.Form):
         initial="single",
     )
 
-    # Поля для одного слота
+    # Поля для одиночного добавления
     single_start_time = forms.TimeField(
         label="Время начала",
-        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+        widget=forms.TimeInput(attrs={"type": "time"}),
         required=False,
     )
     single_end_time = forms.TimeField(
         label="Время окончания",
-        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+        widget=forms.TimeInput(attrs={"type": "time"}),
         required=False,
     )
     single_slot_type = forms.ChoiceField(
         label="Тип слота",
         choices=TimeSlot.SLOT_TYPE_CHOICES,
         initial="working",
-        widget=forms.Select(attrs={"class": "form-control"}),
         required=False,
     )
     single_description = forms.CharField(
         label="Описание",
-        max_length=100,
+        widget=forms.TextInput(attrs={"placeholder": "Например: Обед"}),
         required=False,
-        widget=forms.TextInput(
-            attrs={"class": "form-control", "placeholder": "Например: Обед"}
-        ),
+        max_length=200,
     )
 
-    # Поля для нескольких слотов
+    # Поля для множественного добавления
     multiple_start_time = forms.TimeField(
-        label="Время начала",
-        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+        label="Время начала диапазона",
+        widget=forms.TimeInput(attrs={"type": "time"}),
         required=False,
     )
     multiple_end_time = forms.TimeField(
-        label="Время окончания",
-        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+        label="Время окончания диапазона",
+        widget=forms.TimeInput(attrs={"type": "time"}),
         required=False,
     )
     interval = forms.IntegerField(
@@ -76,7 +89,7 @@ class TimeSlotForm(forms.Form):
         min_value=5,
         max_value=120,
         initial=20,
-        widget=forms.NumberInput(attrs={"class": "form-control"}),
+        widget=forms.NumberInput(),
         required=False,
     )
 
@@ -117,3 +130,34 @@ class TimeSlotForm(forms.Form):
                 raise forms.ValidationError("Интервал должен быть положительным числом")
 
         return cleaned_data
+
+
+class TimeSlotUpdateForm(StyleFormMixin, ModelForm):
+    """Форма для редактирования существующего слота"""
+
+    class Meta:
+        model = TimeSlot
+        fields = [
+            "date",
+            "cabinet",
+            "doctor",
+            "start_time",
+            "end_time",
+            "slot_type",
+            "description",
+        ]
+        widgets = {
+            "date": forms.DateInput(attrs={"type": "date"}),
+            "start_time": forms.TimeInput(attrs={"type": "time"}),
+            "end_time": forms.TimeInput(attrs={"type": "time"}),
+            "description": forms.TextInput(attrs={"placeholder": "Например: Обед"}),
+        }
+        labels = {
+            "date": "Дата расписания",
+            "cabinet": "Кабинет",
+            "doctor": "Врач",
+            "start_time": "Время начала",
+            "end_time": "Время окончания",
+            "slot_type": "Тип слота",
+            "description": "Описание",
+        }

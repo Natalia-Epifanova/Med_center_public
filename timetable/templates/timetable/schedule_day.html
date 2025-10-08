@@ -74,42 +74,48 @@
                 </div>
                 <div class="card-body p-2 flex-grow-1">  <!-- flex-grow-1 для растягивания -->
                     {% if slots %}
-                    <div class="table-responsive">  <!-- Убрано max-height -->
+                    <div class="table-responsive">
                         <table class="table table-sm table-striped table-hover mb-0">
                             <thead class="table-light">
-                                <tr>
-                                    <th style="font-size: 0.8rem;">Время</th>
-                                    <th style="font-size: 0.8rem;">Врач</th>
-                                    <th style="font-size: 0.8rem;">Тип</th>
-                                    <th style="font-size: 0.8rem;">Описание</th>
-                                </tr>
+                            <tr>
+                                <th style="font-size: 0.8rem;">Время</th>
+                                <th style="font-size: 0.8rem;">Врач</th>
+                                <th style="font-size: 0.8rem;">Тип</th>
+                                <th style="font-size: 0.8rem;">Описание</th>
+                            </tr>
                             </thead>
                             <tbody>
-                                {% for slot in slots %}
-                                <tr class="{% if slot.slot_type == 'break' %}table-warning{% endif %}">
-                                    <td style="font-size: 0.75rem;">
+                            {% for slot in slots %}
+                            <tr class="{% if slot.slot_type == 'break' %}table-warning{% endif %}">
+                                <td style="font-size: 0.75rem;">
+                                    <!-- Ссылка на детали слота -->
+                                    <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
+                                       class="text-decoration-none"
+                                       title="Нажмите для просмотра деталей слота">
                                         <strong>{{ slot.start_time|time:"H:i" }}-{{ slot.end_time|time:"H:i" }}</strong>
-                                    </td>
-                                    <td style="font-size: 0.75rem;">
-                                        {{ slot.doctor.surname }} {{ slot.doctor.first_name.0 }}.{{ slot.doctor.last_name.0 }}. {{ slot.doctor.get_specialization_display }}
-                                    </td>
-                                    <td style="font-size: 0.75rem;">
-                                        {% if slot.slot_type == 'break' %}
-                                        <span class="badge bg-warning text-dark">Перерыв</span>
-                                        {% else %}
-                                        <span class="badge bg-success">Рабочий</span>
-                                        {% endif %}
-                                    </td>
-                                    <td style="font-size: 0.75rem;">
-                                        <small class="text-muted">{{ slot.description|default:"-" }}</small>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                                    </a>
+                                </td>
+                                <td style="font-size: 0.75rem;">
+                                    {{ slot.doctor.surname }} {{ slot.doctor.first_name.0 }}.{{ slot.doctor.last_name.0 }}. {{ slot.doctor.get_specialization_display }}
+                                </td>
+                                <td style="font-size: 0.75rem;">
+                                    {% if slot.slot_type == 'break' %}
+                                    <span class="badge bg-warning text-dark">Перерыв</span>
+                                    {% else %}
+                                    <span class="badge bg-success">Рабочий</span>
+                                    {% endif %}
+                                </td>
+                                <td style="font-size: 0.75rem;">
+                                    <small class="text-muted">{{ slot.description|default:"-" }}</small>
+                                </td>
+                            </tr>
+                            {% endfor %}
                             </tbody>
                         </table>
                     </div>
                     {% else %}
-                    <div class="text-center py-2 d-flex align-items-center justify-content-center flex-grow-1">  <!-- Центрирование по вертикали -->
+                    <div class="text-center py-2 d-flex align-items-center justify-content-center flex-grow-1">
+                        <!-- Центрирование по вертикали -->
                         <p class="text-muted mb-0" style="font-size: 0.8rem;">Нет слотов расписания</p>
                     </div>
                     {% endif %}

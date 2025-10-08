@@ -1,0 +1,33 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+    <p class="lead">Удаление слота</p>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="container">
+    <div class="row">
+        <div class="col-6">
+            <form class="row" method="post" enctype="multipart/form-data">
+                <div class="card">
+                    <p class="card-text mt-3">Вы уверены, что хотите удалить слот на {{ object.date }} с {{ object.start_time }} по {{ object.end_time }}?</p>
+                    <div class="card-body">
+                        {% csrf_token %}
+                    </div>
+                    <div class="btn-group mb-3">
+                        <button type="submit" class="btn btn-outline-danger">
+                            Удалить
+                        </button>
+                        <a class="btn btn-outline-secondary" href="{% url 'timetable:schedule_day' %}">Отменить</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
