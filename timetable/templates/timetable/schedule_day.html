@@ -1,0 +1,181 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Просмотр расписания на день</h1>
+    <p class="lead">Расписание по кабинетам</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Форма выбора даты и другие элементы остаются в контейнере -->
+<div class="container">
+    <!-- Форма выбора даты -->
+    <div class="row mb-4">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-center">
+                        <div class="col-md-8">
+                            <label for="date" class="form-label">Выберите дату:</label>
+                            <input type="date" name="date" id="date" class="form-control"
+                                   value="{{ selected_date|date:'Y-m-d'|default:'' }}" required>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-primary mt-md-4 w-100">Показать расписание</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Сообщения -->
+    {% if messages %}
+    <div class="row mb-4">
+        <div class="col-md-8 mx-auto">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Кнопки действий -->
+    <div class="row mb-4">
+        <div class="col-md-8 mx-auto text-center">
+            <a href="{% url 'timetable:schedule_create' %}" class="btn btn-success me-2">
+                Добавить расписание
+            </a>
+            <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary">
+                На главную
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Карточки расписания ВНЕ контейнера для минимальных отступов -->
+{% if schedule_data %}
+<div class="container-fluid px-2">
+    <div class="row g-2">
+        {% for cabinet, slots in schedule_data.items %}
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-3">
+            <div class="card d-flex flex-column">  <!-- flex-column для правильного распределения -->
+                <div class="card-header bg-primary text-white py-2">
+                    <h6 class="card-title mb-0">
+                        <i class="fas fa-door-open"></i> Кабинет {{ cabinet.number }}
+                        {% if cabinet.name_of_cabinet %}
+                        <small class="ms-1">- {{ cabinet.name_of_cabinet }}</small>
+                        {% endif %}
+                    </h6>
+                </div>
+                <div class="card-body p-2 flex-grow-1">  <!-- flex-grow-1 для растягивания -->
+                    {% if slots %}
+                    <div class="table-responsive">  <!-- Убрано max-height -->
+                        <table class="table table-sm table-striped table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="font-size: 0.8rem;">Время</th>
+                                    <th style="font-size: 0.8rem;">Врач</th>
+                                    <th style="font-size: 0.8rem;">Тип</th>
+                                    <th style="font-size: 0.8rem;">Описание</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for slot in slots %}
+                                <tr class="{% if slot.slot_type == 'break' %}table-warning{% endif %}">
+                                    <td style="font-size: 0.75rem;">
+                                        <strong>{{ slot.start_time|time:"H:i" }}-{{ slot.end_time|time:"H:i" }}</strong>
+                                    </td>
+                                    <td style="font-size: 0.75rem;">
+                                        {{ slot.doctor.surname }} {{ slot.doctor.first_name.0 }}.{{ slot.doctor.last_name.0 }}. {{ slot.doctor.get_specialization_display }}
+                                    </td>
+                                    <td style="font-size: 0.75rem;">
+                                        {% if slot.slot_type == 'break' %}
+                                        <span class="badge bg-warning text-dark">Перерыв</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Рабочий</span>
+                                        {% endif %}
+                                    </td>
+                                    <td style="font-size: 0.75rem;">
+                                        <small class="text-muted">{{ slot.description|default:"-" }}</small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-2 d-flex align-items-center justify-content-center flex-grow-1">  <!-- Центрирование по вертикали -->
+                        <p class="text-muted mb-0" style="font-size: 0.8rem;">Нет слотов расписания</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% elif selected_date %}
+<!-- Остальной код остается в контейнере -->
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">На {{ selected_date|date:"d.m.Y" }} расписание не найдено</h5>
+                    <p class="text-muted mb-4">Используйте форму выше, чтобы добавить расписание на эту дату</p>
+                    <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
+                       class="btn btn-primary">
+                        Добавить расписание на эту дату
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Выберите дату для просмотра расписания</h5>
+                    <p class="text-muted">Используйте форму выше, чтобы выбрать интересующую вас дату</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .table-responsive {
+        border-radius: 0.375rem;
+    }
+    .card {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        border: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .card-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    }
+    .table th {
+        border-top: none;
+        font-weight: 600;
+    }
+    .badge {
+        font-size: 0.7em;
+    }
+    /* Убираем лишние отступы для карточек */
+    .container-fluid {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+</style>
+{% endblock %}

@@ -2,10 +2,10 @@ from django.contrib import admin
 
 from timetable.models import (
     Cabinet,
-    Patient,
     Doctor,
     MedicalService,
     MedicalServiceCategory,
+    Patient,
     TimeSlot,
 )
 

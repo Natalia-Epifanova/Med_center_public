@@ -1,0 +1,203 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Создание расписания</h1>
+    <p class="lead">Добавление временных слотов</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            {% if messages %}
+            <div class="mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Добавление слотов</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="slotForm">
+                        {% csrf_token %}
+
+                        <!-- Основные поля -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.date.label }}</label>
+                                {{ form.date }}
+                                {% if form.date.errors %}
+                                <div class="text-danger small">{{ form.date.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.cabinet.label }}</label>
+                                {{ form.cabinet }}
+                                {% if form.cabinet.errors %}
+                                <div class="text-danger small">{{ form.cabinet.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.doctor.label }}</label>
+                                {{ form.doctor }}
+                                {% if form.doctor.errors %}
+                                <div class="text-danger small">{{ form.doctor.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Выбор типа добавления -->
+                        <div class="mb-4">
+                            <label class="form-label">{{ form.add_type.label }}</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="add_type" id="add_type_single"
+                                           value="single" checked>
+                                    <label class="form-check-label" for="add_type_single">Добавить один слот</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="add_type" id="add_type_multiple"
+                                           value="multiple">
+                                    <label class="form-check-label" for="add_type_multiple">Добавить несколько слотов с
+                                        интервалом</label>
+                                </div>
+                            </div>
+                            {% if form.add_type.errors %}
+                            <div class="text-danger small">{{ form.add_type.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Одиночный слот -->
+                        <div class="slot-section" id="single-section">
+                            <h6 class="text-primary mb-3">Настройки одиночного слота</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">{{ form.single_start_time.label }}</label>
+                                    {{ form.single_start_time }}
+                                    {% if form.single_start_time.errors %}
+                                    <div class="text-danger small">{{ form.single_start_time.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">{{ form.single_end_time.label }}</label>
+                                    {{ form.single_end_time }}
+                                    {% if form.single_end_time.errors %}
+                                    <div class="text-danger small">{{ form.single_end_time.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">{{ form.single_slot_type.label }}</label>
+                                    {{ form.single_slot_type }}
+                                    {% if form.single_slot_type.errors %}
+                                    <div class="text-danger small">{{ form.single_slot_type.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">{{ form.single_description.label }}</label>
+                                    {{ form.single_description }}
+                                    {% if form.single_description.errors %}
+                                    <div class="text-danger small">{{ form.single_description.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Несколько слотов -->
+                        <div class="slot-section" id="multiple-section" style="display: none;">
+                            <h6 class="text-primary mb-3">Настройки нескольких слотов</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">{{ form.multiple_start_time.label }}</label>
+                                    {{ form.multiple_start_time }}
+                                    {% if form.multiple_start_time.errors %}
+                                    <div class="text-danger small">{{ form.multiple_start_time.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">{{ form.multiple_end_time.label }}</label>
+                                    {{ form.multiple_end_time }}
+                                    {% if form.multiple_end_time.errors %}
+                                    <div class="text-danger small">{{ form.multiple_end_time.errors }}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">{{ form.interval.label }}</label>
+                                    {{ form.interval }}
+                                    {% if form.interval.errors %}
+                                    <div class="text-danger small">{{ form.interval.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="alert alert-info">
+                                <small>Будут созданы слоты с указанным интервалом в пределах заданного временного
+                                    диапазона.</small>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-primary">Добавить слоты</button>
+                            <a href="{% url 'timetable:schedule_day' %}" class="btn btn-outline-secondary">Просмотр
+                                расписания</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Инструкция для пользователя -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6>Как пользоваться:</h6>
+                    <ul class="mb-0">
+                        <li>Выберите дату, кабинет и врача</li>
+                        <li>Выберите тип добавления - форма автоматически переключится</li>
+                        <li>Заполните соответствующие поля и нажмите "Добавить слоты"</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const singleRadio = document.getElementById('add_type_single');
+        const multipleRadio = document.getElementById('add_type_multiple');
+        const singleSection = document.getElementById('single-section');
+        const multipleSection = document.getElementById('multiple-section');
+
+        function toggleSections() {
+            if (singleRadio.checked) {
+                singleSection.style.display = 'block';
+                multipleSection.style.display = 'none';
+            } else {
+                singleSection.style.display = 'none';
+                multipleSection.style.display = 'block';
+            }
+        }
+
+        singleRadio.addEventListener('change', toggleSections);
+        multipleRadio.addEventListener('change', toggleSections);
+
+        // Initial state
+        toggleSections();
+    });
+</script>
+
+<style>
+    .slot-section {
+        border-left: 4px solid #007bff;
+        padding-left: 15px;
+        margin-bottom: 20px;
+        transition: all 0.3s ease;
+    }
+</style>
+{% endblock %}
