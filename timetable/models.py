@@ -28,7 +28,7 @@ class Cabinet(models.Model):
     )
 
     def __str__(self):
-        return f"Номер кабинета: {self.number}."
+        return f"Кабинет №: {self.number}. ({self.name_of_cabinet})"
 
     class Meta:
         verbose_name = "Кабинет"
