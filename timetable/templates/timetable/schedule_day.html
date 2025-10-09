@@ -13,16 +13,40 @@
     <!-- Форма выбора даты -->
     <div class="row mb-4">
         <div class="col-md-8 mx-auto">
-            <div class="card">
-                <div class="card-body">
+            <div class="card timetable-form-card">
+                <div class="card-body timetable-day-navigation">
+                    <!-- Навигация по дням -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <a href="?date={{ prev_date|date:'Y-m-d' }}"
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-chevron-left"></i> Предыдущий день
+                                </a>
+
+                                <h5 class="mb-0 text-center timetable-current-date">
+                                    <strong>{{ selected_date|date:"d.m.Y" }}</strong>
+                                    {% if selected_date == current_date %}
+                                    <span class="badge bg-info ms-2">Сегодня</span>
+                                    {% endif %}
+                                </h5>
+
+                                <a href="?date={{ next_date|date:'Y-m-d' }}"
+                                   class="btn btn-outline-primary btn-sm">
+                                    Следующий день <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
                     <form method="get" class="row g-3 align-items-center">
                         <div class="col-md-8">
-                            <label for="date" class="form-label">Выберите дату:</label>
+                            <label for="date" class="form-label">Или выберите конкретную дату:</label>
                             <input type="date" name="date" id="date" class="form-control"
-                                   value="{{ selected_date|date:'Y-m-d'|default:'' }}" required>
+                                   value="{{ selected_date|date:'Y-m-d' }}" required>
                         </div>
                         <div class="col-md-4">
-                            <button type="submit" class="btn btn-primary mt-md-4 w-100">Показать расписание</button>
+                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">Показать расписание</button>
                         </div>
                     </form>
                 </div>
@@ -35,7 +59,7 @@
     <div class="row mb-4">
         <div class="col-md-8 mx-auto">
             {% for message in messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show timetable-alert" role="alert">
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
@@ -47,11 +71,12 @@
     <!-- Кнопки действий -->
     <div class="row mb-4">
         <div class="col-md-8 mx-auto text-center">
-            <a href="{% url 'timetable:schedule_create' %}" class="btn btn-success me-2">
-                Добавить расписание
+            <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
+               class="btn timetable-btn-success me-2">
+                <i class="fas fa-plus"></i> Добавить расписание на {{ selected_date|date:"d.m.Y" }}
             </a>
             <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary">
-                На главную
+                <i class="fas fa-home"></i> На главную
             </a>
         </div>
     </div>
@@ -59,12 +84,12 @@
 
 <!-- Карточки расписания ВНЕ контейнера для минимальных отступов -->
 {% if schedule_data %}
-<div class="container-fluid px-2">
+<div class="container-fluid timetable-container-fluid timetable-fade-in">
     <div class="row g-2">
         {% for cabinet, slots in schedule_data.items %}
         <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-3">
-            <div class="card d-flex flex-column">  <!-- flex-column для правильного распределения -->
-                <div class="card-header bg-primary text-white py-2">
+            <div class="card timetable-card timetable-cabinet-card d-flex flex-column h-100">
+                <div class="card-header bg-primary text-white py-2 timetable-cabinet-header">
                     <h6 class="card-title mb-0">
                         <i class="fas fa-door-open"></i> Кабинет {{ cabinet.number }}
                         {% if cabinet.name_of_cabinet %}
@@ -72,40 +97,41 @@
                         {% endif %}
                     </h6>
                 </div>
-                <div class="card-body p-2 flex-grow-1">  <!-- flex-grow-1 для растягивания -->
+                <div class="card-body p-2 flex-grow-1">
                     {% if slots %}
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped table-hover mb-0">
+                    <div class="table-responsive timetable-table-responsive">
+                        <table class="table table-sm table-striped table-hover mb-0 timetable-table-sm">
                             <thead class="table-light">
                             <tr>
-                                <th style="font-size: 0.8rem;">Время</th>
-                                <th style="font-size: 0.8rem;">Врач</th>
-                                <th style="font-size: 0.8rem;">Тип</th>
-                                <th style="font-size: 0.8rem;">Описание</th>
+                                <th class="timetable-table-sm">Время</th>
+                                <th class="timetable-table-sm">Врач</th>
+                                <th class="timetable-table-sm">Тип</th>
+                                <th class="timetable-table-sm">Описание</th>
                             </tr>
                             </thead>
                             <tbody>
                             {% for slot in slots %}
-                            <tr class="{% if slot.slot_type == 'break' %}table-warning{% endif %}">
-                                <td style="font-size: 0.75rem;">
-                                    <!-- Ссылка на детали слота -->
+                            <tr class="{% if slot.slot_type == 'break' %}timetable-slot-break{% else %}timetable-slot-working{% endif %}">
+                                <td>
                                     <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
                                        class="text-decoration-none"
                                        title="Нажмите для просмотра деталей слота">
                                         <strong>{{ slot.start_time|time:"H:i" }}-{{ slot.end_time|time:"H:i" }}</strong>
                                     </a>
                                 </td>
-                                <td style="font-size: 0.75rem;">
-                                    {{ slot.doctor.surname }} {{ slot.doctor.first_name.0 }}.{{ slot.doctor.last_name.0 }}. {{ slot.doctor.get_specialization_display }}
+                                <td>
+                                    {{ slot.doctor.surname }} {{ slot.doctor.first_name.0 }}.{{ slot.doctor.last_name.0 }}.
+                                    <br>
+                                    <small class="text-muted">{{ slot.doctor.get_specialization_display }}</small>
                                 </td>
-                                <td style="font-size: 0.75rem;">
+                                <td>
                                     {% if slot.slot_type == 'break' %}
-                                    <span class="badge bg-warning text-dark">Перерыв</span>
+                                    <span class="badge timetable-badge bg-warning text-dark">Перерыв</span>
                                     {% else %}
-                                    <span class="badge bg-success">Рабочий</span>
+                                    <span class="badge timetable-badge bg-success">Рабочий</span>
                                     {% endif %}
                                 </td>
-                                <td style="font-size: 0.75rem;">
+                                <td>
                                     <small class="text-muted">{{ slot.description|default:"-" }}</small>
                                 </td>
                             </tr>
@@ -115,8 +141,7 @@
                     </div>
                     {% else %}
                     <div class="text-center py-2 d-flex align-items-center justify-content-center flex-grow-1">
-                        <!-- Центрирование по вертикали -->
-                        <p class="text-muted mb-0" style="font-size: 0.8rem;">Нет слотов расписания</p>
+                        <p class="text-muted mb-0">Нет слотов расписания</p>
                     </div>
                     {% endif %}
                 </div>
@@ -130,14 +155,14 @@
 <div class="container">
     <div class="row">
         <div class="col-md-8 mx-auto">
-            <div class="card">
+            <div class="card timetable-form-card">
                 <div class="card-body text-center py-5">
                     <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                     <h5 class="text-muted">На {{ selected_date|date:"d.m.Y" }} расписание не найдено</h5>
                     <p class="text-muted mb-4">Используйте форму выше, чтобы добавить расписание на эту дату</p>
                     <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
-                       class="btn btn-primary">
-                        Добавить расписание на эту дату
+                       class="btn timetable-btn-primary">
+                        <i class="fas fa-plus"></i> Добавить расписание на эту дату
                     </a>
                 </div>
             </div>
@@ -148,7 +173,7 @@
 <div class="container">
     <div class="row">
         <div class="col-md-8 mx-auto">
-            <div class="card">
+            <div class="card timetable-form-card">
                 <div class="card-body text-center py-5">
                     <i class="fas fa-search fa-3x text-muted mb-3"></i>
                     <h5 class="text-muted">Выберите дату для просмотра расписания</h5>
@@ -160,28 +185,23 @@
 </div>
 {% endif %}
 
-<style>
-    .table-responsive {
-        border-radius: 0.375rem;
-    }
-    .card {
-        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-        border: 1px solid rgba(0, 0, 0, 0.125);
-    }
-    .card-header {
-        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-    }
-    .table th {
-        border-top: none;
-        font-weight: 600;
-    }
-    .badge {
-        font-size: 0.7em;
-    }
-    /* Убираем лишние отступы для карточек */
-    .container-fluid {
-        padding-left: 8px;
-        padding-right: 8px;
-    }
-</style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Автоматическая отправка формы при изменении даты
+        const dateInput = document.getElementById('date');
+        if (dateInput) {
+            dateInput.addEventListener('change', function() {
+                this.form.submit();
+            });
+        }
+
+        // Добавляем текущую дату в контекст для отображения "Сегодня"
+        const currentDate = new Date().toISOString().split('T')[0];
+        const selectedDate = '{{ selected_date|date:"Y-m-d" }}';
+
+        if (currentDate === selectedDate) {
+            // Можно добавить дополнительную логику, если нужно
+        }
+    });
+</script>
 {% endblock %}

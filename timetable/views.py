@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import (
     TemplateView,
     CreateView,
@@ -147,27 +148,42 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        date = self.request.GET.get("date")
+        date_param = self.request.GET.get("date")
 
-        if date:
+        # Получаем текущую дату
+        current_date = timezone.now().date()
+        context["current_date"] = current_date
+
+        # Определяем выбранную дату
+        if date_param:
             try:
-                selected_date = datetime.strptime(date, "%Y-%m-%d").date()
-                context["selected_date"] = selected_date
-
-                # Получаем слоты на выбранную дату
-                slots = TimeSlot.objects.filter(date=selected_date).select_related(
-                    "cabinet", "doctor"
-                )
-                cabinets = set(slot.cabinet for slot in slots)
-
-                schedule_data = {}
-                for cabinet in cabinets:
-                    cabinet_slots = slots.filter(cabinet=cabinet).order_by("start_time")
-                    schedule_data[cabinet] = cabinet_slots
-
-                context["schedule_data"] = schedule_data
-
+                selected_date = datetime.strptime(date_param, "%Y-%m-%d").date()
             except ValueError:
                 messages.error(self.request, "Неверный формат даты")
+                selected_date = current_date
+        else:
+            # Если дата не указана, показываем сегодня
+            selected_date = current_date
+
+        context["selected_date"] = selected_date
+
+        # Вычисляем предыдущий и следующий день
+        prev_date = selected_date - timedelta(days=1)
+        next_date = selected_date + timedelta(days=1)
+        context["prev_date"] = prev_date
+        context["next_date"] = next_date
+
+        # Получаем слоты на выбранную дату
+        slots = TimeSlot.objects.filter(date=selected_date).select_related(
+            "cabinet", "doctor"
+        )
+        cabinets = set(slot.cabinet for slot in slots)
+
+        schedule_data = {}
+        for cabinet in cabinets:
+            cabinet_slots = slots.filter(cabinet=cabinet).order_by("start_time")
+            schedule_data[cabinet] = cabinet_slots
+
+        context["schedule_data"] = schedule_data
 
         return context
