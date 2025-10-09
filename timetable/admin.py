@@ -21,7 +21,7 @@ class CabinetAdmin(admin.ModelAdmin):
 class PatientAdmin(admin.ModelAdmin):
 
     list_display = (
-        "id",
+        "card_number",
         "first_name",
         "last_name",
         "surname",
@@ -31,6 +31,7 @@ class PatientAdmin(admin.ModelAdmin):
         "residential_address",
     )
     search_fields = (
+        "card_number",
         "first_name",
         "last_name",
         "surname",

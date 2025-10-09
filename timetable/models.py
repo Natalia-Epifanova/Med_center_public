@@ -55,6 +55,8 @@ class Patient(models.Model):
     )
     phone_number = models.CharField(
         max_length=12,
+        blank=True,
+        null=True,
         verbose_name="Телефон пациента",
     )
     date_of_birth = models.DateField(
@@ -75,8 +77,16 @@ class Patient(models.Model):
         verbose_name="Адрес проживания пациента",
     )
 
+    def get_full_name(self):
+        """Возвращает полное ФИО пациента"""
+        parts = [self.surname, self.first_name]
+        if self.last_name:
+            parts.append(self.last_name)
+        return " ".join(parts)
+
     def __str__(self):
-        return f"Пациент: {self.surname} {self.first_name} {self.last_name}"
+        card_info = f" (карта {self.card_number})" if self.card_number else ""
+        return f"{self.get_full_name()}{card_info}"
 
     class Meta:
         verbose_name = "Пациент"

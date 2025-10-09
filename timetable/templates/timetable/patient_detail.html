@@ -1,0 +1,87 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Карта пациента</h1>
+    <p class="lead">Полная информация о пациенте и история обращений</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- Основная информация о пациенте -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user"></i> Основная информация
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>ФИО:</strong></div>
+                        <div class="col-sm-8">{{ patient.surname }} {{ patient.first_name }} {{ patient.last_name }}
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Телефон:</strong></div>
+                        <div class="col-sm-8">{{ patient.phone_number }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Номер карты:</strong></div>
+                        <div class="col-sm-8">{{ patient.card_number|default:"Не присвоен" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Дата рождения:</strong></div>
+                        <div class="col-sm-8">{{ patient.date_of_birth|date:"d.m.Y"|default:"Не указана" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Контактная информация -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-address-card"></i> Контактная информация
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Адрес регистрации:</strong></div>
+                        <div class="col-sm-8">{{ patient.registration_address|default:"Не указан" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Адрес проживания:</strong></div>
+                        <div class="col-sm-8">{{ patient.residential_address|default:"Не указан" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Кнопки действий -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="btn-group" role="group">
+                <a href="{% url 'timetable:patient_update' patient.pk %}"
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-edit"></i> Редактировать
+                </a>
+                <a href="{% url 'timetable:patient_delete' patient.pk %}"
+                   class="btn btn-outline-danger">
+                    <i class="fas fa-trash"></i> Удалить пациента
+                </a>
+                <a href="{% url 'timetable:patient_list' %}"
+                   class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Назад к списку пациентов
+                </a>
+            </div>
+        </div>
+    </div>
+
+
+</div>
+{% endblock %}

@@ -8,6 +8,11 @@ from timetable.views import (
     TimeSlotDetailView,
     TimeSlotUpdateView,
     TimeSlotDeleteView,
+    PatientListView,
+    PatientCreateView,
+    PatientDetailView,
+    PatientUpdateView,
+    PatientDeleteView,
 )
 
 app_name = TimetableConfig.name
@@ -25,5 +30,14 @@ urlpatterns = [
         "timeslot/<int:pk>/delete/",
         TimeSlotDeleteView.as_view(),
         name="timeslot_delete",
+    ),
+    path("patients/", PatientListView.as_view(), name="patient_list"),
+    path("patients/create/", PatientCreateView.as_view(), name="patient_create"),
+    path("patients/<int:pk>/", PatientDetailView.as_view(), name="patient_detail"),
+    path(
+        "patients/<int:pk>/update/", PatientUpdateView.as_view(), name="patient_update"
+    ),
+    path(
+        "patients/<int:pk>/delete/", PatientDeleteView.as_view(), name="patient_delete"
     ),
 ]

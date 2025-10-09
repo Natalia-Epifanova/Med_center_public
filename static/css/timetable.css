@@ -150,3 +150,16 @@
     transform: translateY(-1px);
     box-shadow: 0 0.25rem 0.5rem rgba(40, 167, 69, 0.3);
 }
+.timetable-slot-busy {
+    background-color: #f8d7da !important;
+}
+
+.timetable-slot-busy:hover {
+    background-color: #f5c6cb !important;
+}
+
+/* Стили для кнопок действий */
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}

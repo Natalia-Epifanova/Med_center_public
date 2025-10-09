@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import ModelForm
 
-from .models import Cabinet, Doctor, TimeSlot
+from .models import Cabinet, Doctor, TimeSlot, Appointment, MedicalService, Patient
 
 
 class StyleFormMixin:
@@ -161,3 +161,43 @@ class TimeSlotUpdateForm(StyleFormMixin, ModelForm):
             "slot_type": "Тип слота",
             "description": "Описание",
         }
+
+
+class PatientForm(StyleFormMixin, ModelForm):
+    """Форма для создания/редактирования пациента"""
+
+    class Meta:
+        model = Patient
+        fields = [
+            "surname",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "card_number",
+            "date_of_birth",
+            "registration_address",
+            "residential_address",
+        ]
+        widgets = {
+            "date_of_birth": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Можно добавить простую проверку на дубликаты
+        surname = cleaned_data.get("surname")
+        first_name = cleaned_data.get("first_name")
+        date_of_birth = cleaned_data.get("date_of_birth")
+
+        if surname and first_name and date_of_birth:
+            existing = Patient.objects.filter(
+                surname__iexact=surname,
+                first_name__iexact=first_name,
+                date_of_birth=date_of_birth,
+            ).exclude(pk=self.instance.pk if self.instance else None)
+
+            if existing.exists():
+                raise forms.ValidationError(
+                    "Пациент с такими ФИО и датой рождения уже существует в базе"
+                )
+        return cleaned_data
