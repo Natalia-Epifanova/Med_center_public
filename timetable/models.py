@@ -48,6 +48,11 @@ class Patient(models.Model):
         max_length=50,
         verbose_name="Фамилия пациента",
     )
+    card_number = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Номер карты пациента",
+    )
     phone_number = models.CharField(
         max_length=12,
         verbose_name="Телефон пациента",
