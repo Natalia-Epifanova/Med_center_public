@@ -1,0 +1,1598 @@
+[
+{
+    "model": "timetable.medicalservice",
+    "pk": 1,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-ревматолога первичный",
+        "code": "B01.040.001.001",
+        "price": "2000.00",
+        "category": "first_consult",
+        "description": "Ревматолог категории 3",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 2,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-ревматолога первичный",
+        "code": "B01.040.001.002",
+        "price": "2300.00",
+        "category": "first_consult",
+        "description": "Ревматолог категории 2",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 3,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-ревматолога первичный",
+        "code": "B01.040.001.003",
+        "price": "2600.00",
+        "category": "first_consult",
+        "description": "Ревматолог категории 1",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 4,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-ревматолога повторный (не позднее месяца от первичного)",
+        "code": "B01.040.002",
+        "price": "1500.00",
+        "category": "second_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 5,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-травматолога-ортопеда первичный",
+        "code": "B01.050.001",
+        "price": "2000.00",
+        "category": "first_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 6,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-травматолога-ортопеда повторный (не позднее месяца от первичного)",
+        "code": "B01.050.002",
+        "price": "1500.00",
+        "category": "second_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 7,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-невролога первичный",
+        "code": "B01.023.001",
+        "price": "2000.00",
+        "category": "first_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 8,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-невролога повторный (не позднее месяца от первичного)",
+        "code": "B01.023.002",
+        "price": "1500.00",
+        "category": "second_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 9,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-кардиолога первичный",
+        "code": "B01.015.001",
+        "price": "2000.00",
+        "category": "first_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 10,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-кардиолога повторный (не позднее месяца от первичного)",
+        "code": "B01.015.002",
+        "price": "1500.00",
+        "category": "second_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 11,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-гастроэнтеролога первичный",
+        "code": "B01.004.001",
+        "price": "2000.00",
+        "category": "first_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 12,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-гастроэнтеролога повторный (не позднее месяца от первичного)",
+        "code": "B01.004.002",
+        "price": "1500.00",
+        "category": "second_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 13,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-нефролога первичный",
+        "code": "B01.025.001",
+        "price": "2000.00",
+        "category": "first_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 14,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-нефролога повторный (не позднее месяца от первичного)",
+        "code": "B01.025.002",
+        "price": "1500.00",
+        "category": "second_consult",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 15,
+    "fields": {
+        "name": "Ультразвуковое исследование плечевых суставов",
+        "code": "A04.04.001",
+        "price": "1200.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 16,
+    "fields": {
+        "name": "Ультразвуковое исследование локтевых суставов",
+        "code": "A04.04.001_",
+        "price": "1000.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 17,
+    "fields": {
+        "name": "Ультразвуковое исследование лучезапястных суставов",
+        "code": "A04.04.001__",
+        "price": "1000.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 18,
+    "fields": {
+        "name": "Ультразвуковое исследование суставов кистей с захватом лучезапястного сустава",
+        "code": "A04.04.001___",
+        "price": "1200.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 19,
+    "fields": {
+        "name": "Ультразвуковое исследование тазобедренного сустава",
+        "code": "A04.04.001.001",
+        "price": "1200.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 20,
+    "fields": {
+        "name": "Ультразвуковое исследование коленных суставов",
+        "code": "A04.04.001____",
+        "price": "1200.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 21,
+    "fields": {
+        "name": "УЗИ суставов стопы с захватом голеностопного сустава",
+        "code": "A04.04.001_____",
+        "price": "1200.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 22,
+    "fields": {
+        "name": "Ультразвуковое исследование сухожилий пяточной области",
+        "code": "A04.04.002",
+        "price": "700.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 23,
+    "fields": {
+        "name": "Ультразвуковое исследование мягких тканей сустава (одна анатомическая зона)",
+        "code": "A04.01.001",
+        "price": "700.00",
+        "category": "joint_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 24,
+    "fields": {
+        "name": "Ультразвуковая денситометрия",
+        "code": "A04.03.003",
+        "price": "800.00",
+        "category": "densitometry",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 25,
+    "fields": {
+        "name": "Ультразвуковое исследование органов брюшной полости (комплексное)",
+        "code": "A04.16.001",
+        "price": "1700.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 26,
+    "fields": {
+        "name": "Ультразвуковое исследование желчного пузыря и протоков",
+        "code": "A04.14.002",
+        "price": "850.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 27,
+    "fields": {
+        "name": "Ультразвуковое исследование печени",
+        "code": "A04.14.001",
+        "price": "700.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 28,
+    "fields": {
+        "name": "Ультразвуковое исследование поджелудочной железы",
+        "code": "A04.15.001",
+        "price": "600.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 29,
+    "fields": {
+        "name": "Ультразвуковое исследование почек и надпочечников",
+        "code": "A04.28.001",
+        "price": "800.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 30,
+    "fields": {
+        "name": "Ультразвуковое исследование надпочечников",
+        "code": "A04.22.002",
+        "price": "500.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 31,
+    "fields": {
+        "name": "Ультразвуковое исследование предстательной железы",
+        "code": "A04.21.001",
+        "price": "600.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 32,
+    "fields": {
+        "name": "Ультразвуковое исследование мочевыводящих путей( это почки, надпочечники,мочевой пузырь)",
+        "code": "A04.28.002",
+        "price": "1000.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 33,
+    "fields": {
+        "name": "Ультразвуковое исследование почек",
+        "code": "A04.28.002.001",
+        "price": "700.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 34,
+    "fields": {
+        "name": "Ультразвуковое исследование мочевого пузыря",
+        "code": "A04.28.002.003",
+        "price": "600.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 35,
+    "fields": {
+        "name": "Ультразвуковое исследование мочевого пузыря с определением остаточной мочи",
+        "code": "A04.28.002.005",
+        "price": "700.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 36,
+    "fields": {
+        "name": "Ультразвуковое исследование предстательной железы трансректальное",
+        "code": "A04.21.001.001",
+        "price": "1100.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 37,
+    "fields": {
+        "name": "Ультразвуковое исследование селезенки",
+        "code": "A04.06.001",
+        "price": "500.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 38,
+    "fields": {
+        "name": "Ультразвуковое исследование плевральной полости",
+        "code": "A04.09.001",
+        "price": "650.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 39,
+    "fields": {
+        "name": "Ультразвуковое исследование слюнных желез",
+        "code": "A04.07.002",
+        "price": "600.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 40,
+    "fields": {
+        "name": "Ультразвуковое исследование щитовидной железы и паращитовидных желез",
+        "code": "A04.22.001",
+        "price": "700.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 41,
+    "fields": {
+        "name": "Ультразвуковое исследование лимфатических узлов (одна анатомическая зона)",
+        "code": "A04.06.002",
+        "price": "600.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 42,
+    "fields": {
+        "name": "Ультразвуковое исследование молочных желез",
+        "code": "A04.20.002",
+        "price": "1100.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 43,
+    "fields": {
+        "name": "Ультразвуковое исследование органов малого таза комплексное (трансвагинальное и трансабдоминальное)",
+        "code": "A04.30.010",
+        "price": "1300.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 44,
+    "fields": {
+        "name": "Ультразвуковое исследование органов мошонки",
+        "code": "A04.28.003",
+        "price": "600.00",
+        "category": "organ_us",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 45,
+    "fields": {
+        "name": "Ультразвуковая допплерография вен нижних конечностей",
+        "code": "A04.12.002.002",
+        "price": "1500.00",
+        "category": "doppler",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 46,
+    "fields": {
+        "name": "Ультразвуковая допплерография вен верхних конечностей",
+        "code": "A04.12.002.003",
+        "price": "1500.00",
+        "category": "doppler",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 47,
+    "fields": {
+        "name": "Ультразвуковая допплерография артерий верхних конечностей",
+        "code": "A04.12.001",
+        "price": "1500.00",
+        "category": "doppler",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 48,
+    "fields": {
+        "name": "Ультразвуковая допплерография артерий нижних конечностей",
+        "code": "A04.12.001.001",
+        "price": "1500.00",
+        "category": "doppler",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 49,
+    "fields": {
+        "name": "Ультразвуковая допплерография брахиоцефальных артерий",
+        "code": "A04.12.005.003",
+        "price": "1500.00",
+        "category": "doppler",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 50,
+    "fields": {
+        "name": "Изготовление индивидуальных стелек",
+        "code": "001",
+        "price": "4000.00",
+        "category": "manufacture_of_insoles",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 51,
+    "fields": {
+        "name": "Забор крови",
+        "code": "002",
+        "price": "150.00",
+        "category": "Analyzes",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 52,
+    "fields": {
+        "name": "Пункция синовиальной сумки сустава",
+        "code": "A11.04.005",
+        "price": "1000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 53,
+    "fields": {
+        "name": "Прием (осмотр, консультация) врача-ревматолога повторный (не позднее месяца от первичного)Внутрисуставное введение лекарственных препаратов",
+        "code": "A11.04.004",
+        "price": "2000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 54,
+    "fields": {
+        "name": "Пункция кисты Бейкера",
+        "code": "A11.30.024",
+        "price": "1000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 55,
+    "fields": {
+        "name": "Пункция кисты Бейкера с введением препарата (с учетом стоимости препарата)",
+        "code": "A11.30.024_",
+        "price": "2000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 56,
+    "fields": {
+        "name": "Пункция мягких тканей(ганглий, гематома и т.д.)",
+        "code": "A11.30.024__",
+        "price": "1000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 57,
+    "fields": {
+        "name": "Околосуставное введение лекарственных препаратов",
+        "code": "A11.04.006",
+        "price": "2000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 58,
+    "fields": {
+        "name": "Введение «протеза» синовиальной жидкости в сустав (препарат свой) – одна инъекция",
+        "code": "A11.04.004_",
+        "price": "1000.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 59,
+    "fields": {
+        "name": "PRP терапия – введение плазмы в сустав или в околосухожильное пространство. За одну инъекцию",
+        "code": "А11.04.004__",
+        "price": "2500.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 60,
+    "fields": {
+        "name": "Внутривенное введение лекарственных препаратов",
+        "code": "A11.12.003",
+        "price": "200.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 61,
+    "fields": {
+        "name": "Внутримышечное введение лекарственных препаратов (без учета стоимости препарата)",
+        "code": "A11.02.002",
+        "price": "120.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 62,
+    "fields": {
+        "name": "Внутримышечное введение лекарственных препаратов (с учетом стоимости препарата): кетонал",
+        "code": "A11.02.002_",
+        "price": "190.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 63,
+    "fields": {
+        "name": "Внутримышечное введение лекарственных препаратов (с учетом стоимости препарата) - диклофенак:",
+        "code": "A11.02.002__",
+        "price": "190.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 64,
+    "fields": {
+        "name": "Внутримышечное введение лекарственных препаратов (с учетом стоимости препарата) - дипроспан:",
+        "code": "A11.02.002___",
+        "price": "870.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 65,
+    "fields": {
+        "name": "Подкожное и внутрикожное введение лекарственных препаратов",
+        "code": "A11.01.002",
+        "price": "120.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 66,
+    "fields": {
+        "name": "Внутрикожное введение лекарственных препаратов",
+        "code": "A11.01.003",
+        "price": "120.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 67,
+    "fields": {
+        "name": "Непрерывное внутривенное введение лекарственных препаратов (без учета стоимости препарата). За одну инъекцию",
+        "code": "A11.12.003.001",
+        "price": "600.00",
+        "category": "medical_blockades",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 68,
+    "fields": {
+        "name": "Описание и интерпретация рентгенографических изображений",
+        "code": "A06.30.002",
+        "price": "600.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 69,
+    "fields": {
+        "name": "Выдача дубликата диска рентгеновского снимка",
+        "code": "A06.30.002.001",
+        "price": "300.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 70,
+    "fields": {
+        "name": "Рентгенография легких (в 1ой проекции)",
+        "code": "A06.09.007",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 71,
+    "fields": {
+        "name": "Рентгенография легких (в 2х проекциях)",
+        "code": "A06.09.007_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 72,
+    "fields": {
+        "name": "Рентгенография шейного отдела позвоночника (в 1ой проекции)",
+        "code": "A06.03.010",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 73,
+    "fields": {
+        "name": "Рентгенография шейного отдела позвоночника (в 2х проекциях)",
+        "code": "A06.03.010_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 74,
+    "fields": {
+        "name": "Рентгенография позвоночника с функциональными пробами (грудной отдел)",
+        "code": "A06.03.019",
+        "price": "2000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 75,
+    "fields": {
+        "name": "Рентгенография грудного отдела позвоночника (в 1ой проекции)",
+        "code": "A06.03.013",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 76,
+    "fields": {
+        "name": "Рентгенография грудного отдела позвоночника (в 2х проекциях)",
+        "code": "A06.03.013_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 77,
+    "fields": {
+        "name": "Рентгенография поясничного отдела позвоночника (в 1ой проекции)",
+        "code": "A06.03.015",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 78,
+    "fields": {
+        "name": "Рентгенография поясничного отдела позвоночника (в 2х проекциях)",
+        "code": "A06.03.015_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 79,
+    "fields": {
+        "name": "Рентгенография позвоночника с функциональными пробами (поясничный отдел)",
+        "code": "A06.03.019_",
+        "price": "2000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 80,
+    "fields": {
+        "name": "Рентгенография крестца и копчика",
+        "code": "A06.03.017",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 81,
+    "fields": {
+        "name": "Обзорная рентгенография костей таза",
+        "code": "A06.03.041",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 82,
+    "fields": {
+        "name": "Рентгенография турецкого седла",
+        "code": "A06.03.001.001",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 83,
+    "fields": {
+        "name": "Рентгенография височно-нижнечелюстного сустава",
+        "code": "A06.04.001",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 84,
+    "fields": {
+        "name": "Рентгенография одной ключицы",
+        "code": "A06.03.022",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 85,
+    "fields": {
+        "name": "Рентгенография одной лопатки",
+        "code": "A06.03.026",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 86,
+    "fields": {
+        "name": "Рентгенография одного акромиально-ключичного сочленения",
+        "code": "А06.04.013",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 87,
+    "fields": {
+        "name": "Рентгенография ребра(ер)",
+        "code": "A06.03.023",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 88,
+    "fields": {
+        "name": "Рентгенография грудины",
+        "code": "A06.03.024",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 89,
+    "fields": {
+        "name": "Рентгенография локтевого сустава (в 1ой проекции)",
+        "code": "A06.04.003",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 90,
+    "fields": {
+        "name": "Рентгенография локтевого сустава (в 2х проекциях)",
+        "code": "A06.04.003_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 91,
+    "fields": {
+        "name": "Рентгенография кистей",
+        "code": "A06.03.032",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 92,
+    "fields": {
+        "name": "Рентгенография лучезапястного сустава (в 1ой проекции)",
+        "code": "A06.04.004",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 93,
+    "fields": {
+        "name": "Рентгенография лучезапястного сустава (в 2х проекциях)",
+        "code": "A06.04.004_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 94,
+    "fields": {
+        "name": "Рентгенография коленного сустава (в 1ой проекции)",
+        "code": "A06.04.005",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 95,
+    "fields": {
+        "name": "Рентгенография коленного сустава (в 2х проекциях)",
+        "code": "A06.04.005_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 96,
+    "fields": {
+        "name": "Рентгенография плечевого сустава (в 1ой проекции)",
+        "code": "A06.04.010",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 97,
+    "fields": {
+        "name": "Рентгенография плечевого сустава (в 2х проекциях)",
+        "code": "A06.04.010_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 98,
+    "fields": {
+        "name": "Рентгенография тазобедренного сустава (в 1ой проекции)",
+        "code": "A06.04.011",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 99,
+    "fields": {
+        "name": "Рентгенография тазобедренного сустава (в 2х проекциях)",
+        "code": "A06.04.011_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 100,
+    "fields": {
+        "name": "Рентгенография голеностопного сустава (в 1ой проекции)",
+        "code": "A06.04.012",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 101,
+    "fields": {
+        "name": "Рентгенография голеностопного сустава (в 2х проекциях)",
+        "code": "A06.04.012_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 102,
+    "fields": {
+        "name": "Рентгенография стопы с функциональной нагрузкой",
+        "code": "A06.03.053.001",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 103,
+    "fields": {
+        "name": "Рентгенография стопы (в 1ой проекции)",
+        "code": "A06.03.052",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 104,
+    "fields": {
+        "name": "Рентгенография стопы (в 2х проекциях)",
+        "code": "A06.03.053",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 105,
+    "fields": {
+        "name": "Рентгенография дистальных отделов стоп",
+        "code": "A06.03.054",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 106,
+    "fields": {
+        "name": "Рентгенография верхней конечности (в 1ой проекции)",
+        "code": "A06.03.021",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 107,
+    "fields": {
+        "name": "Рентгенография верхней конечности (в 2х проекциях)",
+        "code": "A06.03.021_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 108,
+    "fields": {
+        "name": "Рентгенография головки плечевой кости (в 1ой проекции)",
+        "code": "A06.03.027",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 109,
+    "fields": {
+        "name": "Рентгенография головки плечевой кости (в 2х проекциях)",
+        "code": "A06.03.027_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 110,
+    "fields": {
+        "name": "Рентгенография плечевой кости (в 1ой проекции)",
+        "code": "A06.03.028",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 111,
+    "fields": {
+        "name": "Рентгенография плечевой кости (в 2х проекциях)",
+        "code": "A06.03.028_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 112,
+    "fields": {
+        "name": "Рентгенография локтевой кости и лучевой кости (в 1ой проекции)",
+        "code": "A06.03.029",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 113,
+    "fields": {
+        "name": "Рентгенография локтевой кости и лучевой кости (в 2х проекциях)",
+        "code": "A06.03.029_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 114,
+    "fields": {
+        "name": "Рентгенография нижней конечности (в 1ой проекции)",
+        "code": "A06.03.036",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 115,
+    "fields": {
+        "name": "Рентгенография нижней конечности (в 2х проекциях)",
+        "code": "A06.03.036_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 116,
+    "fields": {
+        "name": "Рентгенография головки и шейки бедренной кости (в 1ой проекции)",
+        "code": "A06.03.042",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 117,
+    "fields": {
+        "name": "Рентгенография головки и шейки бедренной кости (в 2х проекциях)",
+        "code": "A06.03.042_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 118,
+    "fields": {
+        "name": "Рентгенография бедренной кости (в 1ой проекции)",
+        "code": "A06.03.043",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 119,
+    "fields": {
+        "name": "Рентгенография бедренной кости (в 2х проекциях)",
+        "code": "A06.03.043_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 120,
+    "fields": {
+        "name": "Рентгенография подвздошной кости",
+        "code": "A06.03.037",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 121,
+    "fields": {
+        "name": "Рентгенография седалищной кости",
+        "code": "A06.03.038",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 122,
+    "fields": {
+        "name": "Рентгенография лонного сочленения",
+        "code": "A06.03.040",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 123,
+    "fields": {
+        "name": "Рентгенография диафиза бедренной кости (в 1ой проекции)",
+        "code": "A06.03.044",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 124,
+    "fields": {
+        "name": "Рентгенография диафиза бедренной кости (в 2х проекциях)",
+        "code": "A06.03.044_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 125,
+    "fields": {
+        "name": "Рентгенография надколенника (в 1ой проекции)",
+        "code": "A06.03.045",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 126,
+    "fields": {
+        "name": "Рентгенография надколенника (в 2х проекциях)",
+        "code": "A06.03.045_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 127,
+    "fields": {
+        "name": "Рентгенография большой берцовой и малой берцовой костей (в 1ой проекции)",
+        "code": "A06.03.046",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 128,
+    "fields": {
+        "name": "Рентгенография большой берцовой и малой берцовой костей (в 2х проекциях)",
+        "code": "A06.03.046_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 129,
+    "fields": {
+        "name": "Рентгенография диафиза большой берцовой и малой берцовой костей (в 1ой проекции)",
+        "code": "A06.03.047",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 130,
+    "fields": {
+        "name": "Рентгенография диафиза большой берцовой и малой берцовой костей (в 2х проекциях)",
+        "code": "A06.03.047_",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 131,
+    "fields": {
+        "name": "Рентгенография лодыжки",
+        "code": "A06.03.048",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 132,
+    "fields": {
+        "name": "Рентгенография пяточной кости",
+        "code": "A06.03.050",
+        "price": "1000.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+},
+{
+    "model": "timetable.medicalservice",
+    "pk": 133,
+    "fields": {
+        "name": "Рентгенография двух грудино-ключичных сочленений",
+        "code": "A06.04.014",
+        "price": "1500.00",
+        "category": "xray",
+        "description": "",
+        "is_active": true
+    }
+}
+]

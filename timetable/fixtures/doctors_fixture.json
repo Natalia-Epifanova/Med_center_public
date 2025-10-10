@@ -1,0 +1,189 @@
+[
+{
+    "model": "timetable.doctor",
+    "pk": 1,
+    "fields": {
+        "first_name": "Ольга",
+        "last_name": "Евгеньевна",
+        "surname": "Епифанова",
+        "specialization": "rheumatologist_1",
+        "provided_services": "joint_us,densitometry,first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 2,
+    "fields": {
+        "first_name": "Лариса",
+        "last_name": "Викторовна",
+        "surname": "Илюшина",
+        "specialization": "rheumatologist_1",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 3,
+    "fields": {
+        "first_name": "Ирина",
+        "last_name": "Валерьевна",
+        "surname": "Плесовская",
+        "specialization": "rheumatologist_2",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 4,
+    "fields": {
+        "first_name": "Екатерина",
+        "last_name": "Борисовна",
+        "surname": "Кузнецова",
+        "specialization": "rheumatologist_3",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 5,
+    "fields": {
+        "first_name": "Оксана",
+        "last_name": "Михайловна",
+        "surname": "Нижник",
+        "specialization": "rheumatologist_3",
+        "provided_services": "densitometry,first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 6,
+    "fields": {
+        "first_name": "Анастасия",
+        "last_name": "Александровна",
+        "surname": "Королькова",
+        "specialization": "rheumatologist_3",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 7,
+    "fields": {
+        "first_name": "Ксения",
+        "last_name": "Александровна",
+        "surname": "Пишинская",
+        "specialization": "rheumatologist_3",
+        "provided_services": "densitometry,first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 8,
+    "fields": {
+        "first_name": "Владислав",
+        "last_name": "Викторович",
+        "surname": "Рубцов",
+        "specialization": "rheumatologist_3",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 9,
+    "fields": {
+        "first_name": "Елена",
+        "last_name": "Алексеевна",
+        "surname": "Носкова",
+        "specialization": "rheumatologist_3",
+        "provided_services": "first_consult,second_consult"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 10,
+    "fields": {
+        "first_name": "Павел",
+        "last_name": "Валерьевич",
+        "surname": "Пищелёв",
+        "specialization": "Orthopedic-traumatologist",
+        "provided_services": "first_consult,second_consult,manufacture_of_insoles,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 11,
+    "fields": {
+        "first_name": "Елисей",
+        "last_name": "Юрьевич",
+        "surname": "Темнохуд",
+        "specialization": "Orthopedic-traumatologist",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 12,
+    "fields": {
+        "first_name": "Наталья",
+        "last_name": "Федоровна",
+        "surname": "Бушенёва",
+        "specialization": "neurologist",
+        "provided_services": "first_consult,second_consult"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 13,
+    "fields": {
+        "first_name": "Елена",
+        "last_name": "Антониевна",
+        "surname": "Епифанова",
+        "specialization": "cardiologist",
+        "provided_services": "first_consult,second_consult"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 14,
+    "fields": {
+        "first_name": "Августина",
+        "last_name": "Александровна",
+        "surname": "Власова",
+        "specialization": "gastroenterologist",
+        "provided_services": "first_consult,second_consult"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 15,
+    "fields": {
+        "first_name": "Оксана",
+        "last_name": "Георгиевна",
+        "surname": "Мяндина",
+        "specialization": "gastroenterologist",
+        "provided_services": "first_consult,second_consult"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 16,
+    "fields": {
+        "first_name": "Роза",
+        "last_name": "Владимировна",
+        "surname": "Севрюкова",
+        "specialization": "nurse,radiologist",
+        "provided_services": "xray,analyzes,medical_blockades"
+    }
+},
+{
+    "model": "timetable.doctor",
+    "pk": 17,
+    "fields": {
+        "first_name": "Наталья",
+        "last_name": "Витальевна",
+        "surname": "Шаброва",
+        "specialization": "Orthopedic-traumatologist",
+        "provided_services": "first_consult,second_consult,medical_blockades"
+    }
+}
+]

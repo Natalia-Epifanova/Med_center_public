@@ -1,0 +1,74 @@
+[
+{
+    "model": "timetable.cabinet",
+    "pk": 1,
+    "fields": {
+        "number": 1,
+        "name_of_cabinet": "Кабинет приема"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 2,
+    "fields": {
+        "number": 2,
+        "name_of_cabinet": "Прием + денситометрия"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 3,
+    "fields": {
+        "number": 3,
+        "name_of_cabinet": "Кабинет приема"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 4,
+    "fields": {
+        "number": 4,
+        "name_of_cabinet": "УЗИ + прием"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 5,
+    "fields": {
+        "number": 5,
+        "name_of_cabinet": "Рентген-кабинет"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 6,
+    "fields": {
+        "number": 6,
+        "name_of_cabinet": "Процедурный кабинет"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 7,
+    "fields": {
+        "number": 24,
+        "name_of_cabinet": "Кабинет приема"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 8,
+    "fields": {
+        "number": 25,
+        "name_of_cabinet": "Кабинет приема"
+    }
+},
+{
+    "model": "timetable.cabinet",
+    "pk": 9,
+    "fields": {
+        "number": 26,
+        "name_of_cabinet": "Кабинет приема"
+    }
+}
+]
