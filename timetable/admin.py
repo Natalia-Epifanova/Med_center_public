@@ -48,6 +48,7 @@ class DoctorAdmin(admin.ModelAdmin):
         "specialization",
         "services_count",
         "categories_display",
+        "has_comment",
     )
     search_fields = ("first_name", "last_name", "surname")
     list_filter = ("specialization",)
@@ -66,6 +67,12 @@ class DoctorAdmin(admin.ModelAdmin):
         return ", ".join(categories) if categories else "-"
 
     categories_display.short_description = "Категории услуг"
+
+    def has_comment(self, obj):
+        return bool(obj.schedule_comment)
+
+    has_comment.short_description = "Есть комментарий"
+    has_comment.boolean = True
 
 
 @admin.register(MedicalService)
