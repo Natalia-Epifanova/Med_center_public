@@ -8,9 +8,8 @@
 {% endblock %}
 
 {% block content %}
-<!-- Форма выбора даты и другие элементы остаются в контейнере -->
 <div class="container">
-    <!-- Форма выбора даты -->
+    <!-- Форма выбора даты и навигация (остается без изменений) -->
     <div class="row mb-4">
         <div class="col-md-8 mx-auto">
             <div class="card timetable-form-card">
@@ -46,7 +45,8 @@
                                    value="{{ selected_date|date:'Y-m-d' }}" required>
                         </div>
                         <div class="col-md-4">
-                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">Показать расписание</button>
+                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">Показать расписание
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -82,11 +82,12 @@
     </div>
 </div>
 
-<!-- Карточки расписания ВНЕ контейнера для минимальных отступов -->
+
+<!-- Карточки расписания -->
 {% if schedule_data %}
 <div class="container-fluid timetable-container-fluid timetable-fade-in">
     <div class="row g-2">
-        {% for cabinet, slots in schedule_data.items %}
+        {% for cabinet, doctor_slots in schedule_data.items %}
         <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-3">
             <div class="card timetable-card timetable-cabinet-card d-flex flex-column h-100">
                 <div class="card-header bg-primary text-white py-2 timetable-cabinet-header">
@@ -98,47 +99,159 @@
                     </h6>
                 </div>
                 <div class="card-body p-2 flex-grow-1">
-                    {% if slots %}
-                    <div class="table-responsive timetable-table-responsive">
+                    {% if doctor_slots %}
+                    {% for doctor_id, doctor_data in doctor_slots.items %}
+                    <!-- Заголовок врача -->
+                    {% if doctor_data.comment %}
+                    <div class="doctor-header mb-2 p-2 border rounded text-center" style="background-color: #ffff99;">
+                        <div class="d-flex flex-column align-items-center">
+                            <!-- ФИО врача -->
+                            <strong class="text-primary mb-1">
+                                {{ doctor_data.doctor.surname }} {{ doctor_data.doctor.first_name.0 }}.{{doctor_data.doctor.last_name.0 }}.
+                            </strong>
+
+                            <!-- Специализация -->
+                            <div class="mb-1">
+                                <strong class="text-dark">
+                                    {{ doctor_data.doctor.get_specialization_display }}
+                                </strong>
+                            </div>
+
+                            <!-- Комментарий красным жирным шрифтом -->
+                            <div class="mt-1">
+                                <strong class="text-danger ">
+                                    {{ doctor_data.comment|linebreaks }}
+                                </strong>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="table-responsive timetable-table-responsive mb-3">
                         <table class="table table-sm table-striped table-hover mb-0 timetable-table-sm">
                             <thead class="table-light">
                             <tr>
                                 <th class="timetable-table-sm">Время</th>
-                                <th class="timetable-table-sm">Врач</th>
-                                <th class="timetable-table-sm">Тип</th>
-                                <th class="timetable-table-sm">Описание</th>
+                                <th class="timetable-table-sm">Услуга</th>
+                                <th class="timetable-table-sm">Пациент</th>
+                                <th class="timetable-table-sm">Комментарий</th>
+                                <th class="timetable-table-sm">Действия</th>
                             </tr>
                             </thead>
                             <tbody>
-                            {% for slot in slots %}
-                            <tr class="{% if slot.slot_type == 'break' %}timetable-slot-break{% else %}timetable-slot-working{% endif %}">
+                            {% for slot in doctor_data.slots %}
+                            <tr class="{% if slot.slot_type == 'break' %}timetable-slot-break bg-warning bg-opacity-25{% else %}timetable-slot-working{% endif %}">
                                 <td>
                                     <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
                                        class="text-decoration-none"
                                        title="Нажмите для просмотра деталей слота">
                                         <strong>{{ slot.start_time|time:"H:i" }}-{{ slot.end_time|time:"H:i" }}</strong>
                                     </a>
-                                </td>
-                                <td>
-                                    {{ slot.doctor.surname }} {{ slot.doctor.first_name.0 }}.{{ slot.doctor.last_name.0 }}.
-                                    <br>
-                                    <small class="text-muted">{{ slot.doctor.get_specialization_display }}</small>
-                                </td>
-                                <td>
                                     {% if slot.slot_type == 'break' %}
-                                    <span class="badge timetable-badge bg-warning text-dark">Перерыв</span>
-                                    {% else %}
-                                    <span class="badge timetable-badge bg-success">Рабочий</span>
+                                    <br>
+                                    <small class="text-muted fw-bold">Перерыв</small>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <small class="text-muted">{{ slot.description|default:"-" }}</small>
+                                    {% if slot.slot_type == 'working' %}
+                                    {% with appointment=slot.appointments.first %}
+                                    {% if appointment %}
+                                    <small>{{ appointment.service.name }}</small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                    {% endwith %}
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if slot.slot_type == 'working' %}
+                                    {% with appointment=slot.appointments.first %}
+                                    {% if appointment %}
+                                    <small>{{ appointment.patient.surname }} {{ appointment.patient.first_name.0
+                                        }}.</small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                    {% endwith %}
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if slot.slot_type == 'working' %}
+                                    {% with appointment=slot.appointments.first %}
+                                    {% if appointment and appointment.comment %}
+                                    <small class="text-muted" title="{{ appointment.comment }}">
+                                        {{ appointment.comment|truncatechars:20 }}
+                                    </small>
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                    {% endwith %}
+                                    {% else %}
+                                    <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if slot.slot_type == 'working' %}
+                                    {% with appointment=slot.appointments.first %}
+                                    {% if appointment %}
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <!-- Кнопка редактирования записи -->
+                                        <a href="{% url 'timetable:appointment_update' appointment.pk %}"
+                                           class="btn btn-outline-warning" title="Редактировать запись">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+
+                                        <!-- Индикатор перезаписи -->
+                                        {% if appointment.needs_reschedule %}
+                                        <span class="btn btn-outline-info position-relative"
+                                              title="Требуется перезапись на более ранний срок">
+                                            <i class="fas fa-clock"></i>
+                                            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                                <span class="visually-hidden">Требуется перезапись</span>
+                                            </span>
+                                        </span>
+                                        {% endif %}
+
+                                        <!-- Индикатор последовательной записи -->
+                                        {% if appointment.is_consecutive %}
+                                        <span class="btn btn-outline-secondary" title="Последовательная запись">
+                                            <i class="fas fa-link"></i>
+                                        </span>
+                                        {% endif %}
+
+                                        <!-- Показать цепочку записей -->
+                                        {% with chain=appointment.get_full_chain %}
+                                        {% if chain|length > 1 %}
+                                        <span class="btn btn-outline-primary"
+                                              title="Цепочка из {{ chain|length }} записей">
+                                            {{ chain|length }} <i class="fas fa-list"></i>
+                                        </span>
+                                        {% endif %}
+                                        {% endwith %}
+                                    </div>
+                                    {% else %}
+                                    <!-- Кнопка добавления записи -->
+                                    <a href="{% url 'timetable:appointment_create' slot.id %}"
+                                       class="btn btn-sm btn-outline-success"
+                                       title="Добавить запись пациента">
+                                        <i class="fas fa-plus"></i>
+                                    </a>
+                                    {% endif %}
+                                    {% endwith %}
+                                    {% else %}
+                                    <small class="text-muted">Недоступно для записи</small>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% endfor %}
                             </tbody>
                         </table>
                     </div>
+                    {% endfor %}
                     {% else %}
                     <div class="text-center py-2 d-flex align-items-center justify-content-center flex-grow-1">
                         <p class="text-muted mb-0">Нет слотов расписания</p>
@@ -150,8 +263,8 @@
         {% endfor %}
     </div>
 </div>
-{% elif selected_date %}
-<!-- Остальной код остается в контейнере -->
+{% else %}
+<!-- Остальной код для случая отсутствия расписания -->
 <div class="container">
     <div class="row">
         <div class="col-md-8 mx-auto">
@@ -159,25 +272,15 @@
                 <div class="card-body text-center py-5">
                     <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
                     <h5 class="text-muted">На {{ selected_date|date:"d.m.Y" }} расписание не найдено</h5>
+                    {% if user.is_staff %}
                     <p class="text-muted mb-4">Используйте форму выше, чтобы добавить расписание на эту дату</p>
                     <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
                        class="btn timetable-btn-primary">
                         <i class="fas fa-plus"></i> Добавить расписание на эту дату
                     </a>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% else %}
-<div class="container">
-    <div class="row">
-        <div class="col-md-8 mx-auto">
-            <div class="card timetable-form-card">
-                <div class="card-body text-center py-5">
-                    <i class="fas fa-search fa-3x text-muted mb-3"></i>
-                    <h5 class="text-muted">Выберите дату для просмотра расписания</h5>
-                    <p class="text-muted">Используйте форму выше, чтобы выбрать интересующую вас дату</p>
+                    {% else %}
+                    <p class="text-muted mb-4">Обратитесь к администратору для добавления расписания</p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -193,14 +296,6 @@
             dateInput.addEventListener('change', function() {
                 this.form.submit();
             });
-        }
-
-        // Добавляем текущую дату в контекст для отображения "Сегодня"
-        const currentDate = new Date().toISOString().split('T')[0];
-        const selectedDate = '{{ selected_date|date:"Y-m-d" }}';
-
-        if (currentDate === selectedDate) {
-            // Можно добавить дополнительную логику, если нужно
         }
     });
 </script>

@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
 from django.http import HttpResponseRedirect
+from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (
@@ -15,8 +16,13 @@ from django.views.generic import (
     ListView,
 )
 
-from timetable.forms import TimeSlotForm, TimeSlotUpdateForm, PatientForm
-from timetable.models import TimeSlot, Patient
+from timetable.forms import (
+    TimeSlotForm,
+    TimeSlotUpdateForm,
+    PatientForm,
+    SimpleAppointmentForm,
+)
+from timetable.models import TimeSlot, Patient, Appointment
 
 
 class HomeView(TemplateView):
@@ -27,7 +33,9 @@ class TimeSlotCreateView(LoginRequiredMixin, CreateView):
     model = TimeSlot
     form_class = TimeSlotForm
     template_name = "timetable/schedule_create.html"
-    success_url = reverse_lazy("timetable:schedule_create")
+
+    def get_success_url(self):
+        return reverse_lazy("timetable:schedule_create")
 
     def form_valid(self, form):
         date = form.cleaned_data["date"]
@@ -187,7 +195,30 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
             schedule_data[cabinet] = cabinet_slots
 
         context["schedule_data"] = schedule_data
+        slots = TimeSlot.objects.filter(date=selected_date).select_related(
+            "cabinet", "doctor"
+        )
+        cabinets = set(slot.cabinet for slot in slots)
 
+        schedule_data = {}
+        for cabinet in cabinets:
+            cabinet_slots = slots.filter(cabinet=cabinet).order_by("start_time")
+
+            # Группируем слоты по врачам с комментариями
+            doctor_slots = {}
+            for slot in cabinet_slots:
+                doctor_id = slot.doctor.id
+                if doctor_id not in doctor_slots:
+                    doctor_slots[doctor_id] = {
+                        "doctor": slot.doctor,
+                        "comment": slot.doctor.schedule_comment,
+                        "slots": [],
+                    }
+                doctor_slots[doctor_id]["slots"].append(slot)
+
+            schedule_data[cabinet] = doctor_slots
+
+        context["schedule_data"] = schedule_data
         return context
 
 
@@ -233,3 +264,91 @@ class PatientDeleteView(LoginRequiredMixin, DeleteView):
     model = Patient
     template_name = "timetable/patient_confirm_delete.html"
     success_url = reverse_lazy("timetable:patient_list")
+
+
+class AppointmentCreateView(LoginRequiredMixin, CreateView):
+    """Создание записи на прием"""
+
+    model = Appointment
+    form_class = SimpleAppointmentForm
+    template_name = "timetable/appointment_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        time_slot_id = self.kwargs.get("time_slot_id")
+        self.time_slot = get_object_or_404(TimeSlot, id=time_slot_id)
+        kwargs["time_slot"] = self.time_slot
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["time_slot"] = self.time_slot
+        return context
+
+    def form_valid(self, form):
+        try:
+            # Привязываем запись к временному слоту
+            appointment = form.save(commit=False)
+            appointment.time_slot = self.time_slot
+            appointment.save()
+
+            messages.success(self.request, "Пациент успешно записан на прием!")
+            return HttpResponseRedirect(self.get_success_url())
+        except Exception as e:
+            messages.error(self.request, f"Ошибка при записи: {str(e)}")
+            return self.form_invalid(form)
+
+    def get_success_url(self):
+        return reverse_lazy("timetable:schedule_day") + f"?date={self.time_slot.date}"
+
+
+class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
+    """Редактирование существующей записи"""
+
+    model = Appointment
+    form_class = SimpleAppointmentForm
+    template_name = "timetable/appointment_form.html"
+
+    def get_success_url(self):
+        return reverse_lazy("timetable:schedule_day") + f"?date={self.object.date}"
+
+
+class AppointmentDeleteView(LoginRequiredMixin, DeleteView):
+    """Удаление записи на прием"""
+
+    model = Appointment
+    template_name = "timetable/appointment_confirm_delete.html"
+
+    def get_success_url(self):
+        date = self.object.date
+        messages.success(self.request, "Запись успешно удалена.")
+        return reverse_lazy("timetable:schedule_day") + f"?date={date}"
+
+    def delete(self, request, *args, **kwargs):
+        # Удаляем также все последующие записи в цепочке
+        appointment = self.get_object()
+        chain = appointment.get_consecutive_appointments()[1:]  # Все кроме текущей
+
+        for appt in chain:
+            appt.delete()
+
+        return super().delete(request, *args, **kwargs)
+
+
+class RescheduleRequestsView(LoginRequiredMixin, ListView):
+    """Список запросов на перезапись"""
+
+    model = Appointment
+    template_name = "timetable/reschedule_requests.html"
+    context_object_name = "appointments"
+
+    def get_queryset(self):
+        return Appointment.objects.filter(
+            needs_reschedule=True,
+            status__in=[
+                Appointment.AppointmentStatus.SCHEDULED,
+                Appointment.AppointmentStatus.CONFIRMED,
+            ],
+        ).select_related(
+            "patient", "time_slot__doctor", "time_slot__cabinet", "service"
+        )

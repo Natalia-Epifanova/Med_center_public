@@ -133,6 +133,12 @@ class Doctor(models.Model):
         help_text="Выберите категории услуг, которые оказывает врач",
     )
 
+    schedule_comment = models.TextField(
+        blank=True,
+        verbose_name="Комментарий для расписания",
+        help_text="Этот комментарий будет отображаться перед слотами врача в расписании",
+    )
+
     def __str__(self):
         specialization_dict = dict(self.DoctorSpecialization.choices)
         spec_display = specialization_dict.get(self.specialization, self.specialization)
