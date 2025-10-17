@@ -26,8 +26,6 @@ class PatientAdmin(admin.ModelAdmin):
         "surname",
         "phone_number",
         "date_of_birth",
-        "registration_address",
-        "residential_address",
     )
     search_fields = (
         "card_number",
@@ -52,6 +50,26 @@ class DoctorAdmin(admin.ModelAdmin):
     )
     search_fields = ("first_name", "last_name", "surname")
     list_filter = ("specialization",)
+
+    # Добавляем фильтр для формы
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+
+        # Если объект существует и у него есть выбранные категории
+        if obj and obj.provided_services:
+            # Ограничиваем queryset для excluded_services только услугами из выбранных категорий
+            form.base_fields["excluded_services"].queryset = (
+                MedicalService.objects.filter(
+                    category__in=obj.provided_services, is_active=True
+                )
+            )
+        elif obj:
+            # Если категории не выбраны, показываем пустой queryset
+            form.base_fields["excluded_services"].queryset = (
+                MedicalService.objects.none()
+            )
+
+        return form
 
     def services_count(self, obj):
         return obj.get_available_services().count()

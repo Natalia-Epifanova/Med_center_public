@@ -64,18 +64,6 @@ class Patient(models.Model):
         null=True,
         verbose_name="Дата рождения пациента",
     )
-    registration_address = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Адрес регистрации пациента",
-    )
-    residential_address = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Адрес проживания пациента",
-    )
 
     def get_full_name(self):
         """Возвращает полное ФИО пациента"""
@@ -91,6 +79,38 @@ class Patient(models.Model):
     class Meta:
         verbose_name = "Пациент"
         verbose_name_plural = "Пациенты"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["surname", "first_name", "last_name", "date_of_birth"],
+                name="unique_patient_full_info",
+            )
+        ]
+
+
+class MedicalService(models.Model):
+    """Модель для хранения медицинских услуг, прайса и кодов."""
+
+    code = models.CharField(max_length=20, verbose_name="Код услуги")
+    name = models.CharField(max_length=255, verbose_name="Название услуги")
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, verbose_name="Цена услуги"
+    )
+    category = models.CharField(
+        max_length=30,
+        choices=MedicalServiceCategory.choices,
+        verbose_name="Категория услуги",
+    )
+
+    description = models.TextField(blank=True, verbose_name="Описание услуги")
+    is_active = models.BooleanField(default=True, verbose_name="Активная услуга")
+
+    class Meta:
+        verbose_name = "Медицинская услуга"
+        verbose_name_plural = "Медицинские услуги"
+        ordering = ["category", "name"]
+
+    def __str__(self):
+        return f"{self.name} - {self.price} руб."
 
 
 class Doctor(models.Model):
@@ -133,6 +153,13 @@ class Doctor(models.Model):
         help_text="Выберите категории услуг, которые оказывает врач",
     )
 
+    excluded_services = models.ManyToManyField(
+        MedicalService,
+        blank=True,
+        verbose_name="Исключенные услуги",
+        help_text="Услуги, которые недоступны для этого врача (исключения из категорий)",
+    )
+
     schedule_comment = models.TextField(
         blank=True,
         verbose_name="Комментарий для расписания",
@@ -145,40 +172,15 @@ class Doctor(models.Model):
         return f"{spec_display}: {self.surname} {self.first_name} {self.last_name}"
 
     def get_available_services(self):
-        """Получить все услуги, доступные врачу через выбранные категории"""
-        return MedicalService.objects.filter(
+        """Получить все услуги, доступные врачу с учетом исключений"""
+        services = MedicalService.objects.filter(
             category__in=self.provided_services, is_active=True
-        )
+        ).exclude(id__in=self.excluded_services.values_list("id", flat=True))
+        return services
 
     class Meta:
         verbose_name = "Врач"
         verbose_name_plural = "Врачи"
-
-
-class MedicalService(models.Model):
-    """Модель для хранения медицинских услуг, прайса и кодов."""
-
-    code = models.CharField(unique=True, max_length=20, verbose_name="Код услуги")
-    name = models.CharField(max_length=255, verbose_name="Название услуги")
-    price = models.DecimalField(
-        max_digits=10, decimal_places=2, verbose_name="Цена услуги"
-    )
-    category = models.CharField(
-        max_length=30,
-        choices=MedicalServiceCategory.choices,
-        verbose_name="Категория услуги",
-    )
-
-    description = models.TextField(blank=True, verbose_name="Описание услуги")
-    is_active = models.BooleanField(default=True, verbose_name="Активная услуга")
-
-    class Meta:
-        verbose_name = "Медицинская услуга"
-        verbose_name_plural = "Медицинские услуги"
-        ordering = ["category", "name"]
-
-    def __str__(self):
-        return f"{self.name} - {self.price} руб."
 
 
 class TimeSlot(models.Model):
@@ -209,8 +211,6 @@ class TimeSlot(models.Model):
         default="working",
         verbose_name="Тип слота",
     )
-
-    # Описание (например, "Обед", "Перерыв на кофе")
     description = models.CharField(max_length=100, blank=True, verbose_name="Описание")
 
     class Meta:
@@ -227,6 +227,20 @@ class TimeSlot(models.Model):
     def __str__(self):
         slot_type_display = "Перерыв" if self.slot_type == "break" else "Слот"
         return f"{self.date} {self.start_time}-{self.end_time} - {self.doctor.surname} ({slot_type_display})"
+
+    def is_available(self):
+        """Проверяет, доступен ли слот для записи"""
+        return self.slot_type == "working" and not self.appointments.exists()
+
+    def get_next_consecutive_slot(self):
+        """Получает следующий последовательный слот"""
+        return TimeSlot.objects.filter(
+            date=self.date,
+            cabinet=self.cabinet,
+            doctor=self.doctor,
+            start_time=self.end_time,
+            slot_type="working",
+        ).first()
 
 
 class Appointment(models.Model):
@@ -283,6 +297,11 @@ class Appointment(models.Model):
         blank=True,
         null=True,
         verbose_name="Предыдущая запись в цепочке",
+    )
+    occupies_two_slots = models.BooleanField(
+        default=False,
+        verbose_name="Занимает два временных слота",
+        help_text="Отметьте, если услуга требует два последовательных временных слота",
     )
 
     class Meta:

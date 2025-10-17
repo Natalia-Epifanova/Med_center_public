@@ -1,0 +1,66 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Удаление записи на прием</h1>
+    <p class="lead">Подтверждение удаления записи пациента</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Подтверждение удаления
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h6>Вы уверены, что хотите удалить эту запись?</h6>
+                    </div>
+
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <h6>Информация о записи:</h6>
+                            <p><strong>Пациент:</strong> {{ object.patient.get_full_name }}</p>
+                            <p><strong>Врач:</strong> {{ object.doctor.surname }} {{ object.doctor.first_name.0 }}.</p>
+                            <p><strong>Дата и время:</strong> {{ object.date|date:"d.m.Y" }} {{ object.start_time|time:"H:i" }}</p>
+                            <p><strong>Услуга:</strong> {{ object.service.name }}</p>
+                            <p><strong>Кабинет:</strong> № {{ object.cabinet.number }}</p>
+                            {% if object.comment %}
+                            <p><strong>Комментарий:</strong> {{ object.comment }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Предупреждение о цепочке записей -->
+                    {% with chain=object.get_full_chain %}
+                        {% if chain|length > 1 %}
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-exclamation-circle"></i> Внимание!</h6>
+                            <p class="mb-0">Эта запись является частью цепочки из {{ chain|length }} записей. При удалении будут также удалены все последующие записи в цепочке.</p>
+                        </div>
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Да, удалить
+                            </button>
+                            <a href="{% url 'timetable:schedule_day' %}?date={{ object.date|date:'Y-m-d' }}"
+                               class="btn btn-outline-secondary">
+                                Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

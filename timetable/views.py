@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
 
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import models
-from django.http import HttpResponseRedirect
-from django.shortcuts import get_object_or_404
-from django.urls import reverse_lazy
+from django.db import models, IntegrityError
+from django.http import HttpResponseRedirect, JsonResponse
+from django.urls import reverse_lazy, reverse
 from django.utils import timezone
 from django.views.generic import (
     TemplateView,
@@ -15,12 +13,16 @@ from django.views.generic import (
     DetailView,
     ListView,
 )
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.db.models import Q
+
 
 from timetable.forms import (
     TimeSlotForm,
     TimeSlotUpdateForm,
     PatientForm,
-    SimpleAppointmentForm,
+    AppointmentForm,
 )
 from timetable.models import TimeSlot, Patient, Appointment
 
@@ -266,51 +268,166 @@ class PatientDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("timetable:patient_list")
 
 
-class AppointmentCreateView(LoginRequiredMixin, CreateView):
-    """Создание записи на прием"""
-
+class AppointmentCreateView(CreateView):
     model = Appointment
-    form_class = SimpleAppointmentForm
+    form_class = AppointmentForm
     template_name = "timetable/appointment_form.html"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        time_slot_id = self.kwargs.get("time_slot_id")
-        self.time_slot = get_object_or_404(TimeSlot, id=time_slot_id)
-        kwargs["time_slot"] = self.time_slot
+        time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+        kwargs["time_slot"] = time_slot
+        kwargs["doctor"] = time_slot.doctor
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["time_slot"] = self.time_slot
+        time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+        context["time_slot"] = time_slot
+        context["doctor"] = time_slot.doctor  # Передаем врача в контекст
+
+        # Получаем информацию о следующем слоте для отображения
+        next_slot = time_slot.get_next_consecutive_slot()
+        context["next_slot"] = next_slot
+
         return context
 
     def form_valid(self, form):
         try:
-            # Привязываем запись к временному слоту
-            appointment = form.save(commit=False)
-            appointment.time_slot = self.time_slot
-            appointment.save()
+            # Получаем данные пациента из формы
+            patient_data = {
+                "surname": form.cleaned_data.get("surname"),
+                "first_name": form.cleaned_data.get("first_name"),
+                "last_name": form.cleaned_data.get("last_name"),
+                "phone_number": form.cleaned_data.get("phone_number"),
+                "card_number": form.cleaned_data.get("card_number"),
+                "date_of_birth": form.cleaned_data.get("date_of_birth"),
+            }
 
-            messages.success(self.request, "Пациент успешно записан на прием!")
+            # Ищем существующего пациента
+            existing_patient = self._check_patient_exists(patient_data)
+
+            if existing_patient:
+                # Используем существующего пациента
+                appointment = form.save(commit=False)
+                appointment.time_slot = form.time_slot
+                appointment.patient = existing_patient  # Используем найденного пациента
+                appointment.save()
+
+                # Обрабатываем последовательные записи если нужно
+                self._create_consecutive_appointments(appointment, form)
+
+                messages.success(
+                    self.request,
+                    f"Запись успешно создана для существующего пациента: {existing_patient.get_full_name()}",
+                )
+            else:
+                # Пациента нет - создаем новую запись обычным способом
+                appointment = form.save()
+                messages.success(self.request, "Запись успешно создана!")
+
             return HttpResponseRedirect(self.get_success_url())
+
+        except IntegrityError as e:
+            messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
+            return self.form_invalid(form)
         except Exception as e:
-            messages.error(self.request, f"Ошибка при записи: {str(e)}")
+            messages.error(self.request, f"Неожиданная ошибка: {str(e)}")
             return self.form_invalid(form)
 
+    def _create_consecutive_appointments(self, main_appointment, form):
+        """Создание последовательных записей (второй услуги или двух слотов)"""
+        appointment_type = form.cleaned_data.get("appointment_type")
+
+        if appointment_type in ["additional", "two_slots"]:
+            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
+
+            if next_slot:
+                if appointment_type == "additional":
+                    consecutive_appointment = Appointment(
+                        time_slot=next_slot,
+                        patient=main_appointment.patient,
+                        service=form.cleaned_data["additional_service"],
+                        insurance_type=main_appointment.insurance_type,
+                        status=main_appointment.status,
+                        is_consecutive=True,
+                        previous_appointment=main_appointment,
+                        comment=f"Последовательная запись к {main_appointment.service.name}",
+                    )
+                else:
+                    consecutive_appointment = Appointment(
+                        time_slot=next_slot,
+                        patient=main_appointment.patient,
+                        service=main_appointment.service,
+                        insurance_type=main_appointment.insurance_type,
+                        status=main_appointment.status,
+                        is_consecutive=True,
+                        previous_appointment=main_appointment,
+                        occupies_two_slots=True,
+                        comment=f"Продолжение услуги {main_appointment.service.name}",
+                    )
+                consecutive_appointment.save()
+
+    def _check_patient_exists(self, patient_data):
+        """Проверяет существование пациента и возвращает объект пациента если найден"""
+        surname = patient_data.get("surname")
+        first_name = patient_data.get("first_name")
+        date_of_birth = patient_data.get("date_of_birth")
+
+        if not surname or not first_name:
+            return None
+
+        # Базовый поиск по ФИО
+        query = Patient.objects.filter(
+            surname__iexact=surname, first_name__iexact=first_name
+        )
+
+        # Если указана дата рождения, добавляем в фильтр
+        if date_of_birth:
+            query = query.filter(date_of_birth=date_of_birth)
+
+        return query.first()
+
     def get_success_url(self):
-        return reverse_lazy("timetable:schedule_day") + f"?date={self.time_slot.date}"
+        return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
 
 
 class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
     """Редактирование существующей записи"""
 
     model = Appointment
-    form_class = SimpleAppointmentForm
+    form_class = AppointmentForm
     template_name = "timetable/appointment_form.html"
 
     def get_success_url(self):
         return reverse_lazy("timetable:schedule_day") + f"?date={self.object.date}"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Для редактирования передаем слот и врача
+        kwargs["time_slot"] = self.object.time_slot
+        kwargs["doctor"] = self.object.time_slot.doctor
+        return kwargs
+
+    def get_initial(self):
+        initial = super().get_initial()
+        # Заполняем поля пациента из существующей записи
+        patient = self.object.patient
+        initial.update(
+            {
+                "surname": patient.surname,
+                "first_name": patient.first_name,
+                "last_name": patient.last_name,
+                "phone_number": patient.phone_number,
+                "card_number": patient.card_number,
+                "date_of_birth": patient.date_of_birth,
+            }
+        )
+        return initial
+
+    def form_valid(self, form):
+        messages.success(self.request, "Запись успешно обновлена.")
+        return super().form_valid(form)
 
 
 class AppointmentDeleteView(LoginRequiredMixin, DeleteView):

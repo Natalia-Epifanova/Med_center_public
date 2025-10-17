@@ -169,8 +169,7 @@
                                     {% if slot.slot_type == 'working' %}
                                     {% with appointment=slot.appointments.first %}
                                     {% if appointment %}
-                                    <small>{{ appointment.patient.surname }} {{ appointment.patient.first_name.0
-                                        }}.</small>
+                                    <small>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</small>
                                     {% else %}
                                     <small class="text-muted">-</small>
                                     {% endif %}
@@ -208,7 +207,7 @@
                                         <!-- Индикатор перезаписи -->
                                         {% if appointment.needs_reschedule %}
                                         <span class="btn btn-outline-info position-relative"
-                                              title="Требуется перезапись на более ранний срок">
+                                              title="Просил(а) перезаписать раньше">
                                             <i class="fas fa-clock"></i>
                                             <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
                                                 <span class="visually-hidden">Требуется перезапись</span>
@@ -223,15 +222,6 @@
                                         </span>
                                         {% endif %}
 
-                                        <!-- Показать цепочку записей -->
-                                        {% with chain=appointment.get_full_chain %}
-                                        {% if chain|length > 1 %}
-                                        <span class="btn btn-outline-primary"
-                                              title="Цепочка из {{ chain|length }} записей">
-                                            {{ chain|length }} <i class="fas fa-list"></i>
-                                        </span>
-                                        {% endif %}
-                                        {% endwith %}
                                     </div>
                                     {% else %}
                                     <!-- Кнопка добавления записи -->

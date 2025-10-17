@@ -13,7 +13,12 @@ from timetable.views import (
     PatientDetailView,
     PatientUpdateView,
     PatientDeleteView,
+    AppointmentUpdateView,
+    AppointmentDeleteView,
+    RescheduleRequestsView,
+    AppointmentCreateView,
 )
+from timetable.views_api import check_patient_api
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -39,5 +44,31 @@ urlpatterns = [
     ),
     path(
         "patients/<int:pk>/delete/", PatientDeleteView.as_view(), name="patient_delete"
+    ),
+    path(
+        "appointment/create/<int:time_slot_id>/",
+        AppointmentCreateView.as_view(),
+        name="appointment_create",
+    ),
+    path(
+        "appointment/<int:pk>/update/",
+        AppointmentUpdateView.as_view(),
+        name="appointment_update",
+    ),
+    path(
+        "appointment/<int:pk>/delete/",
+        AppointmentDeleteView.as_view(),
+        name="appointment_delete",
+    ),
+    # Запросы на перезапись
+    path(
+        "reschedule-requests/",
+        RescheduleRequestsView.as_view(),
+        name="reschedule_requests",
+    ),
+    path(
+        "api/check-patient/",
+        check_patient_api,
+        name="api_check_patient",
     ),
 ]

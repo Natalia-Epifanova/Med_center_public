@@ -1,0 +1,128 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Редактирование записи на прием</h1>
+    <p class="lead">Изменение информации о записи пациента</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-edit"></i> Редактирование записи от {{ object.date|date:"d.m.Y" }} {{ object.start_time|time:"H:i" }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <strong>Кабинет:</strong>
+                            <p>№ {{ object.cabinet.number }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Врач:</strong>
+                            <p>{{ object.doctor.surname }} {{ object.doctor.first_name }} {{ object.doctor.last_name }}</p>
+                        </div>
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.patient.label }}</label>
+                                {{ form.patient }}
+                                {% if form.patient.errors %}
+                                <div class="text-danger small">{{ form.patient.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.service.label }}</label>
+                                {{ form.service }}
+                                {% if form.service.errors %}
+                                <div class="text-danger small">{{ form.service.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.insurance_type.label }}</label>
+                                {{ form.insurance_type }}
+                                {% if form.insurance_type.errors %}
+                                <div class="text-danger small">{{ form.insurance_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">{{ form.status.label }}</label>
+                                {{ form.status }}
+                                {% if form.status.errors %}
+                                <div class="text-danger small">{{ form.status.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mt-4">
+                                    {{ form.needs_reschedule }}
+                                    <label class="form-check-label" for="{{ form.needs_reschedule.id_for_label }}">
+                                        {{ form.needs_reschedule.label }}
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label class="form-label">{{ form.comment.label }}</label>
+                                {{ form.comment }}
+                                {% if form.comment.errors %}
+                                <div class="text-danger small">{{ form.comment.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Информация о последовательных записях -->
+                        {% with chain=object.get_full_chain %}
+                            {% if chain|length > 1 %}
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-link"></i> Цепочка записей ({{ chain|length }}):</h6>
+                                <ul class="mb-0">
+                                    {% for appt in chain %}
+                                    <li>{{ appt.start_time|time:"H:i" }} - {{ appt.service.name }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            {% endif %}
+                        {% endwith %}
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fas fa-save"></i> Сохранить изменения
+                            </button>
+                            <a href="{% url 'timetable:schedule_day' %}?date={{ object.date|date:'Y-m-d' }}" 
+                               class="btn btn-outline-secondary">
+                                Отмена
+                            </a>
+                            <a href="{% url 'timetable:appointment_delete' object.pk %}" 
+                               class="btn btn-outline-danger">
+                                <i class="fas fa-trash"></i> Удалить
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
