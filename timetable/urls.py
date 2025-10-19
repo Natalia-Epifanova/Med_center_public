@@ -18,7 +18,7 @@ from timetable.views import (
     RescheduleRequestsView,
     AppointmentCreateView,
 )
-from timetable.views_api import check_patient_api
+from timetable.views_api import check_patient_api, get_available_slots
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -70,5 +70,10 @@ urlpatterns = [
         "api/check-patient/",
         check_patient_api,
         name="api_check_patient",
+    ),
+    path(
+        "api/get-available-slots/",
+        get_available_slots,
+        name="api_get_available_slots",
     ),
 ]

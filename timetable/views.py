@@ -23,6 +23,7 @@ from timetable.forms import (
     TimeSlotUpdateForm,
     PatientForm,
     AppointmentForm,
+    AppointmentUpdateForm,
 )
 from timetable.models import TimeSlot, Patient, Appointment
 
@@ -393,21 +394,33 @@ class AppointmentCreateView(CreateView):
 
 
 class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
-    """Редактирование существующей записи"""
+    """Полное редактирование записи на прием"""
 
     model = Appointment
-    form_class = AppointmentForm
-    template_name = "timetable/appointment_form.html"
+    form_class = AppointmentUpdateForm
+    template_name = "timetable/appointment_update_form.html"
 
     def get_success_url(self):
         return reverse_lazy("timetable:schedule_day") + f"?date={self.object.date}"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        # Для редактирования передаем слот и врача
-        kwargs["time_slot"] = self.object.time_slot
-        kwargs["doctor"] = self.object.time_slot.doctor
+        kwargs["current_appointment"] = self.object
         return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["time_slot"] = self.object.time_slot
+        context["doctor"] = self.object.time_slot.doctor
+
+        # Получаем информацию о следующем слоте для отображения
+        next_slot = self.object.time_slot.get_next_consecutive_slot()
+        context["next_slot"] = next_slot
+
+        # Информация о текущей записи
+        context["current_appointment"] = self.object
+
+        return context
 
     def get_initial(self):
         initial = super().get_initial()
@@ -423,11 +436,27 @@ class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
                 "date_of_birth": patient.date_of_birth,
             }
         )
+
         return initial
 
     def form_valid(self, form):
-        messages.success(self.request, "Запись успешно обновлена.")
-        return super().form_valid(form)
+        # Сохраняем информацию о старом слоте для сообщения
+        old_time_slot = self.object.time_slot
+        new_time_slot = form.cleaned_data["time_slot"]
+
+        # Сохраняем запись
+        response = super().form_valid(form)
+
+        # Добавляем сообщение об изменении
+        if old_time_slot != new_time_slot:
+            messages.success(
+                self.request,
+                f"Запись успешно обновлена. Время изменено с {old_time_slot.date} {old_time_slot.start_time} на {new_time_slot.date} {new_time_slot.start_time}",
+            )
+        else:
+            messages.success(self.request, "Запись успешно обновлена.")
+
+        return response
 
 
 class AppointmentDeleteView(LoginRequiredMixin, DeleteView):
