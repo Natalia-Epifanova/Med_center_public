@@ -26,6 +26,7 @@ from timetable.forms import (
     AppointmentUpdateForm,
 )
 from timetable.models import TimeSlot, Patient, Appointment
+from timetable.utils import save_slots_with_conflict_check, create_time_slots
 
 
 class HomeView(TemplateView):
@@ -45,72 +46,14 @@ class TimeSlotCreateView(LoginRequiredMixin, CreateView):
         cabinet = form.cleaned_data["cabinet"]
         doctor = form.cleaned_data["doctor"]
         add_type = form.cleaned_data["add_type"]
-        created_slots = []
-        saved_count = 0
 
         try:
             if add_type == "single":
-                single_start_time = form.cleaned_data.get("single_start_time")
-                single_end_time = form.cleaned_data.get("single_end_time")
-                single_slot_type = form.cleaned_data.get("single_slot_type")
-                single_description = form.cleaned_data.get("single_description") or ""
+                slots = self._create_single_slot(form, date, cabinet, doctor)
+            else:
+                slots = self._create_multiple_slots(form, date, cabinet, doctor)
 
-                if single_start_time and single_end_time:
-                    slot = TimeSlot(
-                        date=date,
-                        cabinet=cabinet,
-                        doctor=doctor,
-                        start_time=single_start_time,
-                        end_time=single_end_time,
-                        slot_type=single_slot_type,
-                        description=single_description,
-                    )
-                    created_slots.append(slot)
-
-            elif add_type == "multiple":
-                start_time = form.cleaned_data.get("multiple_start_time")
-                end_time = form.cleaned_data.get("multiple_end_time")
-                interval = form.cleaned_data.get("interval")
-
-                if start_time and end_time and interval:
-                    current_time = start_time
-                    while current_time < end_time:
-                        end_time_slot = (
-                            datetime.combine(date, current_time)
-                            + timedelta(minutes=interval)
-                        ).time()
-
-                        if end_time_slot > end_time:
-                            break
-
-                        slot = TimeSlot(
-                            date=date,
-                            cabinet=cabinet,
-                            doctor=doctor,
-                            start_time=current_time,
-                            end_time=end_time_slot,
-                            slot_type="working",
-                            description="",
-                        )
-                        created_slots.append(slot)
-                        current_time = end_time_slot
-
-            for slot in created_slots:
-                conflicting_slots = TimeSlot.objects.filter(
-                    date=slot.date,
-                    cabinet=slot.cabinet,
-                    start_time__lt=slot.end_time,
-                    end_time__gt=slot.start_time,
-                )
-
-                if not conflicting_slots.exists():
-                    slot.save()
-                    saved_count += 1
-                else:
-                    messages.warning(
-                        self.request,
-                        f"Слот {slot.start_time}-{slot.end_time} пересекается с существующим",
-                    )
+            saved_count = save_slots_with_conflict_check(slots)
 
             if saved_count > 0:
                 messages.success(self.request, f"Успешно создано {saved_count} слотов")
@@ -123,8 +66,38 @@ class TimeSlotCreateView(LoginRequiredMixin, CreateView):
 
         return HttpResponseRedirect(self.get_success_url())
 
-    def form_invalid(self, form):
-        return super().form_invalid(form)
+    def _create_single_slot(self, form, date, cabinet, doctor):
+        """Создание одиночного слота"""
+        start_time = form.cleaned_data.get("single_start_time")
+        end_time = form.cleaned_data.get("single_end_time")
+        slot_type = form.cleaned_data.get("single_slot_type")
+        description = form.cleaned_data.get("single_description") or ""
+
+        if start_time and end_time:
+            return [
+                TimeSlot(
+                    date=date,
+                    cabinet=cabinet,
+                    doctor=doctor,
+                    start_time=start_time,
+                    end_time=end_time,
+                    slot_type=slot_type,
+                    description=description,
+                )
+            ]
+        return []
+
+    def _create_multiple_slots(self, form, date, cabinet, doctor):
+        """Создание нескольких слотов"""
+        start_time = form.cleaned_data.get("multiple_start_time")
+        end_time = form.cleaned_data.get("multiple_end_time")
+        interval = form.cleaned_data.get("interval")
+
+        if start_time and end_time and interval:
+            return create_time_slots(
+                date, cabinet, doctor, start_time, end_time, interval
+            )
+        return []
 
 
 class TimeSlotUpdateView(LoginRequiredMixin, UpdateView):
@@ -285,7 +258,7 @@ class AppointmentCreateView(CreateView):
         context = super().get_context_data(**kwargs)
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
         context["time_slot"] = time_slot
-        context["doctor"] = time_slot.doctor  # Передаем врача в контекст
+        context["doctor"] = time_slot.doctor
 
         # Получаем информацию о следующем слоте для отображения
         next_slot = time_slot.get_next_consecutive_slot()
@@ -309,10 +282,10 @@ class AppointmentCreateView(CreateView):
             existing_patient = self._check_patient_exists(patient_data)
 
             if existing_patient:
-                # Используем существующего пациента
+                # Используем существующего пациента - сохраняем форму обычным способом
+                # но предварительно устанавливаем пациента
                 appointment = form.save(commit=False)
-                appointment.time_slot = form.time_slot
-                appointment.patient = existing_patient  # Используем найденного пациента
+                appointment.patient = existing_patient
                 appointment.save()
 
                 # Обрабатываем последовательные записи если нужно
@@ -322,9 +295,13 @@ class AppointmentCreateView(CreateView):
                     self.request,
                     f"Запись успешно создана для существующего пациента: {existing_patient.get_full_name()}",
                 )
+
+                # Устанавливаем self.object для корректной работы родительского класса
+                self.object = appointment
+
             else:
                 # Пациента нет - создаем новую запись обычным способом
-                appointment = form.save()
+                self.object = form.save()
                 messages.success(self.request, "Запись успешно создана!")
 
             return HttpResponseRedirect(self.get_success_url())
@@ -390,6 +367,7 @@ class AppointmentCreateView(CreateView):
         return query.first()
 
     def get_success_url(self):
+        # Используем self.object.time_slot.date вместо self.object.time_slot.date
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
 
 
@@ -406,6 +384,8 @@ class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["current_appointment"] = self.object
+        # ДОБАВЬТЕ ЭТУ СТРОКУ: передаем врача в форму
+        kwargs["doctor"] = self.object.doctor
         return kwargs
 
     def get_context_data(self, **kwargs):

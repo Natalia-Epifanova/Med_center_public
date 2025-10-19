@@ -53,7 +53,7 @@
                                         <label for="{{ form.surname.id_for_label }}" class="form-label">
                                             {{ form.surname.label }}
                                         </label>
-                                        {{ form.surname }}
+                                        {{ form.surname }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.surname.errors %}
                                         <div class="text-danger small">{{ form.surname.errors }}</div>
                                         {% endif %}
@@ -62,7 +62,7 @@
                                         <label for="{{ form.first_name.id_for_label }}" class="form-label">
                                             {{ form.first_name.label }}
                                         </label>
-                                        {{ form.first_name }}
+                                        {{ form.first_name }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.first_name.errors %}
                                         <div class="text-danger small">{{ form.first_name.errors }}</div>
                                         {% endif %}
@@ -71,7 +71,7 @@
                                         <label for="{{ form.last_name.id_for_label }}" class="form-label">
                                             {{ form.last_name.label }}
                                         </label>
-                                        {{ form.last_name }}
+                                        {{ form.last_name }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.last_name.errors %}
                                         <div class="text-danger small">{{ form.last_name.errors }}</div>
                                         {% endif %}
@@ -83,7 +83,7 @@
                                         <label for="{{ form.phone_number.id_for_label }}" class="form-label">
                                             {{ form.phone_number.label }}
                                         </label>
-                                        {{ form.phone_number }}
+                                        {{ form.phone_number }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.phone_number.errors %}
                                         <div class="text-danger small">{{ form.phone_number.errors }}</div>
                                         {% endif %}
@@ -92,7 +92,7 @@
                                         <label for="{{ form.card_number.id_for_label }}" class="form-label">
                                             {{ form.card_number.label }}
                                         </label>
-                                        {{ form.card_number }}
+                                        {{ form.card_number }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.card_number.errors %}
                                         <div class="text-danger small">{{ form.card_number.errors }}</div>
                                         {% endif %}
@@ -101,7 +101,7 @@
                                         <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
                                             {{ form.date_of_birth.label }}
                                         </label>
-                                        {{ form.date_of_birth }}
+                                        {{ form.date_of_birth }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.date_of_birth.errors %}
                                         <div class="text-danger small">{{ form.date_of_birth.errors }}</div>
                                         {% endif %}
@@ -137,41 +137,46 @@
                                         {% endif %}
                                     </div>
                                 </div>
-
-                                <div class="row mb-3">
+                                 <div class="row mb-3">
                                     <div class="col-12">
-                                        <label class="form-label d-block">Тип записи:</label>
+                                        <label class="form-label d-block">{{ form.appointment_type.label }}:</label>
                                         <div class="form-check form-check-inline">
                                             <input class="form-check-input" type="radio" name="appointment_type"
-                                                   id="type_none" value="none" checked>
-                                            <label class="form-check-label" for="type_none">Только одна услуга</label>
+                                                   id="appointment_type_none" value="none" checked>
+                                            <label class="form-check-label" for="appointment_type_none">
+                                                Только одна услуга
+                                            </label>
                                         </div>
                                         <div class="form-check form-check-inline">
                                             <input class="form-check-input" type="radio" name="appointment_type"
-                                                   id="type_additional" value="additional">
-                                            <label class="form-check-label" for="type_additional">Добавить вторую
-                                                услугу</label>
+                                                   id="appointment_type_additional" value="additional">
+                                            <label class="form-check-label" for="appointment_type_additional">
+                                                Добавить вторую услугу к этому же врачу
+                                            </label>
                                         </div>
                                         <div class="form-check form-check-inline">
                                             <input class="form-check-input" type="radio" name="appointment_type"
-                                                   id="type_two_slots" value="two_slots">
-                                            <label class="form-check-label" for="type_two_slots">Занять два
-                                                окошка</label>
+                                                   id="appointment_type_two_slots" value="two_slots">
+                                            <label class="form-check-label" for="appointment_type_two_slots">
+                                                Занять два окошка для одной услуги
+                                            </label>
                                         </div>
+                                        {% if form.appointment_type.errors %}
+                                        <div class="text-danger small">{{ form.appointment_type.errors }}</div>
+                                        {% endif %}
                                     </div>
                                 </div>
 
-                                <!-- ДОБАВЬТЕ ЭТОТ БЛОК ДЛЯ ВТОРОЙ УСЛУГИ -->
+                                <!-- Секция для второй услуги -->
                                 <div class="row mb-3" id="additionalServiceSection" style="display: none;">
                                     <div class="col-12">
-                                        <label for="id_additional_service" class="form-label">
-                                            Вторая услуга*
+                                        <label for="{{ form.additional_service.id_for_label }}" class="form-label">
+                                            {{ form.additional_service.label }}
                                         </label>
-                                        <select name="additional_service" class="form-select"
-                                                id="id_additional_service">
-                                            <option value="">---------</option>
-                                            <!-- Опции будут заполнены автоматически через форму -->
-                                        </select>
+                                        {{ form.additional_service }}  <!-- ИСПРАВЛЕНО: используем поле формы -->
+                                        {% if form.additional_service.errors %}
+                                        <div class="text-danger small">{{ form.additional_service.errors }}</div>
+                                        {% endif %}
                                         <div class="form-text">
                                             Будет занят следующий временной слот для второй услуги
                                         </div>
@@ -207,18 +212,21 @@
                                         <label for="{{ form.insurance_type.id_for_label }}" class="form-label">
                                             {{ form.insurance_type.label }}
                                         </label>
-                                        {{ form.insurance_type }}
+                                        {{ form.insurance_type }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.insurance_type.errors %}
                                         <div class="text-danger">{{ form.insurance_type.errors }}</div>
                                         {% endif %}
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-check mt-4">
-                                            {{ form.needs_reschedule }}
+                                            {{ form.needs_reschedule }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                             <label for="{{ form.needs_reschedule.id_for_label }}"
                                                    class="form-check-label">
                                                 {{ form.needs_reschedule.label }}
                                             </label>
+                                            {% if form.needs_reschedule.errors %}
+                                            <div class="text-danger small">{{ form.needs_reschedule.errors }}</div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
@@ -228,7 +236,7 @@
                                         <label for="{{ form.comment.id_for_label }}" class="form-label">
                                             {{ form.comment.label }}
                                         </label>
-                                        {{ form.comment }}
+                                        {{ form.comment }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
                                         {% if form.comment.errors %}
                                         <div class="text-danger">{{ form.comment.errors }}</div>
                                         {% endif %}
@@ -262,44 +270,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const additionalServiceSection = document.getElementById('additionalServiceSection');
     const twoSlotsSection = document.getElementById('twoSlotsSection');
     const additionalServiceSelect = document.getElementById('id_additional_service');
-    const mainServiceSelect = document.getElementById('id_service');
 
     console.log('DOM loaded - initializing event listeners');
-    console.log('Additional service section:', additionalServiceSection);
-    console.log('Two slots section:', twoSlotsSection);
-    console.log('Main service select:', mainServiceSelect);
-    console.log('Additional service select:', additionalServiceSelect);
-
-    // Функция для заполнения дополнительной услуги
-    function populateAdditionalServices() {
-        if (!additionalServiceSelect) {
-            console.error('Additional service select not found');
-            return;
-        }
-
-        console.log('Populating additional services...');
-
-        // Очищаем текущие опции
-        additionalServiceSelect.innerHTML = '<option value="">---------</option>';
-
-        // Копируем опции из основного селекта услуг
-        const mainOptions = mainServiceSelect.querySelectorAll('option');
-        console.log('Main options count:', mainOptions.length);
-
-        mainOptions.forEach(option => {
-            if (option.value !== '') { // Пропускаем пустую опцию
-                const newOption = document.createElement('option');
-                newOption.value = option.value;
-                newOption.textContent = option.textContent;
-                additionalServiceSelect.appendChild(newOption);
-            }
-        });
-
-        console.log('Additional services populated');
-    }
-
-    // Инициализируем при загрузке
-    populateAdditionalServices();
 
     // Обработка изменения типа записи
     appointmentTypeRadios.forEach(radio => {
@@ -317,7 +289,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Показываем нужную секцию в зависимости от выбора
             if (this.value === 'additional' && additionalServiceSection) {
                 additionalServiceSection.style.display = 'block';
-                populateAdditionalServices(); // Заполняем услуги при показе
                 console.log('Showing additional service section');
             } else if (this.value === 'two_slots' && twoSlotsSection) {
                 twoSlotsSection.style.display = 'block';
@@ -325,16 +296,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-
-    // Обновляем дополнительные услуги при изменении основной услуги
-    if (mainServiceSelect) {
-        mainServiceSelect.addEventListener('change', function() {
-            // Если секция дополнительной услуги видна, обновляем список
-            if (additionalServiceSection && additionalServiceSection.style.display === 'block') {
-                populateAdditionalServices();
-            }
-        });
-    }
 
     // Проверка существования пациента
     const checkPatientBtn = document.getElementById('checkPatientBtn');
@@ -434,7 +395,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                patientCheckResult.innerHTML = '<div class="alert alert-danger">Ошибка при проверке пациента: ' + error.message + '. Проверьте консоль для подробностей.</div>';
+                patientCheckResult.innerHTML = '<div class="alert alert-danger">Ошибка при проверке пациента: ' + error.message + '</div>';
             });
         });
     } else {
@@ -455,17 +416,30 @@ document.addEventListener('DOMContentLoaded', function() {
 .form-check-inline {
     margin-right: 1rem;
 }
+
+/* Стили для RadioSelect */
+.form-check {
+    margin-bottom: 0.5rem;
+}
+
+.form-check-input {
+    margin-right: 0.5rem;
+}
+
 .alert-dismissible {
     animation: fadeIn 0.5s;
 }
+
 #additionalServiceSection,
 #twoSlotsSection {
     transition: all 0.3s ease;
 }
+
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
+
 .fa-spinner {
     margin-right: 0.5rem;
 }

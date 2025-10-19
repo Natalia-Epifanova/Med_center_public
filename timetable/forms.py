@@ -1,95 +1,14 @@
 from django import forms
 from django.forms import ModelForm
 
-from .mixins import StyleFormMixin, PatientFieldsMixin, PatientHandlingMixin, ConsecutiveAppointmentMixin
+from .mixins import (
+    StyleFormMixin,
+    PatientFieldsMixin,
+    PatientHandlingMixin,
+    ConsecutiveAppointmentMixin,
+)
 from .models import TimeSlot, Appointment, MedicalService, Patient
 
-#
-# class AppointmentBaseForm(StyleFormMixin, PatientFieldsMixin, PatientHandlingMixin, ConsecutiveAppointmentMixin,
-#                           ModelForm):
-#     """Базовая форма для записи на прием"""
-#
-#     ADDITIONAL_SERVICE_CHOICES = [
-#         ("none", "Только одна услуга"),
-#         ("additional", "Добавить вторую услугу к этому же врачу"),
-#         ("two_slots", "Занять два окошка для одной услуги"),
-#     ]
-#
-#     service = forms.ModelChoiceField(
-#         queryset=MedicalService.objects.none(),
-#         label="Услуга*",
-#         widget=forms.Select(attrs={"class": "form-select"}),
-#     )
-#
-#     appointment_type = forms.ChoiceField(
-#         choices=ADDITIONAL_SERVICE_CHOICES,
-#         initial="none",
-#         label="Тип записи",
-#         widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
-#     )
-#
-#     additional_service = forms.ModelChoiceField(
-#         queryset=MedicalService.objects.none(),
-#         required=False,
-#         label="Вторая услуга",
-#         widget=forms.Select(attrs={"class": "form-select"}),
-#     )
-#
-#     class Meta:
-#         model = Appointment
-#         fields = ["service", "insurance_type", "needs_reschedule", "comment"]
-#         widgets = {
-#             "insurance_type": forms.Select(attrs={"class": "form-select"}),
-#             "needs_reschedule": forms.CheckboxInput(attrs={"class": "form-check-input"}),
-#             "comment": forms.Textarea(
-#                 attrs={"rows": 3, "placeholder": "Комментарий для администратора", "class": "form-control"}),
-#         }
-#         labels = {
-#             "insurance_type": "Тип оплаты*",
-#             "needs_reschedule": "Требуется перезапись на более ранний срок",
-#             "comment": "Комментарий",
-#         }
-#
-#     def __init__(self, *args, **kwargs):
-#         self.doctor = kwargs.pop("doctor", None)
-#         super().__init__(*args, **kwargs)
-#
-#         if self.doctor:
-#             services = self.doctor.get_available_services()
-#             self.fields["service"].queryset = services
-#             self.fields["additional_service"].queryset = services
-#
-#     def clean(self):
-#         cleaned_data = super().clean()
-#         self.clean_patient_data()  # Используем миксин
-#
-#         appointment_type = cleaned_data.get("appointment_type")
-#         additional_service = cleaned_data.get("additional_service")
-#         time_slot = getattr(self, 'time_slot', None)
-#
-#         # Проверка для второй услуги
-#         if appointment_type == "additional" and not additional_service:
-#             raise forms.ValidationError({
-#                 "additional_service": 'При выборе опции "Добавить вторую услугу" необходимо указать вторую услугу'
-#             })
-#
-#         # Проверка последовательных записей
-#         if appointment_type in ["additional", "two_slots"] and time_slot:
-#             current_time_slot = getattr(self, 'current_time_slot', None)
-#             self.validate_consecutive_slot(time_slot, current_time_slot)
-#
-#         return cleaned_data
-#
-#     def get_patient_data(self):
-#         """Извлекает данные пациента из cleaned_data"""
-#         return {
-#             "surname": self.cleaned_data.get("surname"),
-#             "first_name": self.cleaned_data.get("first_name"),
-#             "last_name": self.cleaned_data.get("last_name"),
-#             "phone_number": self.cleaned_data.get("phone_number"),
-#             "card_number": self.cleaned_data.get("card_number"),
-#             "date_of_birth": self.cleaned_data.get("date_of_birth"),
-#         }
 
 class PatientForm(StyleFormMixin, ModelForm):
     """Форма для создания/редактирования пациента"""
@@ -262,65 +181,34 @@ class TimeSlotUpdateForm(StyleFormMixin, ModelForm):
         }
 
 
-class AppointmentForm(StyleFormMixin, ModelForm):
-    """Форма записи на прием с встроенными полями пациента"""
+class AppointmentBaseForm(
+    StyleFormMixin,
+    PatientFieldsMixin,
+    PatientHandlingMixin,
+    ConsecutiveAppointmentMixin,
+    ModelForm,
+):
+    """Базовая форма для записи на прием"""
 
-    # Поля пациента (встроенные в форму записи)
-    surname = forms.CharField(
-        max_length=50,
-        label="Фамилия*",
-        widget=forms.TextInput(attrs={"placeholder": "Введите фамилию"}),
-    )
-    first_name = forms.CharField(
-        max_length=20,
-        label="Имя*",
-        widget=forms.TextInput(attrs={"placeholder": "Введите имя"}),
-    )
-    last_name = forms.CharField(
-        max_length=30,
-        required=False,
-        label="Отчество",
-        widget=forms.TextInput(attrs={"placeholder": "Введите отчество"}),
-    )
-    phone_number = forms.CharField(
-        max_length=12,
-        required=False,
-        label="Телефон",
-        widget=forms.TextInput(attrs={"placeholder": "+7XXXXXXXXXX"}),
-    )
-    card_number = forms.IntegerField(
-        required=False,
-        label="Номер карты",
-        widget=forms.NumberInput(attrs={"placeholder": "Номер карты пациента"}),
-    )
-    date_of_birth = forms.DateField(
-        required=False,
-        label="Дата рождения",
-        widget=forms.DateInput(attrs={"type": "date"}),
-    )
-
-    # Основная услуга (обязательная)
-    service = forms.ModelChoiceField(
-        queryset=MedicalService.objects.none(),
-        label="Услуга*",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-
-    # Опция для добавления второй услуги
     ADDITIONAL_SERVICE_CHOICES = [
         ("none", "Только одна услуга"),
         ("additional", "Добавить вторую услугу к этому же врачу"),
         ("two_slots", "Занять два окошка для одной услуги"),
     ]
 
+    service = forms.ModelChoiceField(
+        queryset=MedicalService.objects.none(),
+        label="Услуга*",
+        widget=forms.Select(attrs={"class": "form-select"}),
+    )
+
     appointment_type = forms.ChoiceField(
         choices=ADDITIONAL_SERVICE_CHOICES,
         initial="none",
         label="Тип записи",
-        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        widget=forms.RadioSelect(),
     )
 
-    # Вторая услуга (опциональная)
     additional_service = forms.ModelChoiceField(
         queryset=MedicalService.objects.none(),
         required=False,
@@ -330,12 +218,7 @@ class AppointmentForm(StyleFormMixin, ModelForm):
 
     class Meta:
         model = Appointment
-        fields = [
-            "service",
-            "insurance_type",
-            "needs_reschedule",
-            "comment",
-        ]  # Добавлено service в fields
+        fields = ["service", "insurance_type", "needs_reschedule", "comment"]
         widgets = {
             "insurance_type": forms.Select(attrs={"class": "form-select"}),
             "needs_reschedule": forms.CheckboxInput(
@@ -356,30 +239,21 @@ class AppointmentForm(StyleFormMixin, ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
-        self.time_slot = kwargs.pop("time_slot", None)
         self.doctor = kwargs.pop("doctor", None)
         super().__init__(*args, **kwargs)
 
-        # ИСПРАВЛЕНИЕ: Используем get_available_services() вместо прямого фильтра
         if self.doctor:
-            # Получаем услуги с учетом исключенных
             services = self.doctor.get_available_services()
             self.fields["service"].queryset = services
             self.fields["additional_service"].queryset = services
 
     def clean(self):
         cleaned_data = super().clean()
+        self.clean_patient_data()  # Используем миксин
+
         appointment_type = cleaned_data.get("appointment_type")
         additional_service = cleaned_data.get("additional_service")
-        time_slot = self.time_slot
-
-        # Проверка обязательных полей пациента
-        surname = cleaned_data.get("surname")
-        first_name = cleaned_data.get("first_name")
-        if not surname or not first_name:
-            raise forms.ValidationError(
-                "Фамилия и имя пациента обязательны для заполнения"
-            )
+        time_slot = getattr(self, "time_slot", None)
 
         # Проверка для второй услуги
         if appointment_type == "additional" and not additional_service:
@@ -389,29 +263,16 @@ class AppointmentForm(StyleFormMixin, ModelForm):
                 }
             )
 
-        # Проверка доступности следующего слота для последовательных записей
+        # Проверка последовательных записей
         if appointment_type in ["additional", "two_slots"] and time_slot:
-            next_slot = time_slot.get_next_consecutive_slot()
-
-            if not next_slot:
-                raise forms.ValidationError(
-                    "Следующий временной слот недоступен для последовательной записи"
-                )
-
-            if not next_slot.is_available():
-                raise forms.ValidationError(
-                    "Следующий временной слот уже занят другим пациентом"
-                )
+            current_time_slot = getattr(self, "current_time_slot", None)
+            self.validate_consecutive_slot(time_slot, current_time_slot)
 
         return cleaned_data
 
-    def save(self, commit=True):
-        # Сохраняем основную запись
-        appointment = super().save(commit=False)
-        appointment.time_slot = self.time_slot
-
-        # Получаем данные пациента
-        patient_data = {
+    def get_patient_data(self):
+        """Извлекает данные пациента из cleaned_data"""
+        return {
             "surname": self.cleaned_data.get("surname"),
             "first_name": self.cleaned_data.get("first_name"),
             "last_name": self.cleaned_data.get("last_name"),
@@ -420,152 +281,62 @@ class AppointmentForm(StyleFormMixin, ModelForm):
             "date_of_birth": self.cleaned_data.get("date_of_birth"),
         }
 
-        # Создаем или находим пациента
-        patient, created = self._get_or_create_patient(patient_data)
+
+class AppointmentForm(AppointmentBaseForm):
+    """Форма создания записи"""
+
+    def __init__(self, *args, **kwargs):
+        self.time_slot = kwargs.pop("time_slot", None)
+        super().__init__(*args, **kwargs)
+
+    def save(self, commit=True):
+        appointment = super().save(commit=False)
+        appointment.time_slot = self.time_slot
+
+        # Создаем/находим пациента
+        patient_data = self.get_patient_data()
+        patient, created = self.get_or_create_patient(patient_data)
         appointment.patient = patient
 
         if commit:
             appointment.save()
-
-            # Создание последовательных записей
-            appointment_type = self.cleaned_data.get("appointment_type")
-            if appointment_type in ["additional", "two_slots"]:
-                next_slot = self.time_slot.get_next_consecutive_slot()
-
-                if next_slot:
-                    if appointment_type == "additional":
-                        # Вторая услуга на следующий слот
-                        consecutive_appointment = Appointment(
-                            time_slot=next_slot,
-                            patient=appointment.patient,
-                            service=self.cleaned_data["additional_service"],
-                            insurance_type=appointment.insurance_type,
-                            status=appointment.status,
-                            is_consecutive=True,
-                            previous_appointment=appointment,
-                            comment=f"Последовательная запись к {appointment.service.name}",
-                        )
-                    else:
-                        # Та же услуга на два слота
-                        consecutive_appointment = Appointment(
-                            time_slot=next_slot,
-                            patient=appointment.patient,
-                            service=appointment.service,  # Используем ту же услугу
-                            insurance_type=appointment.insurance_type,
-                            status=appointment.status,
-                            is_consecutive=True,
-                            previous_appointment=appointment,
-                            occupies_two_slots=True,
-                            comment=f"Продолжение услуги {appointment.service.name} (занято 2 слота)",
-                        )
-                    consecutive_appointment.save()
+            self.handle_consecutive_appointments(appointment)
 
         return appointment
 
-    def _get_or_create_patient(self, patient_data):
-        """Находит существующего пациента или создает нового"""
-        surname = patient_data.get("surname")
-        first_name = patient_data.get("first_name")
-        date_of_birth = patient_data.get("date_of_birth")
+    def handle_consecutive_appointments(self, main_appointment):
+        """Обработка последовательных записей"""
+        appointment_type = self.cleaned_data.get("appointment_type")
 
-        # Проверяем, существует ли пациент
-        if surname and first_name and date_of_birth:
-            existing_patient = Patient.objects.filter(
-                surname__iexact=surname,
-                first_name__iexact=first_name,
-                date_of_birth=date_of_birth,
-            ).first()
+        if appointment_type in ["additional", "two_slots"]:
+            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
 
-            if existing_patient:
-                # Пациент уже существует - возвращаем его
-                return existing_patient, False
-
-        # Создаем нового пациента
-        patient = Patient.objects.create(**patient_data)
-        return patient, True
+            if next_slot and next_slot.is_available():
+                consecutive_appointment = self.create_consecutive_appointment(
+                    main_appointment,
+                    appointment_type,
+                    next_slot,
+                    self.cleaned_data.get("additional_service"),
+                )
+                if consecutive_appointment:
+                    consecutive_appointment.save()
 
 
-class AppointmentUpdateForm(StyleFormMixin, ModelForm):
-    """Форма для полного редактирования записи на прием"""
+class AppointmentUpdateForm(AppointmentBaseForm):
+    """Форма редактирования записи"""
 
-    # Поля пациента (встроенные в форму записи)
-    surname = forms.CharField(
-        max_length=50,
-        label="Фамилия*",
-        widget=forms.TextInput(attrs={"placeholder": "Введите фамилию"}),
-    )
-    first_name = forms.CharField(
-        max_length=20,
-        label="Имя*",
-        widget=forms.TextInput(attrs={"placeholder": "Введите имя"}),
-    )
-    last_name = forms.CharField(
-        max_length=30,
-        required=False,
-        label="Отчество",
-        widget=forms.TextInput(attrs={"placeholder": "Введите отчество"}),
-    )
-    phone_number = forms.CharField(
-        max_length=12,
-        required=False,
-        label="Телефон",
-        widget=forms.TextInput(attrs={"placeholder": "+7XXXXXXXXXX"}),
-    )
-    card_number = forms.IntegerField(
-        required=False,
-        label="Номер карты",
-        widget=forms.NumberInput(attrs={"placeholder": "Номер карты пациента"}),
-    )
-    date_of_birth = forms.DateField(
-        required=False,
-        label="Дата рождения",
-        widget=forms.DateInput(attrs={"type": "date"}),
-    )
-
-    # Новое поле для выбора даты
     appointment_date = forms.DateField(
         label="Дата приема*",
         widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
     )
 
-    # Основная услуга (обязательная)
-    service = forms.ModelChoiceField(
-        queryset=MedicalService.objects.none(),
-        label="Услуга*",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-
-    # Новое поле для выбора временного слота
     time_slot = forms.CharField(
         label="Временной слот*",
-        widget=forms.HiddenInput(),  # Скрытое поле, управляется через JavaScript
+        widget=forms.HiddenInput(),
         required=True,
     )
 
-    # Опция для добавления второй услуги
-    ADDITIONAL_SERVICE_CHOICES = [
-        ("none", "Только одна услуга"),
-        ("additional", "Добавить вторую услугу к этому же врачу"),
-        ("two_slots", "Занять два окошка для одной услуги"),
-    ]
-
-    appointment_type = forms.ChoiceField(
-        choices=ADDITIONAL_SERVICE_CHOICES,
-        initial="none",
-        label="Тип записи",
-        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
-    )
-
-    # Вторая услуга (опциональная)
-    additional_service = forms.ModelChoiceField(
-        queryset=MedicalService.objects.none(),
-        required=False,
-        label="Вторая услуга",
-        widget=forms.Select(attrs={"class": "form-select"}),
-    )
-
-    class Meta:
-        model = Appointment
+    class Meta(AppointmentBaseForm.Meta):
         fields = [
             "appointment_date",
             "time_slot",
@@ -574,52 +345,24 @@ class AppointmentUpdateForm(StyleFormMixin, ModelForm):
             "needs_reschedule",
             "comment",
         ]
-        widgets = {
-            "insurance_type": forms.Select(attrs={"class": "form-select"}),
-            "needs_reschedule": forms.CheckboxInput(
-                attrs={"class": "form-check-input"}
-            ),
-            "comment": forms.Textarea(
-                attrs={
-                    "rows": 3,
-                    "placeholder": "Комментарий для администратора",
-                    "class": "form-control",
-                }
-            ),
-        }
-        labels = {
-            "insurance_type": "Тип оплаты*",
-            "needs_reschedule": "Требуется перезапись на более ранний срок",
-            "comment": "Комментарий",
-        }
 
     def __init__(self, *args, **kwargs):
         self.current_appointment = kwargs.pop("current_appointment", None)
         super().__init__(*args, **kwargs)
 
-        if self.current_appointment:
-            doctor = self.current_appointment.doctor
+        if self.current_appointment and self.instance.pk:
+            self.current_time_slot = self.instance.time_slot
+            self.fields["appointment_date"].initial = self.instance.time_slot.date
+            self.fields["time_slot"].initial = self.instance.time_slot.id
 
-            # Фильтруем услуги по специализации врача
-            services = doctor.get_available_services()
-            self.fields["service"].queryset = services
-            self.fields["additional_service"].queryset = services
+            # Устанавливаем начальное значение для услуги
+            self.fields["service"].initial = self.instance.service
 
-            # Устанавливаем начальную дату (текущая дата записи)
-            if self.instance.pk:
-                self.fields["appointment_date"].initial = self.instance.time_slot.date
-                # Устанавливаем начальное значение для time_slot
-                self.fields["time_slot"].initial = self.instance.time_slot.id
-
-                # Определяем тип записи
-                if self.instance.occupies_two_slots:
-                    self.fields["appointment_type"].initial = "two_slots"
-                elif (
-                    self.instance.is_consecutive and self.instance.previous_appointment
-                ):
-                    self.fields["appointment_type"].initial = "additional"
-                else:
-                    self.fields["appointment_type"].initial = "none"
+            # Определяем тип записи
+            if self.instance.occupies_two_slots:
+                self.fields["appointment_type"].initial = "two_slots"
+            elif self.instance.is_consecutive and self.instance.previous_appointment:
+                self.fields["appointment_type"].initial = "additional"
 
     def clean_time_slot(self):
         """Валидация временного слота"""
@@ -653,139 +396,42 @@ class AppointmentUpdateForm(StyleFormMixin, ModelForm):
 
         return time_slot
 
-    def clean(self):
-        cleaned_data = super().clean()
-        appointment_type = cleaned_data.get("appointment_type")
-        additional_service = cleaned_data.get("additional_service")
-        time_slot = cleaned_data.get("time_slot")
-        appointment_date = cleaned_data.get("appointment_date")
-
-        # Проверка обязательных полей пациента
-        surname = cleaned_data.get("surname")
-        first_name = cleaned_data.get("first_name")
-        if not surname or not first_name:
-            raise forms.ValidationError(
-                "Фамилия и имя пациента обязательны для заполнения"
-            )
-
-        # Проверка даты
-        if not appointment_date:
-            raise forms.ValidationError("Дата приема обязательна для заполнения")
-
-        # Проверка для второй услуги
-        if appointment_type == "additional" and not additional_service:
-            raise forms.ValidationError(
-                'При выборе опции "Добавить вторую услугу" необходимо указать вторую услугу'
-            )
-
-        # Проверка доступности следующего слота для последовательных записей
-        if appointment_type in ["additional", "two_slots"] and time_slot:
-            next_slot = time_slot.get_next_consecutive_slot()
-            current_time_slot = getattr(self.current_appointment, "time_slot", None)
-
-            if not next_slot:
-                raise forms.ValidationError(
-                    "Следующий временной слот недоступен для последовательной записи"
-                )
-
-            if not next_slot.is_available() and next_slot != current_time_slot:
-                raise forms.ValidationError(
-                    "Следующий временной слот уже занят другим пациентом"
-                )
-
-        return cleaned_data
-
     def save(self, commit=True):
-        # Сохраняем основную запись
         appointment = super().save(commit=False)
 
-        # Устанавливаем выбранный временной слот
+        # Обновляем временной слот
         time_slot = self.cleaned_data.get("time_slot")
         if time_slot:
             appointment.time_slot = time_slot
 
-        # Получаем данные пациента
-        patient_data = {
-            "surname": self.cleaned_data.get("surname"),
-            "first_name": self.cleaned_data.get("first_name"),
-            "last_name": self.cleaned_data.get("last_name"),
-            "phone_number": self.cleaned_data.get("phone_number"),
-            "card_number": self.cleaned_data.get("card_number"),
-            "date_of_birth": self.cleaned_data.get("date_of_birth"),
-        }
-
-        # Создаем или находим пациента
-        patient, created = self._get_or_create_patient(patient_data)
+        # Обновляем пациента
+        patient_data = self.get_patient_data()
+        patient, created = self.get_or_create_patient(patient_data)
         appointment.patient = patient
 
         if commit:
-            # Сохраняем основную запись
             appointment.save()
-
-            # Обрабатываем последовательные записи
-            self._handle_consecutive_appointments(appointment)
+            self.handle_consecutive_appointments(appointment)
 
         return appointment
 
-    def _get_or_create_patient(self, patient_data):
-        """Находит существующего пациента или создает нового"""
-        surname = patient_data.get("surname")
-        first_name = patient_data.get("first_name")
-        date_of_birth = patient_data.get("date_of_birth")
-
-        # Проверяем, существует ли пациент
-        if surname and first_name and date_of_birth:
-            existing_patient = Patient.objects.filter(
-                surname__iexact=surname,
-                first_name__iexact=first_name,
-                date_of_birth=date_of_birth,
-            ).first()
-
-            if existing_patient:
-                # Пациент уже существует - возвращаем его
-                return existing_patient, False
-
-        # Создаем нового пациента
-        patient = Patient.objects.create(**patient_data)
-        return patient, True
-
-    def _handle_consecutive_appointments(self, main_appointment):
-        """Обрабатывает последовательные записи"""
-        appointment_type = self.cleaned_data.get("appointment_type")
-
+    def handle_consecutive_appointments(self, main_appointment):
+        """Переопределяем для удаления старых записей"""
         # Удаляем существующие последовательные записи
-        consecutive_appointments = Appointment.objects.filter(
-            previous_appointment=main_appointment
-        )
-        consecutive_appointments.delete()
+        Appointment.objects.filter(previous_appointment=main_appointment).delete()
+
+        # Создаем новые последовательные записи (если нужно)
+        appointment_type = self.cleaned_data.get("appointment_type")
 
         if appointment_type in ["additional", "two_slots"]:
             next_slot = main_appointment.time_slot.get_next_consecutive_slot()
 
             if next_slot and next_slot.is_available():
-                if appointment_type == "additional":
-                    # Вторая услуга на следующий слот
-                    consecutive_appointment = Appointment(
-                        time_slot=next_slot,
-                        patient=main_appointment.patient,
-                        service=self.cleaned_data["additional_service"],
-                        insurance_type=main_appointment.insurance_type,
-                        status=main_appointment.status,
-                        is_consecutive=True,
-                        previous_appointment=main_appointment,
-                        comment=f"Последовательная запись к {main_appointment.service.name}",
-                    )
-                else:
-                    # Та же услуга на два слота
-                    consecutive_appointment = Appointment(
-                        time_slot=next_slot,
-                        patient=main_appointment.patient,
-                        service=main_appointment.service,
-                        insurance_type=main_appointment.insurance_type,
-                        status=main_appointment.status,
-                        is_consecutive=True,
-                        previous_appointment=main_appointment,
-                        occupies_two_slots=True,
-                        comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
-                    )
-                consecutive_appointment.save()
+                consecutive_appointment = self.create_consecutive_appointment(
+                    main_appointment,
+                    appointment_type,
+                    next_slot,
+                    self.cleaned_data.get("additional_service"),
+                )
+                if consecutive_appointment:
+                    consecutive_appointment.save()
