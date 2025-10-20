@@ -1,4 +1,6 @@
 from django import forms
+from django.core.validators import RegexValidator
+
 from .models import Patient, Appointment
 
 
@@ -19,6 +21,10 @@ class PatientFieldsMixin:
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        phone_validator = RegexValidator(
+            regex=r"^\+7\d{10}$",
+            message="Номер телефона должен начинаться с +7 и содержать 12 символов (например: +79501234567)",
+        )
         # Добавляем поля пациента динамически
         self.fields.update(
             {
@@ -54,8 +60,14 @@ class PatientFieldsMixin:
                     max_length=12,
                     required=False,
                     label="Телефон",
+                    validators=[phone_validator],
                     widget=forms.TextInput(
-                        attrs={"placeholder": "+7XXXXXXXXXX", "class": "form-control"}
+                        attrs={
+                            "placeholder": "+79501234567",
+                            "class": "form-control",
+                            "pattern": "^\\+7\\d{10}$",
+                            "title": "Формат: +7XXXXXXXXXX (12 символов)",
+                        }
                     ),
                 ),
                 "card_number": forms.IntegerField(
@@ -87,11 +99,36 @@ class PatientHandlingMixin:
         cleaned_data = self.cleaned_data
         surname = cleaned_data.get("surname")
         first_name = cleaned_data.get("first_name")
+        phone_number = cleaned_data.get("phone_number")
 
         if not surname or not first_name:
             raise forms.ValidationError(
                 "Фамилия и имя пациента обязательны для заполнения"
             )
+            # Дополнительная валидация телефона
+        if phone_number:
+            # Удаляем все пробелы и дефисы
+            cleaned_phone = phone_number.replace(" ", "").replace("-", "")
+
+            # Проверяем формат
+            if not cleaned_phone.startswith("+7"):
+                raise forms.ValidationError(
+                    {"phone_number": "Номер телефона должен начинаться с +7"}
+                )
+
+            if len(cleaned_phone) != 12:
+                raise forms.ValidationError(
+                    {"phone_number": "Номер телефона должен содержать 12 символов"}
+                )
+
+            # Проверяем, что после +7 идут только цифры
+            if not cleaned_phone[1:].isdigit():
+                raise forms.ValidationError(
+                    {"phone_number": "После +7 должны быть только цифры"}
+                )
+
+            # Сохраняем очищенный номер
+            cleaned_data["phone_number"] = cleaned_phone
         return cleaned_data
 
     def get_or_create_patient(self, patient_data):

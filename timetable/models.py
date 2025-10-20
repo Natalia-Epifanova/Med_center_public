@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
@@ -58,12 +60,47 @@ class Patient(models.Model):
         blank=True,
         null=True,
         verbose_name="Телефон пациента",
+        validators=[
+            RegexValidator(
+                regex=r"^\+7\d{10}$",
+                message="Номер телефона должен начинаться с +7 и содержать 12 символов",
+            )
+        ],
     )
     date_of_birth = models.DateField(
         blank=True,
         null=True,
         verbose_name="Дата рождения пациента",
     )
+
+    def clean(self):
+        """Валидация на уровне модели"""
+        super().clean()
+        if self.phone_number:
+            # Удаляем пробелы и дефисы
+            cleaned_phone = self.phone_number.replace(" ", "").replace("-", "")
+
+            if not cleaned_phone.startswith("+7"):
+                raise ValidationError(
+                    {"phone_number": "Номер телефона должен начинаться с +7"}
+                )
+
+            if len(cleaned_phone) != 12:
+                raise ValidationError(
+                    {"phone_number": "Номер телефона должен содержать 12 символов"}
+                )
+
+            if not cleaned_phone[1:].isdigit():
+                raise ValidationError(
+                    {"phone_number": "После +7 должны быть только цифры"}
+                )
+
+            self.phone_number = cleaned_phone
+
+    def save(self, *args, **kwargs):
+        """Переопределяем save для автоматической очистки телефона"""
+        self.clean()
+        super().save(*args, **kwargs)
 
     def get_full_name(self):
         """Возвращает полное ФИО пациента"""

@@ -1,3 +1,21 @@
+function formatPhoneNumber(input) {
+    let value = input.value.replace(/[^\d+]/g, '');
+
+    if (!value.startsWith('+7') && value.length > 0) {
+        if (value.startsWith('7') || value.startsWith('8')) {
+            value = '+7' + value.slice(1);
+        } else {
+            value = '+7' + value;
+        }
+    }
+
+    if (value.length > 12) {
+        value = value.substring(0, 12);
+    }
+
+    input.value = value;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const appointmentTypeRadios = document.querySelectorAll('input[name="appointment_type"]');
     const additionalServiceSection = document.getElementById('additionalServiceSection');
@@ -7,7 +25,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const timeSlotSelect = document.getElementById('time_slot_select');
     const timeSlotHidden = document.getElementById('id_time_slot');
     const appointmentDateInput = document.getElementById('id_appointment_date');
+    const phoneInput = document.getElementById('id_phone_number');
 
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function() {
+            formatPhoneNumber(this);
+        });
+
+        phoneInput.addEventListener('blur', function() {
+            formatPhoneNumber(this);
+        });
+
+        if (phoneInput.value) {
+            formatPhoneNumber(phoneInput);
+        }
+    }
     // Функция для загрузки доступных слотов
     function loadAvailableSlots(date) {
         if (!timeSlotSelect || !date) return;

@@ -1,3 +1,28 @@
+
+// Функция для форматирования номера телефона
+function formatPhoneNumber(input) {
+    // Удаляем все нецифровые символы кроме +
+    let value = input.value.replace(/[^\d+]/g, '');
+
+    // Если номер начинается не с +7, форматируем его
+    if (!value.startsWith('+7') && value.length > 0) {
+        // Если начинается с 7 или 8, заменяем на +7
+        if (value.startsWith('7') || value.startsWith('8')) {
+            value = '+7' + value.slice(1);
+        } else {
+            // Иначе добавляем +7
+            value = '+7' + value;
+        }
+    }
+
+    // Ограничиваем длину до 12 символов
+    if (value.length > 12) {
+        value = value.substring(0, 12);
+    }
+
+    input.value = value;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     const appointmentTypeRadios = document.querySelectorAll('input[name="appointment_type"]');
     const additionalServiceSection = document.getElementById('additionalServiceSection');
@@ -5,7 +30,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const additionalServiceSelect = document.getElementById('id_additional_service');
 
     console.log('DOM loaded - initializing event listeners');
+    const phoneInput = document.getElementById('id_phone_number');
 
+    if (phoneInput) {
+        // Форматируем при вводе
+        phoneInput.addEventListener('input', function() {
+            formatPhoneNumber(this);
+        });
+
+        // Форматируем при потере фокуса
+        phoneInput.addEventListener('blur', function() {
+            formatPhoneNumber(this);
+        });
+
+        // Форматируем при загрузке страницы (если есть значение)
+        if (phoneInput.value) {
+            formatPhoneNumber(phoneInput);
+        }
+    }
     // Обработка изменения типа записи
     appointmentTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
