@@ -185,3 +185,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     console.log('Event listeners initialized successfully');
 });
+// Функция для проверки, является ли услуга медикаментозной блокадой
+function isMedicalBlockade(serviceSelect) {
+    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+    const serviceName = selectedOption.text.toLowerCase();
+
+    // Ключевые слова для идентификации блокад
+    const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
+
+    return blockadeKeywords.some(keyword => serviceName.includes(keyword));
+}
+
+// Обработчик изменения выбора услуги
+document.getElementById('id_service').addEventListener('change', function() {
+    const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
+
+    if (needsProceduralCheckbox && isMedicalBlockade(this)) {
+        // Автоматически отмечаем галочку для блокад
+        needsProceduralCheckbox.checked = true;
+    }
+});
+
+// Инициализация при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    const serviceSelect = document.getElementById('id_service');
+    const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
+
+    if (serviceSelect && needsProceduralCheckbox) {
+
+        if (isMedicalBlockade(serviceSelect)) {
+            needsProceduralCheckbox.checked = true;
+        }
+    }
+});

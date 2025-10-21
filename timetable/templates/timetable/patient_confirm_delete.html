@@ -13,7 +13,7 @@
         <div class="col-6">
             <form class="row" method="post" enctype="multipart/form-data">
                 <div class="card">
-                    <p class="card-text mt-3">Вы уверены, что хотите удалить пациента {{ object.surname }} {{ object.first_name }} по {{ object.last_name }}?</p>
+                    <p class="card-text mt-3">Вы уверены, что хотите удалить пациента {{ object.surname }} {{ object.first_name }} {{ object.last_name }}?</p>
                     <div class="card-body">
                         {% csrf_token %}
                     </div>

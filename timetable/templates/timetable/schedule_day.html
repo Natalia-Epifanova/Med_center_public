@@ -9,7 +9,7 @@
 
 {% block content %}
 <div class="container">
-    <!-- Форма выбора даты и навигация (остается без изменений) -->
+    <!-- Форма выбора даты и навигация -->
     <div class="row mb-4">
         <div class="col-md-8 mx-auto">
             <div class="card timetable-form-card">
@@ -45,7 +45,8 @@
                                    value="{{ selected_date|date:'Y-m-d' }}" required>
                         </div>
                         <div class="col-md-4">
-                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">Показать расписание
+                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">
+                                <i class="fas fa-calendar-alt"></i> Показать расписание
                             </button>
                         </div>
                     </form>

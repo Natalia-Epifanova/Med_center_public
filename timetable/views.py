@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 
+from django import forms
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import models, IntegrityError
+from django.db import models, IntegrityError, transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
@@ -266,8 +267,15 @@ class AppointmentCreateView(CreateView):
 
         return context
 
+    @transaction.atomic
     def form_valid(self, form):
+        print("🔔 НАЧАЛО FORM_VALID (atomic transaction)")
+        sid = None
+
         try:
+            # Создаем точку сохранения для возможного отката
+            sid = transaction.savepoint()
+
             # Получаем данные пациента из формы
             patient_data = {
                 "surname": form.cleaned_data.get("surname"),
@@ -277,39 +285,130 @@ class AppointmentCreateView(CreateView):
                 "card_number": form.cleaned_data.get("card_number"),
                 "date_of_birth": form.cleaned_data.get("date_of_birth"),
             }
+            print(f"🔔 Данные пациента в form_valid: {patient_data}")
 
-            # Ищем существующего пациента
-            existing_patient = self._check_patient_exists(patient_data)
+            # Ищем существующего пациента (используем миксин)
+            patient, created = form.get_or_create_patient(patient_data)
+            print(f"🔔 Пациент в form_valid: {patient}, created: {created}")
 
-            if existing_patient:
-                # Используем существующего пациента - сохраняем форму обычным способом
-                # но предварительно устанавливаем пациента
-                appointment = form.save(commit=False)
-                appointment.patient = existing_patient
-                appointment.save()
-
-                # Обрабатываем последовательные записи если нужно
-                self._create_consecutive_appointments(appointment, form)
-
-                messages.success(
+            # ВАЖНО: Проверяем, что пациент создан/найден
+            if not patient:
+                messages.error(
                     self.request,
-                    f"Запись успешно создана для существующего пациента: {existing_patient.get_full_name()}",
+                    "Не удалось создать или найти пациента. Проверьте данные.",
+                )
+                return self.form_invalid(form)
+
+            # Проверяем, что основной слот все еще свободен
+            time_slot = form.time_slot
+            if not time_slot.is_available():
+                messages.error(
+                    self.request,
+                    "К сожалению, выбранное время уже занято. Пожалуйста, выберите другое время.",
+                )
+                return self.form_invalid(form)
+
+            # ВАЖНО: Проверяем возможность создания процедурной записи ДО сохранения основной
+            needs_procedural = form.cleaned_data.get("needs_procedural")
+            print(f"🔔 Значение needs_procedural: {needs_procedural}")
+            print(f"🔔 Время слота: {time_slot.start_time}-{time_slot.end_time}")
+
+            if needs_procedural:
+                print("🔄 ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА ПРОЦЕДУРНОЙ ЗАПИСИ")
+                # Создаем временный объект appointment для проверки
+                temp_appointment = Appointment(
+                    time_slot=time_slot,
+                    patient=patient,
+                    service=form.cleaned_data.get("service"),
+                    insurance_type=form.cleaned_data.get("insurance_type"),
                 )
 
-                # Устанавливаем self.object для корректной работы родительского класса
-                self.object = appointment
+                can_create_procedural = form.can_create_procedural_appointment(
+                    temp_appointment
+                )
+                if not can_create_procedural:
+                    messages.error(
+                        self.request,
+                        "Невозможно создать запись: выбранное время в процедурном кабинете уже занято. "
+                        "Пожалуйста, выберите другое время или снимите галочку 'Занять окошко в процедурном кабинете'.",
+                    )
+                    return self.form_invalid(form)
+                else:
+                    print("✅ Предварительная проверка процедурной записи пройдена")
 
-            else:
-                # Пациента нет - создаем новую запись обычным способом
-                self.object = form.save()
+            # ВАЖНО: Сначала сохраняем основную запись
+            print("💾 СОХРАНЕНИЕ ОСНОВНОЙ ЗАПИСИ В БД")
+            self.object = form.save(commit=True)
+            print(f"✅ Основная запись сохранена в БД: ID={self.object.id}")
+
+            # Обрабатываем процедурную запись если нужно
+            procedural_result = None
+            if needs_procedural:
+                print("🔄 СОЗДАНИЕ ПРОЦЕДУРНОЙ ЗАПИСИ")
+                try:
+                    procedural_result = form.create_procedural_appointment(self.object)
+                    if not procedural_result:
+                        # Откатываем транзакцию если не удалось создать процедурную запись
+                        transaction.savepoint_rollback(sid)
+                        messages.error(
+                            self.request,
+                            "Не удалось создать запись в процедурном кабинете. Пожалуйста, попробуйте другое время.",
+                        )
+                        return self.form_invalid(form)
+                    print(f"✅ Процедурная запись создана: ID={procedural_result.id}")
+                except forms.ValidationError as e:
+                    # Откатываем транзакцию при ошибке валидации
+                    transaction.savepoint_rollback(sid)
+                    messages.error(self.request, str(e))
+                    return self.form_invalid(form)
+                except Exception as e:
+                    # Откатываем транзакцию при любой другой ошибке
+                    transaction.savepoint_rollback(sid)
+                    print(f"❌ Ошибка при создании процедурной записи: {str(e)}")
+                    messages.error(
+                        self.request,
+                        f"Ошибка при создании записи в процедурном кабинете: {str(e)}",
+                    )
+                    return self.form_invalid(form)
+
+            # Обрабатываем последовательные записи если нужно
+            self._create_consecutive_appointments(self.object, form)
+
+            # Если все успешно - коммитим транзакцию
+            transaction.savepoint_commit(sid)
+
+            if created:
                 messages.success(self.request, "Запись успешно создана!")
+            else:
+                messages.success(
+                    self.request,
+                    f"Запись успешно создана для существующего пациента: {patient.get_full_name()}",
+                )
 
+            print("🔔 КОНЕЦ FORM_VALID - УСПЕХ")
             return HttpResponseRedirect(self.get_success_url())
 
+        except forms.ValidationError as e:
+            print(f"❌ Ошибка валидации в form_valid: {str(e)}")
+            if sid:
+                transaction.savepoint_rollback(sid)
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
+
         except IntegrityError as e:
+            print(f"❌ Ошибка IntegrityError в form_valid: {str(e)}")
+            if sid:
+                transaction.savepoint_rollback(sid)
             messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
             return self.form_invalid(form)
+
         except Exception as e:
+            print(f"❌ Неожиданная ошибка в form_valid: {str(e)}")
+            if sid:
+                transaction.savepoint_rollback(sid)
+            import traceback
+
+            print(f"❌ Traceback: {traceback.format_exc()}")
             messages.error(self.request, f"Неожиданная ошибка: {str(e)}")
             return self.form_invalid(form)
 
@@ -447,18 +546,34 @@ class AppointmentDeleteView(LoginRequiredMixin, DeleteView):
 
     def get_success_url(self):
         date = self.object.date
-        messages.success(self.request, "Запись успешно удалена.")
         return reverse_lazy("timetable:schedule_day") + f"?date={date}"
 
     def delete(self, request, *args, **kwargs):
-        # Удаляем также все последующие записи в цепочке
         appointment = self.get_object()
-        chain = appointment.get_consecutive_appointments()[1:]  # Все кроме текущей
 
-        for appt in chain:
-            appt.delete()
+        # Удаляем ВСЕ записи, которые ссылаются на эту запись как на предыдущую
+        # Это включает процедурные записи и любые другие связанные записи
+        related_appointments = Appointment.objects.filter(
+            previous_appointment=appointment
+        )
+        related_count = related_appointments.count()
 
-        return super().delete(request, *args, **kwargs)
+        # Удаляем связанные записи
+        related_appointments.delete()
+
+        # Удаляем основную запись
+        result = super().delete(request, *args, **kwargs)
+
+        # Сообщение пользователю
+        if related_count > 0:
+            messages.success(
+                self.request,
+                f"Запись и {related_count} связанных записей успешно удалены.",
+            )
+        else:
+            messages.success(self.request, "Запись успешно удалена.")
+
+        return result
 
 
 class RescheduleRequestsView(LoginRequiredMixin, ListView):

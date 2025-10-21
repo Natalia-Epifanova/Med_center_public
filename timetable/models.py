@@ -120,6 +120,7 @@ class Patient(models.Model):
             models.UniqueConstraint(
                 fields=["surname", "first_name", "last_name", "date_of_birth"],
                 name="unique_patient_full_info",
+                violation_error_message="Пациент с такими ФИО и датой рождения уже существует в базе.",
             )
         ]
 
@@ -279,6 +280,53 @@ class TimeSlot(models.Model):
             slot_type="working",
         ).first()
 
+    def has_time_conflict(self, other_slot):
+        """Проверяет, пересекается ли этот слот с другим слотом"""
+        if self.date != other_slot.date:
+            return False
+
+        # Проверяем пересечение временных интервалов
+        return not (
+            self.end_time <= other_slot.start_time
+            or self.start_time >= other_slot.end_time
+        )
+
+    @classmethod
+    def get_conflicting_slots(
+        cls, date, start_time, end_time, cabinet=None, exclude_slot_id=None
+    ):
+        """Находит все конфликтующие слоты для указанного времени"""
+        queryset = cls.objects.filter(
+            date=date,
+            # Ищем слоты, которые пересекаются с указанным временем
+            start_time__lt=end_time,  # слот начинается до окончания нашего времени
+            end_time__gt=start_time,  # слот заканчивается после начала нашего времени
+            slot_type="working",  # только рабочие слоты
+        )
+
+        if cabinet:
+            queryset = queryset.filter(cabinet=cabinet)
+
+        if exclude_slot_id:
+            queryset = queryset.exclude(id=exclude_slot_id)
+
+        return queryset
+
+    def is_time_available(self, cabinet=None):
+        """Проверяет, доступно ли это время в указанном кабинете"""
+        conflicting_slots = TimeSlot.get_conflicting_slots(
+            date=self.date,
+            start_time=self.start_time,
+            end_time=self.end_time,
+            cabinet=cabinet,
+            exclude_slot_id=self.id,
+        )
+        return not conflicting_slots.exists()
+
+    def has_time_overlap(self, other_start, other_end):
+        """Проверяет, пересекается ли этот временной интервал с другим"""
+        return not (self.end_time <= other_start or self.start_time >= other_end)
+
 
 class Appointment(models.Model):
     # Статусы записи
@@ -330,7 +378,7 @@ class Appointment(models.Model):
     )
     previous_appointment = models.ForeignKey(
         "self",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         blank=True,
         null=True,
         verbose_name="Предыдущая запись в цепочке",
@@ -347,7 +395,16 @@ class Appointment(models.Model):
         ordering = ["time_slot__date", "time_slot__start_time"]
 
     def __str__(self):
-        return f"{self.patient.surname} - {self.time_slot.doctor.surname} - {self.time_slot.date} {self.time_slot.start_time}"
+        patient_name = self.patient.surname if self.patient else "Нет пациента"
+        doctor_name = (
+            self.time_slot.doctor.surname if self.time_slot.doctor else "Нет врача"
+        )
+        date_time = (
+            f"{self.time_slot.date} {self.time_slot.start_time}"
+            if self.time_slot
+            else "Нет слота"
+        )
+        return f"{patient_name} - {doctor_name} - {date_time}"
 
     @property
     def date(self):

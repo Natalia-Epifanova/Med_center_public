@@ -12,7 +12,7 @@
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-10">
-            <div class="card">
+            <div class="card timetable-form-card">
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-calendar-plus"></i>
@@ -31,7 +31,7 @@
                     {% if messages %}
                     <div class="messages">
                         {% for message in messages %}
-                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show timetable-alert" role="alert">
                             {{ message }}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>
@@ -161,6 +161,20 @@
                                                 Занять два окошка для одной услуги
                                             </label>
                                         </div>
+                                        <div class="row mb-3">
+                                            <div class="col-12">
+                                                <div class="form-check">
+                                                    <input type="checkbox" name="needs_procedural" class="form-check-input"
+                                                           id="id_needs_procedural" checked> <!-- ДОБАВЛЕНО checked -->
+                                                    <label for="id_needs_procedural" class="form-check-label">
+                                                        Занять окошко в процедурном кабинете
+                                                    </label>
+                                                    <div class="form-text">
+                                                        Автоматически займет такое же время в процедурном кабинете
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         {% if form.appointment_type.errors %}
                                         <div class="text-danger small">{{ form.appointment_type.errors }}</div>
                                         {% endif %}
@@ -261,10 +275,41 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== DEBUG: Appointment Form Loaded ===');
+    const needsProcedural = document.getElementById('id_needs_procedural');
+    console.log('Needs procedural element:', needsProcedural);
+    console.log('Needs procedural checked:', needsProcedural?.checked);
+
+    // Проверяем все поля формы
+    const form = document.getElementById('appointmentForm');
+    const formData = new FormData(form);
+    for (let [key, value] of formData.entries()) {
+        console.log(`Form field: ${key} = ${value}`);
+    }
+
+    // Логируем отправку формы
+    form.addEventListener('submit', function(e) {
+        console.log('=== FORM SUBMITTED ===');
+        console.log('Needs procedural final value:', document.getElementById('id_needs_procedural')?.checked);
+
+        // Выводим все данные формы
+        const submitData = new FormData(this);
+        for (let [key, value] of submitData.entries()) {
+            console.log(`Submit field: ${key} = ${value}`);
+        }
+    });
+});
+</script>
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
+    console.log('Form loaded - debugging procedural appointment');
+    console.log('Needs procedural checkbox:', document.getElementById('id_needs_procedural'));
+    console.log('Needs procedural checked:', document.getElementById('id_needs_procedural')?.checked);
     const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
 </script>
