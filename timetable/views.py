@@ -13,6 +13,7 @@ from django.views.generic import (
     DeleteView,
     DetailView,
     ListView,
+    FormView,
 )
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
@@ -27,6 +28,7 @@ from timetable.forms import (
     AppointmentUpdateForm,
 )
 from timetable.models import TimeSlot, Patient, Appointment
+from timetable.services import TimeSlotService
 from timetable.utils import save_slots_with_conflict_check, create_time_slots
 
 
@@ -34,13 +36,10 @@ class HomeView(TemplateView):
     template_name = "timetable/home.html"
 
 
-class TimeSlotCreateView(LoginRequiredMixin, CreateView):
-    model = TimeSlot
+class TimeSlotCreateView(LoginRequiredMixin, FormView):  # Изменяем наследование
     form_class = TimeSlotForm
     template_name = "timetable/schedule_create.html"
-
-    def get_success_url(self):
-        return reverse_lazy("timetable:schedule_create")
+    success_url = reverse_lazy("timetable:schedule_create")
 
     def form_valid(self, form):
         date = form.cleaned_data["date"]
@@ -54,7 +53,7 @@ class TimeSlotCreateView(LoginRequiredMixin, CreateView):
             else:
                 slots = self._create_multiple_slots(form, date, cabinet, doctor)
 
-            saved_count = save_slots_with_conflict_check(slots)
+            saved_count = TimeSlotService.save_slots_with_conflict_check(slots)
 
             if saved_count > 0:
                 messages.success(self.request, f"Успешно создано {saved_count} слотов")
@@ -95,7 +94,7 @@ class TimeSlotCreateView(LoginRequiredMixin, CreateView):
         interval = form.cleaned_data.get("interval")
 
         if start_time and end_time and interval:
-            return create_time_slots(
+            return TimeSlotService.create_time_slots(
                 date, cabinet, doctor, start_time, end_time, interval
             )
         return []
@@ -164,21 +163,32 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
         slots = TimeSlot.objects.filter(date=selected_date).select_related(
             "cabinet", "doctor"
         )
-        cabinets = set(slot.cabinet for slot in slots)
+        # Желаемый порядок кабинетов
+        desired_order = [4, 6, 1, 2, 3, 25, 26]
+
+        # Получаем уникальные кабинеты
+        all_cabinets = list(set(slot.cabinet for slot in slots))
+
+        # Сортируем кабинеты: сначала в желаемом порядке, потом остальные
+        cabinets_in_order = []
+        other_cabinets = []
+
+        for cabinet in all_cabinets:
+            if cabinet.number in desired_order:
+                cabinets_in_order.append(cabinet)
+            else:
+                other_cabinets.append(cabinet)
+
+        # Сортируем кабинеты в желаемом порядке
+        cabinets_in_order.sort(key=lambda x: desired_order.index(x.number))
+        # Сортируем остальные кабинеты по номеру
+        other_cabinets.sort(key=lambda x: x.number)
+
+        # Объединяем списки
+        cabinets_sorted = cabinets_in_order + other_cabinets
 
         schedule_data = {}
-        for cabinet in cabinets:
-            cabinet_slots = slots.filter(cabinet=cabinet).order_by("start_time")
-            schedule_data[cabinet] = cabinet_slots
-
-        context["schedule_data"] = schedule_data
-        slots = TimeSlot.objects.filter(date=selected_date).select_related(
-            "cabinet", "doctor"
-        )
-        cabinets = set(slot.cabinet for slot in slots)
-
-        schedule_data = {}
-        for cabinet in cabinets:
+        for cabinet in cabinets_sorted:
             cabinet_slots = slots.filter(cabinet=cabinet).order_by("start_time")
 
             # Группируем слоты по врачам с комментариями
@@ -258,215 +268,29 @@ class AppointmentCreateView(CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
-        context["time_slot"] = time_slot
-        context["doctor"] = time_slot.doctor
-
-        # Получаем информацию о следующем слоте для отображения
-        next_slot = time_slot.get_next_consecutive_slot()
-        context["next_slot"] = next_slot
-
+        context.update(
+            {
+                "time_slot": time_slot,
+                "doctor": time_slot.doctor,
+                "next_slot": time_slot.get_next_consecutive_slot(),
+            }
+        )
         return context
 
     @transaction.atomic
     def form_valid(self, form):
-        print("🔔 НАЧАЛО FORM_VALID (atomic transaction)")
-        sid = None
-
         try:
-            # Создаем точку сохранения для возможного отката
-            sid = transaction.savepoint()
-
-            # Получаем данные пациента из формы
-            patient_data = {
-                "surname": form.cleaned_data.get("surname"),
-                "first_name": form.cleaned_data.get("first_name"),
-                "last_name": form.cleaned_data.get("last_name"),
-                "phone_number": form.cleaned_data.get("phone_number"),
-                "card_number": form.cleaned_data.get("card_number"),
-                "date_of_birth": form.cleaned_data.get("date_of_birth"),
-            }
-            print(f"🔔 Данные пациента в form_valid: {patient_data}")
-
-            # Ищем существующего пациента (используем миксин)
-            patient, created = form.get_or_create_patient(patient_data)
-            print(f"🔔 Пациент в form_valid: {patient}, created: {created}")
-
-            # ВАЖНО: Проверяем, что пациент создан/найден
-            if not patient:
-                messages.error(
-                    self.request,
-                    "Не удалось создать или найти пациента. Проверьте данные.",
-                )
-                return self.form_invalid(form)
-
-            # Проверяем, что основной слот все еще свободен
-            time_slot = form.time_slot
-            if not time_slot.is_available():
-                messages.error(
-                    self.request,
-                    "К сожалению, выбранное время уже занято. Пожалуйста, выберите другое время.",
-                )
-                return self.form_invalid(form)
-
-            # ВАЖНО: Проверяем возможность создания процедурной записи ДО сохранения основной
-            needs_procedural = form.cleaned_data.get("needs_procedural")
-            print(f"🔔 Значение needs_procedural: {needs_procedural}")
-            print(f"🔔 Время слота: {time_slot.start_time}-{time_slot.end_time}")
-
-            if needs_procedural:
-                print("🔄 ПРЕДВАРИТЕЛЬНАЯ ПРОВЕРКА ПРОЦЕДУРНОЙ ЗАПИСИ")
-                # Создаем временный объект appointment для проверки
-                temp_appointment = Appointment(
-                    time_slot=time_slot,
-                    patient=patient,
-                    service=form.cleaned_data.get("service"),
-                    insurance_type=form.cleaned_data.get("insurance_type"),
-                )
-
-                can_create_procedural = form.can_create_procedural_appointment(
-                    temp_appointment
-                )
-                if not can_create_procedural:
-                    messages.error(
-                        self.request,
-                        "Невозможно создать запись: выбранное время в процедурном кабинете уже занято. "
-                        "Пожалуйста, выберите другое время или снимите галочку 'Занять окошко в процедурном кабинете'.",
-                    )
-                    return self.form_invalid(form)
-                else:
-                    print("✅ Предварительная проверка процедурной записи пройдена")
-
-            # ВАЖНО: Сначала сохраняем основную запись
-            print("💾 СОХРАНЕНИЕ ОСНОВНОЙ ЗАПИСИ В БД")
-            self.object = form.save(commit=True)
-            print(f"✅ Основная запись сохранена в БД: ID={self.object.id}")
-
-            # Обрабатываем процедурную запись если нужно
-            procedural_result = None
-            if needs_procedural:
-                print("🔄 СОЗДАНИЕ ПРОЦЕДУРНОЙ ЗАПИСИ")
-                try:
-                    procedural_result = form.create_procedural_appointment(self.object)
-                    if not procedural_result:
-                        # Откатываем транзакцию если не удалось создать процедурную запись
-                        transaction.savepoint_rollback(sid)
-                        messages.error(
-                            self.request,
-                            "Не удалось создать запись в процедурном кабинете. Пожалуйста, попробуйте другое время.",
-                        )
-                        return self.form_invalid(form)
-                    print(f"✅ Процедурная запись создана: ID={procedural_result.id}")
-                except forms.ValidationError as e:
-                    # Откатываем транзакцию при ошибке валидации
-                    transaction.savepoint_rollback(sid)
-                    messages.error(self.request, str(e))
-                    return self.form_invalid(form)
-                except Exception as e:
-                    # Откатываем транзакцию при любой другой ошибке
-                    transaction.savepoint_rollback(sid)
-                    print(f"❌ Ошибка при создании процедурной записи: {str(e)}")
-                    messages.error(
-                        self.request,
-                        f"Ошибка при создании записи в процедурном кабинете: {str(e)}",
-                    )
-                    return self.form_invalid(form)
-
-            # Обрабатываем последовательные записи если нужно
-            self._create_consecutive_appointments(self.object, form)
-
-            # Если все успешно - коммитим транзакцию
-            transaction.savepoint_commit(sid)
-
-            if created:
-                messages.success(self.request, "Запись успешно создана!")
-            else:
-                messages.success(
-                    self.request,
-                    f"Запись успешно создана для существующего пациента: {patient.get_full_name()}",
-                )
-
-            print("🔔 КОНЕЦ FORM_VALID - УСПЕХ")
+            # Сохраняем результат form.save() в self.object
+            self.object = form.save()
+            messages.success(self.request, "Запись успешно создана!")
             return HttpResponseRedirect(self.get_success_url())
 
-        except forms.ValidationError as e:
-            print(f"❌ Ошибка валидации в form_valid: {str(e)}")
-            if sid:
-                transaction.savepoint_rollback(sid)
-            messages.error(self.request, str(e))
-            return self.form_invalid(form)
-
-        except IntegrityError as e:
-            print(f"❌ Ошибка IntegrityError в form_valid: {str(e)}")
-            if sid:
-                transaction.savepoint_rollback(sid)
+        except Exception as e:
             messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
             return self.form_invalid(form)
 
-        except Exception as e:
-            print(f"❌ Неожиданная ошибка в form_valid: {str(e)}")
-            if sid:
-                transaction.savepoint_rollback(sid)
-            import traceback
-
-            print(f"❌ Traceback: {traceback.format_exc()}")
-            messages.error(self.request, f"Неожиданная ошибка: {str(e)}")
-            return self.form_invalid(form)
-
-    def _create_consecutive_appointments(self, main_appointment, form):
-        """Создание последовательных записей (второй услуги или двух слотов)"""
-        appointment_type = form.cleaned_data.get("appointment_type")
-
-        if appointment_type in ["additional", "two_slots"]:
-            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
-
-            if next_slot:
-                if appointment_type == "additional":
-                    consecutive_appointment = Appointment(
-                        time_slot=next_slot,
-                        patient=main_appointment.patient,
-                        service=form.cleaned_data["additional_service"],
-                        insurance_type=main_appointment.insurance_type,
-                        status=main_appointment.status,
-                        is_consecutive=True,
-                        previous_appointment=main_appointment,
-                        comment=f"Последовательная запись к {main_appointment.service.name}",
-                    )
-                else:
-                    consecutive_appointment = Appointment(
-                        time_slot=next_slot,
-                        patient=main_appointment.patient,
-                        service=main_appointment.service,
-                        insurance_type=main_appointment.insurance_type,
-                        status=main_appointment.status,
-                        is_consecutive=True,
-                        previous_appointment=main_appointment,
-                        occupies_two_slots=True,
-                        comment=f"Продолжение услуги {main_appointment.service.name}",
-                    )
-                consecutive_appointment.save()
-
-    def _check_patient_exists(self, patient_data):
-        """Проверяет существование пациента и возвращает объект пациента если найден"""
-        surname = patient_data.get("surname")
-        first_name = patient_data.get("first_name")
-        date_of_birth = patient_data.get("date_of_birth")
-
-        if not surname or not first_name:
-            return None
-
-        # Базовый поиск по ФИО
-        query = Patient.objects.filter(
-            surname__iexact=surname, first_name__iexact=first_name
-        )
-
-        # Если указана дата рождения, добавляем в фильтр
-        if date_of_birth:
-            query = query.filter(date_of_birth=date_of_birth)
-
-        return query.first()
-
     def get_success_url(self):
-        # Используем self.object.time_slot.date вместо self.object.time_slot.date
+        # Теперь self.object будет доступен
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
 
 

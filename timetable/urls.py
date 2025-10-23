@@ -18,7 +18,11 @@ from timetable.views import (
     RescheduleRequestsView,
     AppointmentCreateView,
 )
-from timetable.views_api import check_patient_api, get_available_slots
+from timetable.views_api import (
+    check_patient_api,
+    get_available_slots,
+    check_procedural_availability,
+)
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -75,5 +79,10 @@ urlpatterns = [
         "api/get-available-slots/",
         get_available_slots,
         name="api_get_available_slots",
+    ),
+    path(
+        "api/check-procedural-availability/",
+        check_procedural_availability,
+        name="api_check_procedural_availability",
     ),
 ]

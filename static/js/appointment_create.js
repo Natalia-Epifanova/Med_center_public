@@ -1,4 +1,3 @@
-
 // Функция для форматирования номера телефона
 function formatPhoneNumber(input) {
     // Удаляем все нецифровые символы кроме +
@@ -23,31 +22,62 @@ function formatPhoneNumber(input) {
     input.value = value;
 }
 
+// Функция для проверки, является ли услуга медикаментозной блокадой
+function isMedicalBlockade(serviceSelect) {
+    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+    if (!selectedOption || selectedOption.value === '') {
+        return false;
+    }
+
+    const serviceName = selectedOption.text.toLowerCase();
+
+    // Ключевые слова для идентификации блокад
+    const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
+
+    return blockadeKeywords.some(keyword => serviceName.includes(keyword));
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('=== DEBUG: Appointment Form Loaded ===');
+
     const appointmentTypeRadios = document.querySelectorAll('input[name="appointment_type"]');
     const additionalServiceSection = document.getElementById('additionalServiceSection');
     const twoSlotsSection = document.getElementById('twoSlotsSection');
     const additionalServiceSelect = document.getElementById('id_additional_service');
-
-    console.log('DOM loaded - initializing event listeners');
+    const serviceSelect = document.getElementById('id_service');
+    const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
     const phoneInput = document.getElementById('id_phone_number');
 
+    // Форматирование номера телефона
     if (phoneInput) {
-        // Форматируем при вводе
         phoneInput.addEventListener('input', function() {
             formatPhoneNumber(this);
         });
 
-        // Форматируем при потере фокуса
         phoneInput.addEventListener('blur', function() {
             formatPhoneNumber(this);
         });
 
-        // Форматируем при загрузке страницы (если есть значение)
         if (phoneInput.value) {
             formatPhoneNumber(phoneInput);
         }
     }
+
+    // Автоматическая отметка процедурного кабинета для блокад
+    if (serviceSelect && needsProceduralCheckbox) {
+        serviceSelect.addEventListener('change', function() {
+            if (isMedicalBlockade(this)) {
+                needsProceduralCheckbox.checked = true;
+                console.log('Auto-checked procedural for medical blockade');
+            }
+        });
+
+        // Инициализация при загрузке
+        if (isMedicalBlockade(serviceSelect)) {
+            needsProceduralCheckbox.checked = true;
+        }
+    }
+
     // Обработка изменения типа записи
     appointmentTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
@@ -184,37 +214,4 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     console.log('Event listeners initialized successfully');
-});
-// Функция для проверки, является ли услуга медикаментозной блокадой
-function isMedicalBlockade(serviceSelect) {
-    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-    const serviceName = selectedOption.text.toLowerCase();
-
-    // Ключевые слова для идентификации блокад
-    const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
-
-    return blockadeKeywords.some(keyword => serviceName.includes(keyword));
-}
-
-// Обработчик изменения выбора услуги
-document.getElementById('id_service').addEventListener('change', function() {
-    const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
-
-    if (needsProceduralCheckbox && isMedicalBlockade(this)) {
-        // Автоматически отмечаем галочку для блокад
-        needsProceduralCheckbox.checked = true;
-    }
-});
-
-// Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    const serviceSelect = document.getElementById('id_service');
-    const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
-
-    if (serviceSelect && needsProceduralCheckbox) {
-
-        if (isMedicalBlockade(serviceSelect)) {
-            needsProceduralCheckbox.checked = true;
-        }
-    }
 });

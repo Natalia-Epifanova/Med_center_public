@@ -53,7 +53,7 @@
                                         <label for="{{ form.surname.id_for_label }}" class="form-label">
                                             {{ form.surname.label }}
                                         </label>
-                                        {{ form.surname }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.surname }}
                                         {% if form.surname.errors %}
                                         <div class="text-danger small">{{ form.surname.errors }}</div>
                                         {% endif %}
@@ -62,7 +62,7 @@
                                         <label for="{{ form.first_name.id_for_label }}" class="form-label">
                                             {{ form.first_name.label }}
                                         </label>
-                                        {{ form.first_name }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.first_name }}
                                         {% if form.first_name.errors %}
                                         <div class="text-danger small">{{ form.first_name.errors }}</div>
                                         {% endif %}
@@ -71,7 +71,7 @@
                                         <label for="{{ form.last_name.id_for_label }}" class="form-label">
                                             {{ form.last_name.label }}
                                         </label>
-                                        {{ form.last_name }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.last_name }}
                                         {% if form.last_name.errors %}
                                         <div class="text-danger small">{{ form.last_name.errors }}</div>
                                         {% endif %}
@@ -83,7 +83,7 @@
                                         <label for="{{ form.phone_number.id_for_label }}" class="form-label">
                                             {{ form.phone_number.label }}
                                         </label>
-                                        {{ form.phone_number }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.phone_number }}
                                         {% if form.phone_number.errors %}
                                         <div class="text-danger small">{{ form.phone_number.errors }}</div>
                                         {% endif %}
@@ -92,7 +92,7 @@
                                         <label for="{{ form.card_number.id_for_label }}" class="form-label">
                                             {{ form.card_number.label }}
                                         </label>
-                                        {{ form.card_number }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.card_number }}
                                         {% if form.card_number.errors %}
                                         <div class="text-danger small">{{ form.card_number.errors }}</div>
                                         {% endif %}
@@ -101,7 +101,7 @@
                                         <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
                                             {{ form.date_of_birth.label }}
                                         </label>
-                                        {{ form.date_of_birth }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.date_of_birth }}
                                         {% if form.date_of_birth.errors %}
                                         <div class="text-danger small">{{ form.date_of_birth.errors }}</div>
                                         {% endif %}
@@ -137,7 +137,8 @@
                                         {% endif %}
                                     </div>
                                 </div>
-                                 <div class="row mb-3">
+
+                                <div class="row mb-3">
                                     <div class="col-12">
                                         <label class="form-label d-block">{{ form.appointment_type.label }}:</label>
                                         <div class="form-check form-check-inline">
@@ -161,23 +162,23 @@
                                                 Занять два окошка для одной услуги
                                             </label>
                                         </div>
-                                        <div class="row mb-3">
-                                            <div class="col-12">
-                                                <div class="form-check">
-                                                    <input type="checkbox" name="needs_procedural" class="form-check-input"
-                                                           id="id_needs_procedural" checked> <!-- ДОБАВЛЕНО checked -->
-                                                    <label for="id_needs_procedural" class="form-check-label">
-                                                        Занять окошко в процедурном кабинете
-                                                    </label>
-                                                    <div class="form-text">
-                                                        Автоматически займет такое же время в процедурном кабинете
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                         {% if form.appointment_type.errors %}
                                         <div class="text-danger small">{{ form.appointment_type.errors }}</div>
                                         {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            {{ form.needs_procedural }}
+                                            <label for="{{ form.needs_procedural.id_for_label }}" class="form-check-label">
+                                                {{ form.needs_procedural.label }}
+                                            </label>
+                                            <div class="form-text">
+                                                {{ form.needs_procedural.help_text }}
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -187,7 +188,7 @@
                                         <label for="{{ form.additional_service.id_for_label }}" class="form-label">
                                             {{ form.additional_service.label }}
                                         </label>
-                                        {{ form.additional_service }}  <!-- ИСПРАВЛЕНО: используем поле формы -->
+                                        {{ form.additional_service }}
                                         {% if form.additional_service.errors %}
                                         <div class="text-danger small">{{ form.additional_service.errors }}</div>
                                         {% endif %}
@@ -226,16 +227,15 @@
                                         <label for="{{ form.insurance_type.id_for_label }}" class="form-label">
                                             {{ form.insurance_type.label }}
                                         </label>
-                                        {{ form.insurance_type }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.insurance_type }}
                                         {% if form.insurance_type.errors %}
                                         <div class="text-danger">{{ form.insurance_type.errors }}</div>
                                         {% endif %}
                                     </div>
                                     <div class="col-md-6">
                                         <div class="form-check mt-4">
-                                            {{ form.needs_reschedule }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
-                                            <label for="{{ form.needs_reschedule.id_for_label }}"
-                                                   class="form-check-label">
+                                            {{ form.needs_reschedule }}
+                                            <label for="{{ form.needs_reschedule.id_for_label }}" class="form-check-label">
                                                 {{ form.needs_reschedule.label }}
                                             </label>
                                             {% if form.needs_reschedule.errors %}
@@ -250,7 +250,7 @@
                                         <label for="{{ form.comment.id_for_label }}" class="form-label">
                                             {{ form.comment.label }}
                                         </label>
-                                        {{ form.comment }}  <!-- ИСПРАВЛЕНО: убраны лишние теги -->
+                                        {{ form.comment }}
                                         {% if form.comment.errors %}
                                         <div class="text-danger">{{ form.comment.errors }}</div>
                                         {% endif %}
@@ -275,41 +275,10 @@
         </div>
     </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('=== DEBUG: Appointment Form Loaded ===');
-    const needsProcedural = document.getElementById('id_needs_procedural');
-    console.log('Needs procedural element:', needsProcedural);
-    console.log('Needs procedural checked:', needsProcedural?.checked);
-
-    // Проверяем все поля формы
-    const form = document.getElementById('appointmentForm');
-    const formData = new FormData(form);
-    for (let [key, value] of formData.entries()) {
-        console.log(`Form field: ${key} = ${value}`);
-    }
-
-    // Логируем отправку формы
-    form.addEventListener('submit', function(e) {
-        console.log('=== FORM SUBMITTED ===');
-        console.log('Needs procedural final value:', document.getElementById('id_needs_procedural')?.checked);
-
-        // Выводим все данные формы
-        const submitData = new FormData(this);
-        for (let [key, value] of submitData.entries()) {
-            console.log(`Submit field: ${key} = ${value}`);
-        }
-    });
-});
-</script>
-
 {% endblock %}
 
 {% block extra_js %}
 <script>
-    console.log('Form loaded - debugging procedural appointment');
-    console.log('Needs procedural checkbox:', document.getElementById('id_needs_procedural'));
-    console.log('Needs procedural checked:', document.getElementById('id_needs_procedural')?.checked);
     const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
 </script>

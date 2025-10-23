@@ -1,3 +1,118 @@
+function checkProceduralAvailability(date, startTime, endTime, callback) {
+    fetch('/timetable/api/check-procedural-availability/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+            date: date,
+            start_time: startTime,
+            end_time: endTime,
+            current_appointment_id: currentAppointmentId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (callback) callback(data);
+    })
+    .catch(error => {
+        console.error('Error checking procedural availability:', error);
+        if (callback) callback({ is_available: false, error: error.message });
+    });
+}
+
+// Функция для получения времени слота по ID
+function getSlotTime(slotId) {
+    const option = timeSlotSelect.querySelector(`option[value="${slotId}"]`);
+    if (option) {
+        return option.textContent.split(' (')[0]; // Возвращаем только время
+    }
+    return null;
+}
+
+// Обработка изменения временного слота с проверкой процедурного кабинета
+if (timeSlotSelect) {
+    timeSlotSelect.addEventListener('change', function() {
+        const selectedSlotId = this.value;
+
+        // Обновляем скрытое поле формы
+        timeSlotHidden.value = selectedSlotId;
+        updateSlotInfo();
+
+        // Проверяем доступность процедурного кабинета если галочка установлена
+        const needsProcedural = document.getElementById('id_needs_procedural');
+        if (needsProcedural && needsProcedural.checked && selectedSlotId) {
+            const appointmentDate = appointmentDateInput.value;
+            const slotTime = getSlotTime(selectedSlotId);
+
+            if (appointmentDate && slotTime) {
+                const [startTime, endTime] = slotTime.split('-');
+
+                // Добавляем секунды для формата времени
+                const startTimeWithSeconds = startTime.trim() + ':00';
+                const endTimeWithSeconds = endTime.trim() + ':00';
+
+                console.log('Checking procedural availability for:', appointmentDate, startTimeWithSeconds, endTimeWithSeconds);
+
+                checkProceduralAvailability(appointmentDate, startTimeWithSeconds, endTimeWithSeconds, function(result) {
+                    if (!result.is_available) {
+                        const warningDiv = document.getElementById('proceduralWarning');
+                        if (!warningDiv) {
+                            const newWarning = document.createElement('div');
+                            newWarning.id = 'proceduralWarning';
+                            newWarning.className = 'alert alert-warning mt-2';
+                            newWarning.innerHTML = `
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <strong>Внимание!</strong> Выбранное время в процедурном кабинете занято.
+                                ${result.occupied_slots && result.occupied_slots.length > 0 ?
+                                    `Занято: ${result.occupied_slots.map(slot => slot.time).join(', ')}` : ''}
+                                <br>При сохранении записи галочка "Занять окошко в процедурном кабинете" будет снята.
+                            `;
+                            timeSlotSelect.parentNode.appendChild(newWarning);
+                        }
+                    } else {
+                        const warningDiv = document.getElementById('proceduralWarning');
+                        if (warningDiv) {
+                            warningDiv.remove();
+                        }
+                    }
+                });
+            }
+        }
+    });
+}
+
+// Обработка изменения галочки процедурного кабинета
+const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
+if (needsProceduralCheckbox) {
+    needsProceduralCheckbox.addEventListener('change', function() {
+        const warningDiv = document.getElementById('proceduralWarning');
+        if (warningDiv) {
+            warningDiv.remove();
+        }
+
+        // Если галочка установлена, проверяем доступность текущего слота
+        if (this.checked && timeSlotSelect.value) {
+            const appointmentDate = appointmentDateInput.value;
+            const slotTime = getSlotTime(timeSlotSelect.value);
+
+            if (appointmentDate && slotTime) {
+                const [startTime, endTime] = slotTime.split('-');
+                const startTimeWithSeconds = startTime.trim() + ':00';
+                const endTimeWithSeconds = endTime.trim() + ':00';
+
+                checkProceduralAvailability(appointmentDate, startTimeWithSeconds, endTimeWithSeconds, function(result) {
+                    if (!result.is_available) {
+                        this.checked = false;
+                        alert('Невозможно занять окошко в процедурном кабинете: выбранное время уже занято. Пожалуйста, выберите другое время.');
+                    }
+                }.bind(this));
+            }
+        }
+    });
+}
+
 function formatPhoneNumber(input) {
     let value = input.value.replace(/[^\d+]/g, '');
 
