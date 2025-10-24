@@ -17,6 +17,7 @@ from timetable.views import (
     AppointmentDeleteView,
     RescheduleRequestsView,
     AppointmentCreateView,
+    ProceduralAppointmentCreateView,
 )
 from timetable.views_api import (
     check_patient_api,
@@ -84,5 +85,10 @@ urlpatterns = [
         "api/check-procedural-availability/",
         check_procedural_availability,
         name="api_check_procedural_availability",
+    ),
+    path(
+        "appointment/create-procedural/",
+        ProceduralAppointmentCreateView.as_view(),
+        name="appointment_create_procedural",
     ),
 ]

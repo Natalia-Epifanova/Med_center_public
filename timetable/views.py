@@ -26,8 +26,9 @@ from timetable.forms import (
     PatientForm,
     AppointmentForm,
     AppointmentUpdateForm,
+    ProceduralAppointmentForm,
 )
-from timetable.models import TimeSlot, Patient, Appointment
+from timetable.models import TimeSlot, Patient, Appointment, Cabinet, Doctor
 from timetable.services import TimeSlotService
 from timetable.utils import save_slots_with_conflict_check, create_time_slots
 
@@ -417,3 +418,61 @@ class RescheduleRequestsView(LoginRequiredMixin, ListView):
         ).select_related(
             "patient", "time_slot__doctor", "time_slot__cabinet", "service"
         )
+
+
+class ProceduralAppointmentCreateView(LoginRequiredMixin, CreateView):
+    """Создание записи в процедурный кабинет без привязки к слоту"""
+
+    model = Appointment
+    form_class = ProceduralAppointmentForm
+    template_name = "timetable/procedural_appointment_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        # Получаем дату из GET параметров
+        date_str = self.request.GET.get("date")
+        if date_str:
+            try:
+                self.selected_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                self.selected_date = timezone.now().date()
+        else:
+            self.selected_date = timezone.now().date()
+
+        # Находим процедурный кабинет и врача-медсестр
+
+        self.procedural_cabinet = Cabinet.objects.get(number=6)
+        self.nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
+
+        # Передаем selected_date в форму
+        kwargs["selected_date"] = self.selected_date
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        context.update(
+            {
+                "selected_date": self.selected_date,
+                "procedural_cabinet": self.procedural_cabinet,
+                "nurse_doctor": self.nurse_doctor,
+            }
+        )
+        return context
+
+    def form_valid(self, form):
+        try:
+            # Сохраняем запись
+            self.object = form.save()
+
+            messages.success(
+                self.request, "Запись в процедурный кабинет создана успешно!"
+            )
+            return redirect(self.get_success_url())
+
+        except Exception as e:
+            messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
+            return self.form_invalid(form)
+
+    def get_success_url(self):
+        return reverse("timetable:schedule_day") + f"?date={self.selected_date}"

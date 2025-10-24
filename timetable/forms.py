@@ -509,3 +509,139 @@ class AppointmentUpdateForm(AppointmentBaseForm):
                 )
                 if consecutive_appointment:
                     consecutive_appointment.save()
+
+
+class ProceduralAppointmentForm(AppointmentBaseForm):
+    """Форма для создания записи в процедурный кабинет"""
+
+    procedural_start_time = forms.TimeField(
+        required=True,
+        label="Время начала",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+    )
+    procedural_end_time = forms.TimeField(
+        required=True,
+        label="Время окончания",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        # Обрабатываем параметр selected_date
+        self.selected_date = kwargs.pop("selected_date", None)
+        # Убираем параметры, которые не нужны для процедурной формы
+        kwargs.pop("time_slot", None)
+        kwargs.pop("doctor", None)
+        super().__init__(*args, **kwargs)
+
+        # Убираем поле needs_procedural и procedural_time_slot
+        if "needs_procedural" in self.fields:
+            del self.fields["needs_procedural"]
+        if "procedural_time_slot" in self.fields:
+            del self.fields["procedural_time_slot"]
+
+        # Настраиваем queryset для услуг - только те, что доступны медсестре
+        self.set_nurse_services()
+
+    def set_nurse_services(self):
+        """Устанавливает queryset услуг, доступных для медсестры"""
+        from .models import MedicalServiceCategory
+
+        # Категории услуг, которые может оказывать медсестра
+        nurse_categories = [
+            MedicalServiceCategory.MEDICAL_BLOCKADES,
+            MedicalServiceCategory.ANALYZES,
+            # Добавьте другие категории, если нужно
+        ]
+
+        # Получаем услуги для указанных категорий
+        nurse_services = MedicalService.objects.filter(
+            category__in=nurse_categories, is_active=True
+        )
+
+        # Обновляем queryset для поля service
+        self.fields["service"].queryset = nurse_services
+
+        # Также обновляем queryset для additional_service
+        if "additional_service" in self.fields:
+            self.fields["additional_service"].queryset = nurse_services
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Валидация времени
+        start_time = cleaned_data.get("procedural_start_time")
+        end_time = cleaned_data.get("procedural_end_time")
+
+        if start_time and end_time and start_time >= end_time:
+            raise forms.ValidationError(
+                "Время окончания должно быть позже времени начала"
+            )
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        # Создание/поиск пациента
+        patient_data = self._get_patient_data()
+        patient, created = PatientService.get_or_create_patient(patient_data)
+
+        # Создание записи
+        appointment = super().save(commit=False)
+
+        # Создаем новый слот
+        start_time = self.cleaned_data.get("procedural_start_time")
+        end_time = self.cleaned_data.get("procedural_end_time")
+        time_slot = self.create_procedural_slot(start_time, end_time)
+
+        appointment.time_slot = time_slot
+        appointment.patient = patient
+
+        if commit:
+            appointment.save()
+            # Обработка последовательных записей
+            self._handle_consecutive_appointments(appointment)
+
+        return appointment
+
+    def create_procedural_slot(self, start_time, end_time):
+        """Создает временный слот для процедурного кабинета"""
+        from django.utils import timezone
+        from .models import Cabinet, Doctor, TimeSlot
+
+        try:
+            procedural_cabinet = Cabinet.objects.get(number=6)
+            nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
+
+            # Используем дату из параметра или текущую дату
+            date = self.selected_date or timezone.now().date()
+
+            time_slot = TimeSlot.objects.create(
+                date=date,
+                cabinet=procedural_cabinet,
+                doctor=nurse_doctor,
+                start_time=start_time,
+                end_time=end_time,
+                slot_type="working",
+                description="Процедурный кабинет - индивидуальная запись",
+            )
+            return time_slot
+        except Exception as e:
+            raise forms.ValidationError(f"Ошибка при создании слота: {str(e)}")
+
+    def _handle_consecutive_appointments(self, main_appointment):
+        """Обработка последовательных записей"""
+        appointment_type = self.cleaned_data.get("appointment_type")
+
+        if appointment_type in ["additional", "two_slots"]:
+            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
+
+            if next_slot and next_slot.is_available():
+                consecutive_appointment = (
+                    AppointmentService.create_consecutive_appointment(
+                        main_appointment,
+                        appointment_type,
+                        next_slot,
+                        self.cleaned_data.get("additional_service"),
+                    )
+                )
+                if consecutive_appointment:
+                    consecutive_appointment.save()

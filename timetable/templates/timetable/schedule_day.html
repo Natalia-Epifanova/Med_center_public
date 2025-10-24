@@ -81,6 +81,15 @@
             </a>
         </div>
     </div>
+    <!-- Кнопка для процедурного кабинета -->
+    <div class="row mb-3">
+        <div class="col-md-8 mx-auto text-center">
+            <a href="{% url 'timetable:appointment_create_procedural' %}?date={{ selected_date|date:'Y-m-d' }}"
+               class="btn btn-warning">
+                <i class="fas fa-syringe"></i> Добавить запись в процедурный кабинет
+            </a>
+        </div>
+    </div>
 </div>
 
 
