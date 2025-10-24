@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import ModelForm
 from .mixins import StyleFormMixin, PatientFieldsMixin, ServiceBasedFormMixin
-from .models import TimeSlot, Appointment, MedicalService, Patient
+from .models import TimeSlot, Appointment, MedicalService, Patient, DayComment
 from .services import PatientService, AppointmentService
 from .validators import TimeSlotValidator, AppointmentValidator
 
@@ -645,3 +645,21 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
                 )
                 if consecutive_appointment:
                     consecutive_appointment.save()
+
+
+class DayCommentForm(StyleFormMixin, ModelForm):
+    """Форма для комментария дня"""
+
+    class Meta:
+        model = DayComment
+        fields = ['comment']
+        widgets = {
+            'comment': forms.Textarea(attrs={
+                'rows': 3,
+                'class': 'form-control',
+                'placeholder': 'Например: Роза с 8-14'
+            }),
+        }
+        labels = {
+            'comment': 'Комментарий для дня',
+        }

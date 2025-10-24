@@ -18,6 +18,7 @@ from timetable.views import (
     RescheduleRequestsView,
     AppointmentCreateView,
     ProceduralAppointmentCreateView,
+    save_day_comment,
 )
 from timetable.views_api import (
     check_patient_api,
@@ -91,4 +92,5 @@ urlpatterns = [
         ProceduralAppointmentCreateView.as_view(),
         name="appointment_create_procedural",
     ),
+    path("day-comment/save/", save_day_comment, name="save_day_comment"),
 ]

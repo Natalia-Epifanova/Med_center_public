@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta
 
 from django import forms
+from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models, IntegrityError, transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic import (
     TemplateView,
     CreateView,
@@ -27,8 +29,9 @@ from timetable.forms import (
     AppointmentForm,
     AppointmentUpdateForm,
     ProceduralAppointmentForm,
+    DayCommentForm,
 )
-from timetable.models import TimeSlot, Patient, Appointment, Cabinet, Doctor
+from timetable.models import TimeSlot, Patient, Appointment, Cabinet, Doctor, DayComment
 from timetable.services import TimeSlotService
 from timetable.utils import save_slots_with_conflict_check, create_time_slots
 
@@ -159,6 +162,19 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
         next_date = selected_date + timedelta(days=1)
         context["prev_date"] = prev_date
         context["next_date"] = next_date
+
+        try:
+            day_comment = DayComment.objects.get(date=selected_date)
+            context["day_comment"] = day_comment
+            context["day_comment_form"] = DayCommentForm(instance=day_comment)
+        except DayComment.DoesNotExist:
+            context["day_comment"] = None
+            context["day_comment_form"] = DayCommentForm(
+                initial={"date": selected_date}
+            )
+
+            # Проверяем права пользователя
+        context["user_can_edit_comments"] = self.request.user.is_staff
 
         # Получаем слоты на выбранную дату
         slots = TimeSlot.objects.filter(date=selected_date).select_related(
@@ -476,3 +492,32 @@ class ProceduralAppointmentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse("timetable:schedule_day") + f"?date={self.selected_date}"
+
+
+@login_required
+@require_POST
+def save_day_comment(request):
+    """Сохранение комментария дня (только для администраторов)"""
+    if not request.user.is_staff:
+        return JsonResponse({"error": "Недостаточно прав"}, status=403)
+
+    date_str = request.POST.get("date")
+    comment_text = request.POST.get("comment", "").strip()
+
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        # Создаем или обновляем комментарий
+        comment_obj, created = DayComment.objects.update_or_create(
+            date=date,
+            defaults={
+                "comment": comment_text,
+            },
+        )
+
+        return JsonResponse(
+            {"success": True, "message": "Комментарий сохранен", "created": created}
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)

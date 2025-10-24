@@ -458,3 +458,21 @@ class Appointment(models.Model):
             return False
 
         return True
+
+
+class DayComment(models.Model):
+    """Комментарий для дня (только для администраторов)"""
+
+    date = models.DateField(unique=True, verbose_name="Дата")
+    comment = models.TextField(verbose_name="Комментарий", blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Комментарий дня"
+        verbose_name_plural = "Комментарии дней"
+        ordering = ["-date"]
+
+    def __str__(self):
+        return f"Комментарий на {self.date}: {self.comment[:50]}..."
