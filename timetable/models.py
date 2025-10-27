@@ -72,6 +72,66 @@ class Patient(models.Model):
         null=True,
         verbose_name="Дата рождения пациента",
     )
+    gender = models.CharField(
+        max_length=10,
+        blank=True,
+        null=True,
+        verbose_name="Пол",
+        choices=[("male", "Мужской"), ("female", "Женский")],
+    )
+    area = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Субъект РФ",
+    )
+    locality = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Населенный пункт",
+    )
+    city = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Город",
+    )
+    district = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Район",
+    )
+    address = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Адрес",
+    )
+    passport = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Паспортные данные",
+    )
+    polis_oms = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        verbose_name="Полис ОМС",
+    )
+    snils = models.CharField(
+        max_length=14,
+        blank=True,
+        null=True,
+        verbose_name="СНИЛС",
+    )
+    insurance_company = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name="Страховая компания",
+    )
 
     def clean(self):
         """Валидация на уровне модели"""
