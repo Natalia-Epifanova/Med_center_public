@@ -11,13 +11,12 @@ from django.views.generic import (
 )
 
 from patients.models import Patient
-from patients.forms import PatientForm
+from patients.forms import PatientForm, PatientFullForm
 
 
-# Create your views here.
 class PatientListView(LoginRequiredMixin, ListView):
     model = Patient
-    template_name = "timetable/patient_list.html"
+    template_name = "patients/patient_list.html"
     context_object_name = "patients"
     paginate_by = 20
 
@@ -36,24 +35,24 @@ class PatientListView(LoginRequiredMixin, ListView):
 
 class PatientCreateView(LoginRequiredMixin, CreateView):
     model = Patient
-    form_class = PatientForm
-    template_name = "timetable/patient_form.html"
-    success_url = reverse_lazy("timetable:patient_list")
+    form_class = PatientForm  # Минимальная форма для создания
+    template_name = "patients/patient_form.html"
+    success_url = reverse_lazy("patients:patient_list")
 
 
 class PatientUpdateView(LoginRequiredMixin, UpdateView):
     model = Patient
-    form_class = PatientForm
-    template_name = "timetable/patient_form.html"
-    success_url = reverse_lazy("timetable:patient_list")
+    form_class = PatientFullForm
+    template_name = "patients/patient_form.html"
+    success_url = reverse_lazy("patients:patient_list")
 
 
 class PatientDetailView(LoginRequiredMixin, DetailView):
     model = Patient
-    template_name = "timetable/patient_detail.html"
+    template_name = "patients/patient_detail.html"
 
 
 class PatientDeleteView(LoginRequiredMixin, DeleteView):
     model = Patient
-    template_name = "timetable/patient_confirm_delete.html"
-    success_url = reverse_lazy("timetable:patient_list")
+    template_name = "patients/patient_confirm_delete.html"
+    success_url = reverse_lazy("patients:patient_list")
