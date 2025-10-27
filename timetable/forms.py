@@ -1,35 +1,10 @@
 from django import forms
 from django.forms import ModelForm
-from .mixins import StyleFormMixin, PatientFieldsMixin, ServiceBasedFormMixin
-from .models import TimeSlot, Appointment, MedicalService, Patient, DayComment
+from .mixins import StyleFormMixin, ServiceBasedFormMixin
+from patients.mixins import PatientFieldsMixin
+from .models import TimeSlot, Appointment, MedicalService, DayComment
 from .services import PatientService, AppointmentService
-from .validators import TimeSlotValidator, AppointmentValidator
-
-
-class PatientForm(StyleFormMixin, ModelForm):
-    """Форма для создания/редактирования пациента"""
-
-    class Meta:
-        model = Patient
-        fields = [
-            "surname",
-            "first_name",
-            "last_name",
-            "phone_number",
-            "card_number",
-            "date_of_birth",
-        ]
-        widgets = {
-            "date_of_birth": forms.DateInput(attrs={"type": "date"}),
-        }
-        labels = {
-            "surname": "Фамилия",
-            "first_name": "Имя",
-            "last_name": "Отчество",
-            "phone_number": "Телефон",
-            "card_number": "Номер карты",
-            "date_of_birth": "Дата рождения",
-        }
+from .validators import AppointmentValidator
 
 
 class TimeSlotForm(StyleFormMixin, ModelForm):
@@ -652,14 +627,16 @@ class DayCommentForm(StyleFormMixin, ModelForm):
 
     class Meta:
         model = DayComment
-        fields = ['comment']
+        fields = ["comment"]
         widgets = {
-            'comment': forms.Textarea(attrs={
-                'rows': 3,
-                'class': 'form-control',
-                'placeholder': 'Например: Роза с 8-14'
-            }),
+            "comment": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "class": "form-control",
+                    "placeholder": "Например: Роза с 8-14",
+                }
+            ),
         }
         labels = {
-            'comment': 'Комментарий для дня',
+            "comment": "Комментарий для дня",
         }

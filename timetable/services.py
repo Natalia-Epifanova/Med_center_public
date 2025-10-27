@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from .models import Patient, TimeSlot, Appointment, Cabinet, Doctor
+from .models import TimeSlot, Appointment, Cabinet, Doctor
+from patients.models import Patient
 from .validators import PatientValidator, AppointmentValidator
 from datetime import datetime, timedelta
 

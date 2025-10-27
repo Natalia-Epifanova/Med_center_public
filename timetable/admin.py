@@ -6,9 +6,9 @@ from timetable.models import (
     Doctor,
     MedicalService,
     MedicalServiceCategory,
-    Patient,
     TimeSlot,
 )
+from patients.models import Patient
 
 
 @admin.register(Cabinet)

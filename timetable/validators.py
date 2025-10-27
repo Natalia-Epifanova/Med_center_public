@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
 from django.db.models import Q
-from .models import TimeSlot, Appointment, Patient
+from .models import TimeSlot, Appointment
+from patients.models import Patient
 
 
 class PatientValidator:
