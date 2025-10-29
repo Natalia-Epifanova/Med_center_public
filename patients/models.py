@@ -136,6 +136,16 @@ class Patient(models.Model):
             parts.append(self.last_name)
         return " ".join(parts)
 
+    def get_appointment_history(self):
+        """Получить историю записей пациента"""
+        from timetable.models import Appointment
+
+        return (
+            Appointment.objects.filter(patient=self)
+            .select_related("time_slot__doctor", "service", "time_slot__cabinet")
+            .order_by("-time_slot__date", "-time_slot__start_time")
+        )
+
     def __str__(self):
         card_info = f" (карта {self.card_number})" if self.card_number else ""
         return f"{self.get_full_name()}{card_info}"

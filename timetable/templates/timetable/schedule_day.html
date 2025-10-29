@@ -209,7 +209,16 @@
                             </thead>
                             <tbody>
                             {% for slot in doctor_data.slots %}
-                            <tr class="{% if slot.slot_type == 'break' %}timetable-slot-break bg-warning bg-opacity-25{% else %}timetable-slot-working{% endif %}">
+                            <tr class="{% if slot.slot_type == 'break' %}timetable-slot-break bg-warning bg-opacity-25
+                                        {% else %}
+                                            {% with appointment=slot.appointments.first %}
+                                                {% if appointment %}
+                                                    {% if appointment.insurance_type == 'dms' %}timetable-slot-dms
+                                                    {% elif appointment.insurance_type == 'oms' %}timetable-slot-oms
+                                                    {% else %}timetable-slot-working{% endif %}
+                                                {% else %}timetable-slot-working{% endif %}
+                                            {% endwith %}
+                                        {% endif %}">
                                 <td>
                                     <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
                                        class="text-decoration-none"
@@ -220,6 +229,20 @@
                                     <br>
                                     <small class="text-muted fw-bold">Перерыв</small>
                                     {% endif %}
+
+                                    <!-- Индикатор типа оплаты -->
+                                    {% with appointment=slot.appointments.first %}
+                                        {% if appointment and slot.slot_type == 'working' %}
+                                            <br>
+                                            <small class="badge
+                                                {% if appointment.insurance_type == 'dms' %}bg-pink text-white
+                                                {% elif appointment.insurance_type == 'oms' %}bg-purple text-white
+                                                {% elif appointment.insurance_type == 'paid' %}bg-success text-white
+                                                {% else %}bg-secondary text-white{% endif %}">
+                                                <strong>{{ appointment.get_insurance_type_display }}</strong>
+                                            </small>
+                                        {% endif %}
+                                    {% endwith %}
                                 </td>
                                 <td>
                                     {% if slot.slot_type == 'working' %}
@@ -346,7 +369,61 @@
     </div>
 </div>
 {% endif %}
+<!-- Легенда расписания -->
+<div class="row mb-3">
+    <div class="col-md-10 mx-auto">
+        <div class="card">
+            <div class="card-body py-2">
+                <div class="d-flex flex-wrap gap-3 align-items-center justify-content-center">
+                    <small class="text-muted"><strong>Легенда типов оплаты:</strong></small>
 
+                    <!-- Бейджи -->
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-pink text-white me-1 px-2 py-1">
+                            <strong>ДМС</strong>
+                        </span>
+                        <small class="text-muted">- Добровольное медицинское страхование</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-purple text-white me-1 px-2 py-1">
+                            <strong>ОМС</strong>
+                        </span>
+                        <small class="text-muted">- Обязательное медицинское страхование</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-success text-white me-1 px-2 py-1">
+                            <strong>Платно</strong>
+                        </span>
+                        <small class="text-muted">- Платные услуги</small>
+                    </div>
+
+                    <!-- Примеры фона -->
+                    <div class="d-flex align-items-center">
+                        <div class="timetable-slot-dms me-1 px-2 py-1 rounded" style="min-width: 60px; text-align: center;">
+                            <small class="fw-bold">ДМС</small>
+                        </div>
+                        <small class="text-muted">- Запись по ДМС</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="timetable-slot-oms me-1 px-2 py-1 rounded" style="min-width: 60px; text-align: center;">
+                            <small class="fw-bold">ОМС</small>
+                        </div>
+                        <small class="text-muted">- Запись по ОМС</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Тестовый блок - удалить после проверки -->
+<div style="display: none;" class="test-styles">
+    <div class="timetable-slot-dms" style="padding: 10px; margin: 10px;">
+        Тест ДМС стиля - если этот текст розовый, стили работают
+    </div>
+    <div class="timetable-slot-oms" style="padding: 10px; margin: 10px;">
+        Тест ОМС стиля - если этот текст фиолетовый, стили работают
+    </div>
+</div>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Автоматическая отправка формы при изменении даты

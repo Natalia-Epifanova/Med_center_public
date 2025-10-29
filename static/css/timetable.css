@@ -1,63 +1,204 @@
-/* Стили для карточек расписания */
-.timetable-table-responsive {
-    border-radius: 0.375rem;
-}
+/* ===== ОСНОВНЫЕ СТИЛИ РАСПИСАНИЯ ===== */
 
-.timetable-card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: 1px solid rgba(0, 0, 0, 0.125);
-    height: 100%;
-}
-
-.timetable-card-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
-}
-
-.timetable-table th {
-    border-top: none;
-    font-weight: 600;
-}
-
-.timetable-badge {
-    font-size: 0.7em;
-}
-
+/* Контейнеры и карточки */
 .timetable-container-fluid {
     padding-left: 8px;
     padding-right: 8px;
 }
 
-.timetable-btn-group .btn {
-    margin-right: 5px;
+.timetable-card {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #dee2e6;
+    height: 100%;
 }
 
-/* Стили для секций слотов */
-.timetable-slot-section {
-    border-left: 4px solid #74F69B;
-    padding-left: 15px;
-    margin-bottom: 20px;
-    transition: all 0.3s ease;
+.timetable-cabinet-card {
+    min-height: 300px;
 }
 
-/* Стили для таблицы расписания */
+.timetable-table-responsive {
+    border-radius: 6px;
+}
+
+/* Заголовки */
+.timetable-cabinet-header {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+.card-header.bg-primary {
+    background-color: #28a745 !important;
+    color: white !important;
+}
+
+/* Таблицы */
+.timetable-table th {
+    border-top: none;
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+
 .timetable-table-sm th {
     font-size: 0.8rem;
 }
 
 .timetable-table-sm td {
     font-size: 0.75rem;
+    font-weight: 500;
 }
 
-/* Стили для карточек кабинетов */
-.timetable-cabinet-card {
-    min-height: 300px;
+/* ===== СТИЛИ СЛОТОВ ПО ТИПУ ОПЛАТЫ ===== */
+
+/* ДМС - розовая гамма */
+.timetable-slot-dms {
+    background-color: #ffeef8 !important;
+    border-left: 4px solid #e83e8c;
+    color: #721c47 !important;
 }
 
-.timetable-cabinet-header {
-    background: linear-gradient(135deg, #74F69B 0%, #5ac47e 100%) !important;
+.timetable-slot-dms td,
+.timetable-slot-dms small {
+    color: #721c47 !important;
+    font-weight: 500;
 }
 
-/* Адаптивные стили */
+.timetable-slot-dms a {
+    color: #c8236c !important;
+    font-weight: bold;
+}
+
+.timetable-slot-dms:hover {
+    background-color: #fcddec !important;
+}
+
+/* ОМС - фиолетовая гамма */
+.timetable-slot-oms {
+    background-color: #f0e8ff !important;
+    border-left: 4px solid #6f42c1;
+    color: #4a2d7a !important;
+}
+
+.timetable-slot-oms td,
+.timetable-slot-oms small {
+    color: #4a2d7a !important;
+    font-weight: 500;
+}
+
+.timetable-slot-oms a {
+    color: #5a3d9d !important;
+    font-weight: bold;
+}
+
+.timetable-slot-oms:hover {
+    background-color: #e6dbf9 !important;
+}
+
+/* Свободные слоты */
+.timetable-slot-working {
+    background-color: #ffffff !important;
+    color: #212529 !important;
+}
+
+.timetable-slot-working:hover {
+    background-color: #f8f9fa !important;
+}
+
+/* Перерывы */
+.timetable-slot-break {
+    background-color: #fff3cd !important;
+    color: #856404 !important;
+    border-left: 4px solid #ffc107;
+}
+
+/* ===== БЕЙДЖИ ТИПОВ ОПЛАТЫ ===== */
+.bg-pink {
+    background-color: #e83e8c !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+.bg-purple {
+    background-color: #6f42c1 !important;
+    color: white !important;
+    font-weight: bold;
+}
+
+/* ===== КНОПКИ ===== */
+.timetable-btn-primary,
+.timetable-btn-success,
+.btn-success,
+.btn-primary {
+    background-color: #28a745 !important;
+    border: none !important;
+    color: white !important;
+    border-radius: 6px;
+}
+
+.timetable-btn-primary:hover,
+.timetable-btn-success:hover,
+.btn-success:hover,
+.btn-primary:hover {
+    background-color: #218838 !important;
+    color: white !important;
+}
+
+.btn-outline-primary {
+    color: #28a745;
+    border-color: #28a745;
+}
+
+.btn-outline-primary:hover {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+/* Кнопки действий */
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+/* ===== ФОРМЫ И НАВИГАЦИЯ ===== */
+.timetable-form-card {
+    border: 1px solid #e3f2fd;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1);
+}
+
+.timetable-day-navigation {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+}
+
+.timetable-current-date {
+    font-weight: 600;
+    color: #495057;
+}
+
+/* ===== СООБЩЕНИЯ ===== */
+.timetable-alert {
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* ===== АНИМАЦИИ ===== */
+.timetable-fade-in {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ===== АДАПТИВНОСТЬ ===== */
 @media (max-width: 768px) {
     .timetable-container-fluid {
         padding-left: 4px;
@@ -72,134 +213,14 @@
     .timetable-cabinet-card {
         min-height: 250px;
     }
+
+    .btn-group-sm .btn {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+    }
 }
 
-/* Стили для навигации по дням */
-.timetable-day-navigation {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border: 1px solid #dee2e6;
-}
-
-.timetable-current-date {
-    font-weight: 600;
-    color: #495057;
-}
-
-/* Стили для состояний слотов */
-.timetable-slot-working {
-    background-color: #f0f9ff !important;
-}
-
-.timetable-slot-break {
-    background-color: #fff3cd !important;
-}
-
-.timetable-slot-busy {
-    background-color: #f8d7da !important;
-}
-
-.timetable-slot-busy:hover {
-    background-color: #f5c6cb !important;
-}
-
-/* Анимации */
-.timetable-fade-in {
-    animation: fadeIn 0.5s ease-in;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Стили для формы */
-.timetable-form-card {
-    border: 1px solid #e3f2fd;
-    box-shadow: 0 0.25rem 0.5rem rgba(0, 123, 255, 0.1);
-}
-
-.timetable-form-header {
-    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-    border-bottom: 1px solid #90caf9;
-}
-
-/* Стили для сообщений */
-.timetable-alert {
-    border: none;
-    border-radius: 0.5rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.1);
-}
-
-/* Стили для кнопок - ИСПРАВЛЕНО: убраны лишние переопределения */
-.timetable-btn-primary {
-    background: linear-gradient(135deg, #74F69B 0%, #5ac47e 100%) !important;
-    border: none !important;
-    border-radius: 0.375rem;
-    transition: all 0.3s ease;
-    color: white !important;
-}
-
-.timetable-btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0.25rem 0.5rem rgba(116, 246, 155, 0.3);
-    color: white !important;
-}
-
-.timetable-btn-success {
-    background: linear-gradient(135deg, #74F69B 0%, #5ac47e 100%) !important;
-    border: none !important;
-    border-radius: 0.375rem;
-    transition: all 0.3s ease;
-    color: white !important;
-}
-
-.timetable-btn-success:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0.25rem 0.5rem rgba(116, 246, 155, 0.3);
-    color: white !important;
-}
-
-/* Стили для обычных кнопок Bootstrap с нашим цветом */
-.btn-success {
-    background: linear-gradient(135deg, #74F69B 0%, #5ac47e 100%) !important;
-    border: none !important;
-    color: white !important;
-}
-
-.btn-primary {
-    background: linear-gradient(135deg, #74F69B 0%, #5ac47e 100%) !important;
-    border: none !important;
-    color: white !important;
-}
-
-/* Стили для кнопок действий */
-.btn-group-sm .btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-}
-
-/* Дополнительные стили для форм */
-.form-check-inline {
-    margin-right: 1rem;
-}
-
-.form-check {
-    margin-bottom: 0.5rem;
-}
-
-.form-check-input {
-    margin-right: 0.5rem;
-}
-
-.alert-dismissible {
-    animation: fadeIn 0.5s;
-}
-
-#additionalServiceSection,
-#twoSlotsSection {
-    transition: all 0.3s ease;
-}
-
+/* ===== УТИЛИТЫ ===== */
 .loading {
     opacity: 0.6;
     pointer-events: none;
@@ -209,74 +230,7 @@
     margin-right: 0.5rem;
 }
 
-/* Стили для страницы пациентов */
-.timetable-patient-table .table tbody tr {
-    background-color: #f0f9ff !important;
-}
-
-.timetable-patient-table .table tbody tr:hover {
-    background-color: #e1f5fe !important;
-}
-
-/* Стили для кнопок действий пациентов */
-.btn-outline-info {
-    color: #0dcaf0;
-    border-color: #0dcaf0;
-}
-
-.btn-outline-info:hover {
-    background-color: #0dcaf0;
-    border-color: #0dcaf0;
-    color: white;
-}
-
-.btn-outline-warning {
-    color: #ffc107;
-    border-color: #ffc107;
-}
-
-.btn-outline-warning:hover {
-    background-color: #ffc107;
-    border-color: #ffc107;
-    color: white;
-}
-
-.btn-outline-danger {
-    color: #dc3545;
-    border-color: #dc3545;
-}
-
-.btn-outline-danger:hover {
-    background-color: #dc3545;
-    border-color: #dc3545;
-    color: white;
-}
-
-/* Адаптивность для кнопок */
-@media (max-width: 768px) {
-    .btn-group-sm .btn {
-        font-size: 0.7rem;
-        padding: 0.25rem 0.5rem;
-    }
-
-    .btn-group-sm .btn i {
-        margin-right: 0.25rem;
-    }
-}
-
-/* Стили для карточек с нашим цветом */
-.card-header.bg-primary {
-    background: linear-gradient(135deg, #74F69B 0%, #5ac47e 100%) !important;
-}
-
-/* Стили для кнопок навигации */
-.btn-outline-primary {
-    color: #74F69B;
-    border-color: #74F69B;
-}
-
-.btn-outline-primary:hover {
-    background-color: #74F69B;
-    border-color: #74F69B;
-    color: white;
+#additionalServiceSection,
+#twoSlotsSection {
+    transition: all 0.3s ease;
 }

@@ -115,6 +115,7 @@
         </div>
     </div>
 
+
     <!-- Кнопки действий -->
     <div class="row mt-4">
         <div class="col-12">
@@ -131,6 +132,87 @@
                    class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Назад к списку пациентов
                 </a>
+            </div>
+        </div>
+    </div>
+    <!-- История обращений -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-history"></i> История обращений
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if appointment_history %}
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Дата</th>
+                                        <th>Время</th>
+                                        <th>Врач</th>
+                                        <th>Услуга</th>
+                                        <th>Кабинет</th>
+                                        <th>Статус</th>
+                                        <th>Тип оплаты</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for appointment in appointment_history %}
+                                    <tr>
+                                        <td>{{ appointment.time_slot.date|date:"d.m.Y" }}</td>
+                                        <td>{{ appointment.time_slot.start_time|time:"H:i" }}</td>
+                                        <td>
+                                            {% if appointment.time_slot.doctor %}
+                                                {{ appointment.time_slot.doctor.surname }}
+                                                {{ appointment.time_slot.doctor.first_name.0 }}.
+                                                {{ appointment.time_slot.doctor.last_name.0 }}.
+                                            {% else %}
+                                                Не указан
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ appointment.service.name }}</td>
+                                        <td>
+                                            {% if appointment.time_slot.cabinet %}
+                                                №{{ appointment.time_slot.cabinet.number }}
+                                            {% else %}
+                                                Не указан
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <span class="badge
+                                                {% if appointment.status == 'completed' %}bg-success
+                                                {% elif appointment.status == 'scheduled' %}bg-primary
+                                                {% elif appointment.status == 'confirmed' %}bg-info
+                                                {% elif appointment.status == 'cancelled' %}bg-warning
+                                                {% elif appointment.status == 'no_show' %}bg-danger
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ appointment.get_status_display }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge
+                                                {% if appointment.insurance_type == 'oms' %}bg-info
+                                                {% elif appointment.insurance_type == 'dms' %}bg-warning
+                                                {% elif appointment.insurance_type == 'paid' %}bg-success
+                                                {% else %}bg-secondary{% endif %}">
+                                                {{ appointment.get_insurance_type_display }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Нет записей в истории обращений</p>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
