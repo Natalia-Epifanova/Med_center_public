@@ -70,16 +70,41 @@ class Patient(models.Model):
         null=True,
         verbose_name="Район",
     )
-    address = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="Адрес",
-    )
-    passport = models.CharField(
+    street = models.CharField(
         max_length=100,
         blank=True,
         null=True,
-        verbose_name="Паспортные данные",
+        verbose_name="Улица",
+    )
+    home = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        verbose_name="Дом",
+    )
+    building = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        verbose_name="Строение/корпус",
+    )
+    apartment = models.CharField(
+        max_length=5,
+        blank=True,
+        null=True,
+        verbose_name="Квартира",
+    )
+    passport_series = models.CharField(
+        max_length=4,
+        blank=True,
+        null=True,
+        verbose_name="Паспорт серия",
+    )
+    passport_number = models.CharField(
+        max_length=6,
+        blank=True,
+        null=True,
+        verbose_name="Паспорт номер",
     )
     polis_oms = models.CharField(
         max_length=20,
@@ -136,6 +161,16 @@ class Patient(models.Model):
             parts.append(self.last_name)
         return " ".join(parts)
 
+    def get_last_appointment(self):
+        """Получить последнюю запись пациента"""
+
+        return (
+            Appointment.objects.filter(patient=self)
+            .select_related("time_slot__doctor", "service")
+            .order_by("-time_slot__date", "-time_slot__start_time")
+            .first()
+        )
+
     def get_appointment_history(self):
         """Получить историю записей пациента"""
         from timetable.models import Appointment
@@ -143,6 +178,16 @@ class Patient(models.Model):
         return (
             Appointment.objects.filter(patient=self)
             .select_related("time_slot__doctor", "service", "time_slot__cabinet")
+            .order_by("-time_slot__date", "-time_slot__start_time")
+        )
+
+    def get_appointments_for_documents(self):
+        """Получить все записи пациента для выбора в документах"""
+        from timetable.models import Appointment
+
+        return (
+            Appointment.objects.filter(patient=self)
+            .select_related("time_slot__doctor", "service")
             .order_by("-time_slot__date", "-time_slot__start_time")
         )
 

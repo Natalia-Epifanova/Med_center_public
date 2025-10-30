@@ -14,6 +14,7 @@ from timetable.views import (
     AppointmentCreateView,
     ProceduralAppointmentCreateView,
     save_day_comment,
+    update_appointment_status,
 )
 from patients.views import (
     PatientListView,
@@ -86,4 +87,9 @@ urlpatterns = [
         name="appointment_create_procedural",
     ),
     path("day-comment/save/", save_day_comment, name="save_day_comment"),
+    path(
+        "appointment/<int:pk>/update-status/",
+        update_appointment_status,
+        name="update_appointment_status",
+    ),
 ]

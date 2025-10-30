@@ -6,18 +6,19 @@
     <title>Ревмамед</title>
 
     <link rel="stylesheet" href="/static/css/bootstrap.min.css">
-    <link rel="stylesheet" href="/static/css/timetable.css?v=1.3">
+    <link rel="stylesheet" href="/static/css/timetable.css?v=1.4">
 
 </head>
 <body>
 
+{% csrf_token %}
 {% include 'timetable/includes/menu.html' %}
+
 {% block header %}
 {% endblock %}
+
 {% block content %}
 {% endblock %}
-
-
 
 <script src="/static/js/bootstrap.bundle.min.js"></script>
 

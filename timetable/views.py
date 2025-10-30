@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, timedelta
 
 from django.contrib.auth.decorators import login_required
@@ -6,6 +7,7 @@ from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import (
     TemplateView,
@@ -472,3 +474,60 @@ def save_day_comment(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=400)
+
+
+@require_POST
+@csrf_exempt
+def update_appointment_status(request, pk):
+    """AJAX view для обновления статуса записи"""
+    try:
+        # Проверяем аутентификацию
+        if not request.user.is_authenticated:
+            return JsonResponse(
+                {"success": False, "error": "Требуется авторизация"}, status=403
+            )
+
+        appointment = Appointment.objects.get(pk=pk)
+
+        # Получаем статус из POST данных (не из JSON)
+        new_status = request.POST.get("status")
+
+        if new_status in dict(Appointment.AppointmentStatus.choices):
+            appointment.status = new_status
+            appointment.save()
+
+            # Логируем изменение для отладки
+            print(f"Статус записи {appointment.id} изменен на: {new_status}")
+
+            return JsonResponse(
+                {
+                    "success": True,
+                    "new_status": appointment.status,
+                    "new_status_display": appointment.get_status_display(),
+                    "status_class": get_status_badge_class(appointment.status),
+                }
+            )
+        else:
+            return JsonResponse(
+                {"success": False, "error": "Неверный статус"}, status=400
+            )
+
+    except Appointment.DoesNotExist:
+        return JsonResponse(
+            {"success": False, "error": "Запись не найдена"}, status=404
+        )
+    except Exception as e:
+        print(f"Ошибка при обновлении статуса: {str(e)}")
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+def get_status_badge_class(status):
+    """Получить CSS класс для бейджа статуса"""
+    status_classes = {
+        "scheduled": "bg-primary",
+        "confirmed": "bg-info",
+        "completed": "bg-success",
+        "cancelled": "bg-warning",
+        "no_show": "bg-danger",
+    }
+    return status_classes.get(status, "bg-secondary")

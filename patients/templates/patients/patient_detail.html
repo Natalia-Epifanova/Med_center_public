@@ -74,8 +74,20 @@
                         <div class="col-sm-8">{{ patient.district|default:"Не указан" }}</div>
                     </div>
                     <div class="row mb-2">
-                        <div class="col-sm-4"><strong>Адрес:</strong></div>
-                        <div class="col-sm-8">{{ patient.address|default:"Не указан" }}</div>
+                        <div class="col-sm-4"><strong>Улица:</strong></div>
+                        <div class="col-sm-8">{{ patient.street|default:"Не указан" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Дом:</strong></div>
+                        <div class="col-sm-8">{{ patient.home|default:"Не указан" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Строение/корпус:</strong></div>
+                        <div class="col-sm-8">{{ patient.building|default:"Не указан" }}</div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Квартира:</strong></div>
+                        <div class="col-sm-8">{{ patient.apartment|default:"Не указан" }}</div>
                     </div>
                 </div>
             </div>
@@ -93,10 +105,13 @@
                 </div>
                 <div class="card-body">
                     <div class="row mb-2">
-                                <div class="col-sm-4"><strong>Паспорт:</strong></div>
-                                <div class="col-sm-8">{{ patient.passport|default:"Не указан" }}</div>
+                                <div class="col-sm-4"><strong>Паспорт серия:</strong></div>
+                                <div class="col-sm-8">{{ patient.passport_series|default:"Не указан" }}</div>
                     </div>
-
+                    <div class="row mb-2">
+                                <div class="col-sm-4"><strong>Паспорт номер:</strong></div>
+                                <div class="col-sm-8">{{ patient.passport_number|default:"Не указан" }}</div>
+                    </div>
                     <div class="row mb-2">
                         <div class="col-sm-4"><strong>Полис ОМС:</strong></div>
                         <div class="col-sm-8">{{ patient.polis_oms|default:"Не указан" }}</div>
@@ -154,6 +169,7 @@
                                         <th>Время</th>
                                         <th>Врач</th>
                                         <th>Услуга</th>
+                                        <th>Цена услуги</th>
                                         <th>Кабинет</th>
                                         <th>Статус</th>
                                         <th>Тип оплаты</th>
@@ -174,6 +190,13 @@
                                             {% endif %}
                                         </td>
                                         <td>{{ appointment.service.name }}</td>
+                                        <td>
+                                            {% if appointment.service.price %}
+                                                {{ appointment.service.price }} руб.
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
                                         <td>
                                             {% if appointment.time_slot.cabinet %}
                                                 №{{ appointment.time_slot.cabinet.number }}
@@ -216,5 +239,122 @@
             </div>
         </div>
     </div>
+    <!-- Печать документов -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-print"></i> Печать документов
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Выбор записи для документов -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="appointmentSelect" class="form-label">Выберите запись для документов:</label>
+                            <select class="form-select" id="appointmentSelect">
+                                <option value="">Последняя запись</option>
+                                {% for appointment in patient.get_appointments_for_documents %}
+                                <option value="{{ appointment.id }}">
+                                    {{ appointment.time_slot.date|date:"d.m.Y" }} -
+                                    {{ appointment.doctor.surname }} -
+                                    {{ appointment.service.name }} -
+                                    {{ appointment.service.price }} руб.
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">Если не выбрано, будет использована последняя запись</div>
+                        </div>
+                    </div>
+
+                    <!-- Кнопки документов -->
+                    <div class="row">
+                        <!-- Согласия -->
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">Информированные согласия</h6>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_paid')">
+                                    <i class="fas fa-file-signature"></i> Согласие (платно)
+                                </button>
+                                <button type="button" class="btn btn-outline-info" onclick="generateDocument('consent_oms')">
+                                    <i class="fas fa-file-signature"></i> Согласие (ОМС)
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="generateDocument('consent_IP')">
+                                    <i class="fas fa-file-signature"></i> Согласие (ИП Епифанова)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Карты пациента -->
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">Карты пациента</h6>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-success" onclick="generateDocument('card_OMS')">
+                                    <i class="fas fa-address-card"></i> Карта (ОМС)
+                                </button>
+                                <button type="button" class="btn btn-outline-success" onclick="generateDocument('card_IP')">
+                                    <i class="fas fa-address-card"></i> Карта (ИП)
+                                </button>
+                                <button type="button" class="btn btn-outline-success" onclick="generateDocument('card_paid')">
+                                    <i class="fas fa-address-card"></i> Карта (платно)
+                                </button>
+                                <button type="button" class="btn btn-outline-success" onclick="generateDocument('card_xray')">
+                                    <i class="fas fa-address-card"></i> Карта (рентген)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Договоры -->
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">Договоры</h6>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_xray')">
+                                    <i class="fas fa-file-contract"></i> Договор (рентген)
+                                </button>
+                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_IP')">
+                                    <i class="fas fa-file-contract"></i> Договор (ИП)
+                                </button>
+                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_densitometry')">
+                                    <i class="fas fa-file-contract"></i> Договор (денситометрия)
+                                </button>
+                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_ultrasound_IP')">
+                                    <i class="fas fa-file-contract"></i> Договор (УЗИ ИП)
+                                </button>
+                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_for_psych_support')">
+                                    <i class="fas fa-file-contract"></i> Договор (псих. сопровождение)
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Прочие документы -->
+                        <div class="col-md-6 mb-3">
+                            <h6 class="border-bottom pb-2">Прочие документы</h6>
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-secondary" onclick="generateDocument('tax certificate')">
+                                    <i class="fas fa-receipt"></i> Налоговая справка
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+<script>
+function generateDocument(docType) {
+    const appointmentSelect = document.getElementById('appointmentSelect');
+    const appointmentId = appointmentSelect.value;
+
+    let url = `{% url 'patients:generate_document' patient.pk 'DOC_TYPE' %}`.replace('DOC_TYPE', docType);
+
+    if (appointmentId) {
+        url += `?appointment_id=${appointmentId}`;
+    }
+
+    // Открываем в новом окне/вкладке для скачивания
+    window.open(url, '_blank');
+}
+</script>
 {% endblock %}

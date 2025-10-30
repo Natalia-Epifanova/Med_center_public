@@ -234,3 +234,102 @@
 #twoSlotsSection {
     transition: all 0.3s ease;
 }
+/* ===== СТИЛИ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ СТАТУСОВ ===== */
+
+/* Базовые стили для выпадающих списков статусов */
+.appointment-status-select {
+    transition: all 0.3s ease;
+    font-size: 0.75rem;
+    border-width: 2px !important;
+    font-weight: 500;
+}
+
+/* Цвета фона для разных статусов */
+.appointment-status-select.status-scheduled {
+    background-color: #e7f1ff !important;
+    color: #0d6efd !important;
+}
+
+.appointment-status-select.status-confirmed {
+    background-color: #d1ecf1 !important;
+    color: #0dcaf0 !important;
+}
+
+.appointment-status-select.status-completed {
+    background-color: #d1e7dd !important;
+    color: #198754 !important;
+}
+
+.appointment-status-select.status-cancelled {
+    background-color: #fff3cd !important;
+    color: #ffc107 !important;
+}
+
+.appointment-status-select.status-no_show {
+    background-color: #f8d7da !important;
+    color: #dc3545 !important;
+}
+
+.appointment-status-select.status-default {
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+}
+
+/* Усиленные цвета границ */
+.appointment-status-select.border-primary {
+    border-color: #0d6efd !important;
+}
+
+.appointment-status-select.border-info {
+    border-color: #0dcaf0 !important;
+}
+
+.appointment-status-select.border-success {
+    border-color: #198754 !important;
+}
+
+.appointment-status-select.border-warning {
+    border-color: #ffc107 !important;
+}
+
+.appointment-status-select.border-danger {
+    border-color: #dc3545 !important;
+}
+
+.appointment-status-select.border-secondary {
+    border-color: #6c757d !important;
+}
+
+/* Состояния */
+.appointment-status-select:disabled {
+    opacity: 0.6;
+}
+
+.appointment-status-select.loading {
+    opacity: 0.7;
+    background-color: #f8f9fa !important;
+}
+
+/* Эффекты при наведении */
+.appointment-status-select:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .appointment-status-select {
+        min-width: 110px !important;
+        font-size: 0.7rem;
+    }
+}
+
+/* Анимация для спиннера */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

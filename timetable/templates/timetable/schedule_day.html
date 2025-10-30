@@ -9,6 +9,7 @@
 
 {% block content %}
 <div class="container">
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
     <!-- Форма выбора даты и навигация -->
     <div class="row mb-4">
         <div class="col-md-8 mx-auto">
@@ -286,48 +287,60 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if slot.slot_type == 'working' %}
+                                {% if slot.slot_type == 'working' %}
                                     {% with appointment=slot.appointments.first %}
-                                    {% if appointment %}
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <!-- Кнопка редактирования записи -->
-                                        <a href="{% url 'timetable:appointment_update' appointment.pk %}"
-                                           class="btn btn-outline-warning" title="Редактировать запись">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
+                                        {% if appointment %}
+                                            <!-- Выпадающий список статуса -->
+                                            <select class="form-select form-select-sm appointment-status-select"
+                                                    data-appointment-id="{{ appointment.pk }}"
+                                                    style="min-width: 130px; font-size: 0.75rem;">
+                                                {% for status_value, status_label in appointment.AppointmentStatus.choices %}
+                                                <option value="{{ status_value }}"
+                                                        {% if appointment.status == status_value %}selected{% endif %}>
+                                                    {{ status_label }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
 
-                                        <!-- Индикатор перезаписи -->
-                                        {% if appointment.needs_reschedule %}
-                                        <span class="btn btn-outline-info position-relative"
-                                              title="Просил(а) перезаписать раньше">
-                                            <i class="fas fa-clock"></i>
-                                            <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
-                                                <span class="visually-hidden">Требуется перезапись</span>
-                                            </span>
-                                        </span>
+                                            <!-- Блок действий -->
+                                            <div class="btn-group btn-group-sm mt-1" role="group">
+                                                <!-- Кнопка редактирования записи -->
+                                                <a href="{% url 'timetable:appointment_update' appointment.pk %}"
+                                                   class="btn btn-outline-warning" title="Редактировать запись">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+
+                                                <!-- Индикатор перезаписи -->
+                                                {% if appointment.needs_reschedule %}
+                                                <span class="btn btn-outline-info position-relative"
+                                                      title="Просил(а) перезаписать раньше">
+                                                    <i class="fas fa-clock"></i>
+                                                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                                        <span class="visually-hidden">Требуется перезапись</span>
+                                                    </span>
+                                                </span>
+                                                {% endif %}
+
+                                                <!-- Индикатор последовательной записи -->
+                                                {% if appointment.is_consecutive %}
+                                                <span class="btn btn-outline-secondary" title="Последовательная запись">
+                                                    <i class="fas fa-link"></i>
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <!-- Кнопка добавления записи -->
+                                            <a href="{% url 'timetable:appointment_create' slot.id %}"
+                                               class="btn btn-sm btn-outline-success"
+                                               title="Добавить запись пациента">
+                                                <i class="fas fa-plus"></i>
+                                            </a>
                                         {% endif %}
-
-                                        <!-- Индикатор последовательной записи -->
-                                        {% if appointment.is_consecutive %}
-                                        <span class="btn btn-outline-secondary" title="Последовательная запись">
-                                            <i class="fas fa-link"></i>
-                                        </span>
-                                        {% endif %}
-
-                                    </div>
-                                    {% else %}
-                                    <!-- Кнопка добавления записи -->
-                                    <a href="{% url 'timetable:appointment_create' slot.id %}"
-                                       class="btn btn-sm btn-outline-success"
-                                       title="Добавить запись пациента">
-                                        <i class="fas fa-plus"></i>
-                                    </a>
-                                    {% endif %}
                                     {% endwith %}
-                                    {% else %}
+                                {% else %}
                                     <small class="text-muted">Недоступно для записи</small>
-                                    {% endif %}
-                                </td>
+                                {% endif %}
+                            </td>
                             </tr>
                             {% endfor %}
                             </tbody>
@@ -425,17 +438,24 @@
     </div>
 </div>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Автоматическая отправка формы при изменении даты
-        const dateInput = document.getElementById('date');
-        if (dateInput) {
-            dateInput.addEventListener('change', function() {
-                this.form.submit();
-            });
-        }
-    });
+console.log('=== INLINE DEBUG SCRIPT ===');
+console.log('Current URL:', window.location.href);
+console.log('CSRF Token from template:', '{{ csrf_token }}');
+
+// Проверяем наличие элементов статуса
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM Loaded - inline script');
+    const statusSelects = document.querySelectorAll('.appointment-status-select');
+    console.log('Status selects found (inline):', statusSelects.length);
+
+    if (statusSelects.length === 0) {
+        console.warn('No status select elements found!');
+        console.log('Available appointment elements:',
+            document.querySelectorAll('[data-appointment-id]').length);
+    }
+});
 </script>
 {% endblock %}
 {% block extra_js %}
-<script src="/static/js/schedule_day.js"></script>
+<script src="/static/js/schedule_day.js?v=1.2"></script>
 {% endblock %}
