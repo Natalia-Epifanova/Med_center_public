@@ -10,9 +10,10 @@
 {% block content %}
 <div class="container">
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
-    <!-- Форма выбора даты и навигация -->
+
+    <!-- ОБЪЕДИНЕННАЯ КАРТОЧКА С ФОРМОЙ И КНОПКАМИ -->
     <div class="row mb-4">
-        <div class="col-md-8 mx-auto">
+        <div class="col-md-10 mx-auto">
             <div class="card timetable-form-card">
                 <div class="card-body timetable-day-navigation">
                     <!-- Навигация по дням -->
@@ -39,18 +40,42 @@
                         </div>
                     </div>
 
-                    <form method="get" class="row g-3 align-items-center">
-                        <div class="col-md-8">
-                            <label for="date" class="form-label">Или выберите конкретную дату:</label>
-                            <input type="date" name="date" id="date" class="form-control"
-                                   value="{{ selected_date|date:'Y-m-d' }}" required>
-                        </div>
-                        <div class="col-md-4">
-                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">
-                                <i class="fas fa-calendar-alt"></i> Показать расписание
-                            </button>
+                    <!-- Форма выбора даты -->
+                    <form method="get" class="row g-3 align-items-end">
+                        <!-- Выбор даты -->
+                        <div class="col-md-12">
+                            <label for="date" class="form-label">Выберите дату:</label>
+                            <div class="input-group">
+                                <input type="date" name="date" id="date" class="form-control"
+                                       value="{{ selected_date|date:'Y-m-d' }}" required>
+                                <button type="submit" class="btn timetable-btn-primary">
+                                    <i class="fas fa-calendar-alt"></i> Показать расписание
+                                </button>
+                            </div>
                         </div>
                     </form>
+
+                    <!-- Кнопки действий в один ряд -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                <button type="button" class="btn btn-success" onclick="printSchedule()">
+                                    <i class="fas fa-print"></i> Распечатать расписание на {{ selected_date|date:"d.m.Y" }}
+                                </button>
+                                <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
+                                   class="btn timetable-btn-success">
+                                    <i class="fas fa-plus"></i> Добавить расписание на {{ selected_date|date:"d.m.Y" }}
+                                </a>
+                                <a href="{% url 'timetable:appointment_create_procedural' %}?date={{ selected_date|date:'Y-m-d' }}"
+                                   class="btn btn-warning">
+                                    <i class="fas fa-syringe"></i> Добавить запись в процедурный кабинет
+                                </a>
+                                <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-home"></i> На главную
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -70,28 +95,9 @@
     </div>
     {% endif %}
 
-    <!-- Кнопки действий -->
-    <div class="row mb-4">
-        <div class="col-md-8 mx-auto text-center">
-            <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
-               class="btn timetable-btn-success me-2">
-                <i class="fas fa-plus"></i> Добавить расписание на {{ selected_date|date:"d.m.Y" }}
-            </a>
-            <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary">
-                <i class="fas fa-home"></i> На главную
-            </a>
-        </div>
-    </div>
-    <!-- Кнопка для процедурного кабинета -->
-    <div class="row mb-3">
-        <div class="col-md-8 mx-auto text-center">
-            <a href="{% url 'timetable:appointment_create_procedural' %}?date={{ selected_date|date:'Y-m-d' }}"
-               class="btn btn-warning">
-                <i class="fas fa-syringe"></i> Добавить запись в процедурный кабинет
-            </a>
-        </div>
-    </div>
 </div>
+
+<!-- Комментарий дня -->
 {% if user_can_edit_comments or day_comment %}
 <div class="row mb-4">
     <div class="col-md-4 mx-auto">
@@ -151,7 +157,6 @@
     </div>
 </div>
 {% endif %}
-
 
 <!-- Карточки расписания -->
 {% if schedule_data %}
@@ -369,12 +374,6 @@
                     <h5 class="text-muted">На {{ selected_date|date:"d.m.Y" }} расписание не найдено</h5>
                     {% if user.is_staff %}
                     <p class="text-muted mb-4">Используйте форму выше, чтобы добавить расписание на эту дату</p>
-                    <a href="{% url 'timetable:schedule_create' %}?date={{ selected_date|date:'Y-m-d' }}"
-                       class="btn timetable-btn-primary">
-                        <i class="fas fa-plus"></i> Добавить расписание на эту дату
-                    </a>
-                    {% else %}
-                    <p class="text-muted mb-4">Обратитесь к администратору для добавления расписания</p>
                     {% endif %}
                 </div>
             </div>
@@ -382,6 +381,7 @@
     </div>
 </div>
 {% endif %}
+
 <!-- Легенда расписания -->
 <div class="row mb-3">
     <div class="col-md-10 mx-auto">
@@ -428,30 +428,177 @@
         </div>
     </div>
 </div>
-<!-- Тестовый блок - удалить после проверки -->
-<div style="display: none;" class="test-styles">
-    <div class="timetable-slot-dms" style="padding: 10px; margin: 10px;">
-        Тест ДМС стиля - если этот текст розовый, стили работают
-    </div>
-    <div class="timetable-slot-oms" style="padding: 10px; margin: 10px;">
-        Тест ОМС стиля - если этот текст фиолетовый, стили работают
-    </div>
-</div>
+
+<!-- Стили для печати -->
+<style>
+@media print {
+    /* Скрываем ВСЕ элементы кроме кабинетов */
+    .navbar, /* Меню */
+    .pricing-header, /* Заголовок страницы */
+    .timetable-day-navigation, /* Навигация по дням */
+    .timetable-form-card, /* Карточка с формой */
+    .btn, /* Все кнопки */
+    .alert, /* Сообщения */
+    .row.mb-4, /* Кнопки действий */
+    .row.mb-3, /* Кнопка процедурного кабинета */
+    .row.mb-4:last-child, /* Комментарий дня */
+    .modal, /* Модальные окна */
+    .test-styles, /* Тестовый блок */
+    .row.mb-3:last-child, /* Легенда */
+    .appointment-status-select, /* Выпадающие списки статусов */
+    .btn-group, /* Группы кнопок */
+    .fa-edit, .fa-clock, .fa-link, .fa-plus /* Иконки действий */ {
+        display: none !important;
+    }
+
+    /* Убираем отступы и фон */
+    body {
+        background: white !important;
+        padding: 5mm !important; /* Уменьшили отступы */
+        margin: 0 !important;
+        font-size: 10px !important; /* Уменьшили базовый размер шрифта */
+        line-height: 1.2 !important;
+    }
+
+    .container, .container-fluid {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Улучшаем отображение карточек при печати */
+    .timetable-container-fluid {
+        padding: 0 !important;
+    }
+
+    .card {
+        border: 1px solid #000 !important;
+        box-shadow: none !important;
+        margin-bottom: 6px !important; /* Уменьшили отступ между карточками */
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .card-header {
+        background: #f8f9fa !important;
+        color: #000 !important;
+        border-bottom: 1px solid #000 !important;
+        padding: 4px 6px !important; /* Уменьшили отступы */
+    }
+
+    .card-header h6 {
+        font-size: 10px !important; /* Уменьшили размер шрифта */
+        margin: 0 !important;
+        font-weight: bold;
+    }
+
+    .card-body {
+        padding: 4px !important; /* Уменьшили отступы */
+    }
+
+    /* Улучшаем таблицы */
+    .table {
+        font-size: 8px !important; /* Уменьшили размер шрифта таблиц */
+        margin-bottom: 0 !important;
+    }
+
+    .table th,
+    .table td {
+        border: 1px solid #ccc !important;
+        padding: 2px !important; /* Уменьшили отступы в ячейках */
+        text-align: left;
+        line-height: 1.1 !important;
+    }
+
+    .table th {
+        background: #f8f9fa !important;
+        font-weight: bold;
+    }
+
+    /* Убираем лишние стили для слотов */
+    .timetable-slot-dms,
+    .timetable-slot-oms,
+    .timetable-slot-working,
+    .timetable-slot-break {
+        background: white !important;
+        color: black !important;
+        border-left: none !important;
+    }
+
+    /* Скрываем ссылки и делаем текст обычным */
+    a {
+        color: black !important;
+        text-decoration: none !important;
+    }
+
+    /* Улучшаем отображение бейджей */
+    .badge {
+        padding: 1px 3px !important; /* Уменьшили отступы */
+        font-size: 7px !important; /* Уменьшили размер шрифта */
+        border: 1px solid #ccc !important;
+        line-height: 1 !important;
+    }
+
+    /* Улучшаем заголовки врачей */
+    .doctor-header {
+        background: #ffff99 !important;
+        border: 1px solid #ccc !important;
+        padding: 3px !important; /* Уменьшили отступы */
+        margin-bottom: 4px !important; /* Уменьшили отступ */
+        font-size: 8px !important; /* Уменьшили размер шрифта */
+        line-height: 1.1 !important;
+    }
+
+    .doctor-header strong {
+        font-size: 8px !important; /* Уменьшили размер шрифта */
+    }
+
+    /* Убираем лишние отступы в строках */
+    .row.g-2 {
+        margin: 0 !important;
+    }
+
+    .col-12, .col-sm-6, .col-md-4, .col-lg-3, .col-xl-3 {
+        padding: 0 3px !important; /* Уменьшили отступы между колонками */
+    }
+
+    /* Уменьшаем высоту строк таблицы */
+    .table-sm td, .table-sm th {
+        padding: 1px 2px !important;
+    }
+
+    /* Скрываем лишние элементы в ячейках */
+    .table td br {
+        display: none !important;
+    }
+
+    .table td small {
+        font-size: 7px !important;
+    }
+}
+</style>
+
 <script>
-console.log('=== INLINE DEBUG SCRIPT ===');
-console.log('Current URL:', window.location.href);
-console.log('CSRF Token from template:', '{{ csrf_token }}');
+function printSchedule() {
+    // Запускаем печать
+    window.print();
+}
 
-// Проверяем наличие элементов статуса
+// Обработка нажатия Ctrl+P
+document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        printSchedule();
+    }
+});
+
+// Автоматическая отправка формы при изменении даты
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM Loaded - inline script');
-    const statusSelects = document.querySelectorAll('.appointment-status-select');
-    console.log('Status selects found (inline):', statusSelects.length);
-
-    if (statusSelects.length === 0) {
-        console.warn('No status select elements found!');
-        console.log('Available appointment elements:',
-            document.querySelectorAll('[data-appointment-id]').length);
+    const dateInput = document.getElementById('date');
+    if (dateInput) {
+        dateInput.addEventListener('change', function() {
+            this.form.submit();
+        });
     }
 });
 </script>
