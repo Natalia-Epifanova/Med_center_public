@@ -1,4 +1,5 @@
 from django import forms
+from django.db import models
 from django.forms import ModelForm
 from .mixins import StyleFormMixin, ServiceBasedFormMixin
 from patients.mixins import PatientFieldsMixin
@@ -261,16 +262,27 @@ class AppointmentUpdateForm(AppointmentBaseForm):
         widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
         label="Дата приема",
     )
-    time_slot = forms.CharField(
+    time_slot_id = forms.IntegerField(
         widget=forms.HiddenInput(),
         required=True,
-        label="Временной слот",
+    )
+
+    # Поле только для отображения выбранного слота
+    time_slot_display = forms.CharField(
+        required=False,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "readonly": "readonly",
+                "id": "time_slot_display",
+            }
+        ),
+        label="Выбранный слот",
     )
 
     class Meta(AppointmentBaseForm.Meta):
         fields = [
             "appointment_date",
-            "time_slot",
             "service",
             "insurance_type",
             "needs_reschedule",
@@ -279,16 +291,47 @@ class AppointmentUpdateForm(AppointmentBaseForm):
 
     def __init__(self, *args, **kwargs):
         self.current_appointment = kwargs.pop("current_appointment", None)
+        self.doctor = kwargs.pop("doctor", None)
         super().__init__(*args, **kwargs)
 
         if self.current_appointment and self.instance.pk:
             self._set_initial_values()
 
+        # Устанавливаем queryset для услуги
+        self._set_service_queryset()
+
+    def _set_service_queryset(self):
+        """Устанавливает queryset для поля service"""
+        from .models import MedicalService
+        from django.db.models import Q
+
+        # Получаем все активные услуги
+        all_services = MedicalService.objects.filter(is_active=True)
+
+        # Если есть текущая запись, включаем её услугу даже если она неактивна
+        if self.current_appointment and self.current_appointment.service:
+            current_service = self.current_appointment.service
+            # Включаем текущую услугу и все активные услуги
+            services_queryset = MedicalService.objects.filter(
+                Q(id=current_service.id) | Q(is_active=True)
+            ).distinct()
+        else:
+            services_queryset = all_services
+
+        self.fields["service"].queryset = services_queryset
+
+        # Также обновляем queryset для additional_service
+        if "additional_service" in self.fields:
+            self.fields["additional_service"].queryset = services_queryset
+
     def _set_initial_values(self):
         """Установка начальных значений"""
         self.current_time_slot = self.instance.time_slot
         self.fields["appointment_date"].initial = self.instance.time_slot.date
-        self.fields["time_slot"].initial = self.instance.time_slot.id
+        self.fields["time_slot_id"].initial = self.instance.time_slot.id
+        self.fields["time_slot_display"].initial = (
+            f"{self.instance.time_slot.start_time}-{self.instance.time_slot.end_time} (Каб. {self.instance.time_slot.cabinet.number})"
+        )
         self.fields["service"].initial = self.instance.service
 
         # Определение типа записи
@@ -303,9 +346,9 @@ class AppointmentUpdateForm(AppointmentBaseForm):
         ).exists()
         self.fields["needs_procedural"].initial = has_procedural
 
-    def clean_time_slot(self):
-        """Валидация временного слота"""
-        time_slot_id = self.cleaned_data.get("time_slot")
+    def clean_time_slot_id(self):
+        """Валидация временного слота через ID"""
+        time_slot_id = self.cleaned_data.get("time_slot_id")
         if not time_slot_id:
             raise forms.ValidationError("Временной слот обязателен для заполнения")
 
@@ -314,65 +357,40 @@ class AppointmentUpdateForm(AppointmentBaseForm):
         except TimeSlot.DoesNotExist:
             raise forms.ValidationError("Выбранный временной слот не существует")
 
-        # Проверка доступности слота
-        current_time_slot = getattr(self.current_appointment, "time_slot", None)
-        appointment_date = self.cleaned_data.get("appointment_date")
-
-        if time_slot != current_time_slot and not time_slot.is_available():
-            raise forms.ValidationError("Выбранный временной слот уже занят")
-
         # Проверка принадлежности врачу
-        doctor = getattr(self.current_appointment, "doctor", None)
-        if doctor and time_slot.doctor != doctor:
+        if self.doctor and time_slot.doctor != self.doctor:
             raise forms.ValidationError("Выбранный слот не принадлежит текущему врачу")
 
-        # Проверка соответствия дате
-        if appointment_date and time_slot.date != appointment_date:
-            raise forms.ValidationError(
-                f"Выбранный слот не соответствует выбранной дате. "
-                f"Слот на {time_slot.date}, выбрана дата {appointment_date}"
-            )
+        # Проверка доступности слота (кроме текущей записи)
+        current_time_slot = getattr(self.current_appointment, "time_slot", None)
+        if time_slot != current_time_slot:
+            # Проверяем, доступен ли слот
+            if not time_slot.is_available():
+                raise forms.ValidationError("Выбранный временной слот уже занят")
 
-        needs_procedural = self.cleaned_data.get("needs_procedural", False)
-        if needs_procedural and time_slot != current_time_slot:
-            can_move_procedural = self._can_move_procedural_appointment(time_slot)
-            if not can_move_procedural:
+        return time_slot  # Возвращаем объект TimeSlot
+
+    def clean(self):
+        """Дополнительная валидация всей формы"""
+        cleaned_data = super().clean()
+
+        # Получаем объект time_slot из clean_time_slot_id
+        time_slot = cleaned_data.get("time_slot_id")  # Это объект TimeSlot
+        appointment_date = cleaned_data.get("appointment_date")
+
+        if appointment_date and time_slot:
+            if appointment_date != time_slot.date:
                 raise forms.ValidationError(
-                    "Невозможно перенести запись: выбранное время в процедурном кабинете уже занято. "
-                    "Пожалуйста, выберите другое время или снимите галочку 'Занять окошко в процедурном кабинете'."
+                    f"Выбранная дата приема ({appointment_date}) не совпадает с датой слота ({time_slot.date})."
                 )
 
-        return time_slot
-
-    def _can_move_procedural_appointment(self, new_time_slot):
-        """Проверяет, можно ли перенести процедурную запись на новое время"""
-        try:
-            from .models import Cabinet
-
-            # Находим процедурный кабинет №6
-            procedural_cabinet = Cabinet.objects.get(number=6)
-
-            # Проверяем, есть ли занятые конфликтующие слоты в процедурном кабинете
-            occupied_conflicting_slots = TimeSlot.get_conflicting_slots(
-                date=new_time_slot.date,
-                start_time=new_time_slot.start_time,
-                end_time=new_time_slot.end_time,
-                cabinet=procedural_cabinet,
-            ).filter(
-                appointments__isnull=False
-            )  # только занятые слоты
-
-            return not occupied_conflicting_slots.exists()
-
-        except Exception as e:
-            print(f"Ошибка при проверке процедурного кабинета: {str(e)}")
-            return False
+        return cleaned_data
 
     def save(self, commit=True):
         appointment = super().save(commit=False)
 
-        # Обновление временного слота
-        time_slot = self.cleaned_data.get("time_slot")
+        # Обновление временного слота из cleaned_data
+        time_slot = self.cleaned_data.get("time_slot_id")  # Это объект TimeSlot
         if time_slot:
             appointment.time_slot = time_slot
 
@@ -456,12 +474,7 @@ class AppointmentUpdateForm(AppointmentBaseForm):
             procedural_appointment.comment = main_appointment.doctor.surname
             procedural_appointment.save()
 
-            print(
-                f"Обновлена процедурная запись для {main_appointment.patient.surname}"
-            )
-
         except Exception as e:
-            print(f"Ошибка при обновлении процедурной записи: {e}")
             raise forms.ValidationError(
                 f"Ошибка при обновлении записи в процедурном кабинете: {str(e)}"
             )

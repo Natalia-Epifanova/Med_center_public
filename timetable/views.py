@@ -277,21 +277,18 @@ class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs["current_appointment"] = self.object
-        # ДОБАВЬТЕ ЭТУ СТРОКУ: передаем врача в форму
         kwargs["doctor"] = self.object.doctor
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["time_slot"] = self.object.time_slot
-        context["doctor"] = self.object.time_slot.doctor
+        context["doctor"] = self.object.doctor
+        context["current_appointment"] = self.object
 
         # Получаем информацию о следующем слоте для отображения
         next_slot = self.object.time_slot.get_next_consecutive_slot()
         context["next_slot"] = next_slot
-
-        # Информация о текущей записи
-        context["current_appointment"] = self.object
 
         return context
 
@@ -309,13 +306,13 @@ class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
                 "date_of_birth": patient.date_of_birth,
             }
         )
-
         return initial
 
     def form_valid(self, form):
         # Сохраняем информацию о старом слоте для сообщения
         old_time_slot = self.object.time_slot
-        new_time_slot = form.cleaned_data["time_slot"]
+        # ИСПРАВЛЕНИЕ: получаем новый слот из time_slot_id
+        new_time_slot = form.cleaned_data["time_slot_id"]  # Это объект TimeSlot
 
         # Сохраняем запись
         response = super().form_valid(form)

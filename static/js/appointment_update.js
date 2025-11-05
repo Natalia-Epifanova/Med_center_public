@@ -1,163 +1,39 @@
-function checkProceduralAvailability(date, startTime, endTime, callback) {
-    fetch('/timetable/api/check-procedural-availability/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify({
-            date: date,
-            start_time: startTime,
-            end_time: endTime,
-            current_appointment_id: currentAppointmentId
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (callback) callback(data);
-    })
-    .catch(error => {
-        console.error('Error checking procedural availability:', error);
-        if (callback) callback({ is_available: false, error: error.message });
-    });
-}
-
-// Функция для получения времени слота по ID
-function getSlotTime(slotId) {
-    const option = timeSlotSelect.querySelector(`option[value="${slotId}"]`);
-    if (option) {
-        return option.textContent.split(' (')[0]; // Возвращаем только время
-    }
-    return null;
-}
-
-// Обработка изменения временного слота с проверкой процедурного кабинета
-if (timeSlotSelect) {
-    timeSlotSelect.addEventListener('change', function() {
-        const selectedSlotId = this.value;
-
-        // Обновляем скрытое поле формы
-        timeSlotHidden.value = selectedSlotId;
-        updateSlotInfo();
-
-        // Проверяем доступность процедурного кабинета если галочка установлена
-        const needsProcedural = document.getElementById('id_needs_procedural');
-        if (needsProcedural && needsProcedural.checked && selectedSlotId) {
-            const appointmentDate = appointmentDateInput.value;
-            const slotTime = getSlotTime(selectedSlotId);
-
-            if (appointmentDate && slotTime) {
-                const [startTime, endTime] = slotTime.split('-');
-
-                // Добавляем секунды для формата времени
-                const startTimeWithSeconds = startTime.trim() + ':00';
-                const endTimeWithSeconds = endTime.trim() + ':00';
-
-                console.log('Checking procedural availability for:', appointmentDate, startTimeWithSeconds, endTimeWithSeconds);
-
-                checkProceduralAvailability(appointmentDate, startTimeWithSeconds, endTimeWithSeconds, function(result) {
-                    if (!result.is_available) {
-                        const warningDiv = document.getElementById('proceduralWarning');
-                        if (!warningDiv) {
-                            const newWarning = document.createElement('div');
-                            newWarning.id = 'proceduralWarning';
-                            newWarning.className = 'alert alert-warning mt-2';
-                            newWarning.innerHTML = `
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <strong>Внимание!</strong> Выбранное время в процедурном кабинете занято.
-                                ${result.occupied_slots && result.occupied_slots.length > 0 ?
-                                    `Занято: ${result.occupied_slots.map(slot => slot.time).join(', ')}` : ''}
-                                <br>При сохранении записи галочка "Занять окошко в процедурном кабинете" будет снята.
-                            `;
-                            timeSlotSelect.parentNode.appendChild(newWarning);
-                        }
-                    } else {
-                        const warningDiv = document.getElementById('proceduralWarning');
-                        if (warningDiv) {
-                            warningDiv.remove();
-                        }
-                    }
-                });
-            }
-        }
-    });
-}
-
-// Обработка изменения галочки процедурного кабинета
-const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
-if (needsProceduralCheckbox) {
-    needsProceduralCheckbox.addEventListener('change', function() {
-        const warningDiv = document.getElementById('proceduralWarning');
-        if (warningDiv) {
-            warningDiv.remove();
-        }
-
-        // Если галочка установлена, проверяем доступность текущего слота
-        if (this.checked && timeSlotSelect.value) {
-            const appointmentDate = appointmentDateInput.value;
-            const slotTime = getSlotTime(timeSlotSelect.value);
-
-            if (appointmentDate && slotTime) {
-                const [startTime, endTime] = slotTime.split('-');
-                const startTimeWithSeconds = startTime.trim() + ':00';
-                const endTimeWithSeconds = endTime.trim() + ':00';
-
-                checkProceduralAvailability(appointmentDate, startTimeWithSeconds, endTimeWithSeconds, function(result) {
-                    if (!result.is_available) {
-                        this.checked = false;
-                        alert('Невозможно занять окошко в процедурном кабинете: выбранное время уже занято. Пожалуйста, выберите другое время.');
-                    }
-                }.bind(this));
-            }
-        }
-    });
-}
-
-function formatPhoneNumber(input) {
-    let value = input.value.replace(/[^\d+]/g, '');
-
-    if (!value.startsWith('+7') && value.length > 0) {
-        if (value.startsWith('7') || value.startsWith('8')) {
-            value = '+7' + value.slice(1);
-        } else {
-            value = '+7' + value;
-        }
-    }
-
-    if (value.length > 12) {
-        value = value.substring(0, 12);
-    }
-
-    input.value = value;
-}
-
 document.addEventListener('DOMContentLoaded', function() {
+    // Основные элементы
     const appointmentTypeRadios = document.querySelectorAll('input[name="appointment_type"]');
     const additionalServiceSection = document.getElementById('additionalServiceSection');
     const twoSlotsSection = document.getElementById('twoSlotsSection');
     const additionalServiceSelect = document.getElementById('id_additional_service');
     const mainServiceSelect = document.getElementById('id_service');
-    const timeSlotSelect = document.getElementById('time_slot_select');
-    const timeSlotHidden = document.getElementById('id_time_slot');
+    const timeSlotSelect = document.getElementById('time_slot_select'); // Изменили ID
+    const timeSlotDisplay = document.getElementById('time_slot_display');
+    const timeSlotIdInput = document.getElementById('id_time_slot_id');
     const appointmentDateInput = document.getElementById('id_appointment_date');
     const phoneInput = document.getElementById('id_phone_number');
 
-    if (phoneInput) {
-        phoneInput.addEventListener('input', function() {
-            formatPhoneNumber(this);
-        });
+    console.log('Initializing appointment update form...');
+    console.log('Available slots URL:', availableSlotsUrl);
+    console.log('Doctor ID:', doctorId);
+    console.log('Current slot ID:', currentSlotId);
 
-        phoneInput.addEventListener('blur', function() {
-            formatPhoneNumber(this);
-        });
-
-        if (phoneInput.value) {
-            formatPhoneNumber(phoneInput);
+    // Функция для обновления полей слота
+    function updateTimeSlotFields(slotId, displayText) {
+        if (timeSlotIdInput) {
+            timeSlotIdInput.value = slotId;
+            console.log('Set time_slot_id to:', slotId);
+        }
+        if (timeSlotDisplay) {
+            timeSlotDisplay.value = displayText;
+            console.log('Set time_slot_display to:', displayText);
         }
     }
+
     // Функция для загрузки доступных слотов
     function loadAvailableSlots(date) {
-        if (!timeSlotSelect || !date) return;
+        if (!timeSlotSelect || !date) {
+            console.error('Time slot select or date not found');
+            return;
+        }
 
         console.log('Loading slots for date:', date, 'doctor:', doctorId);
 
@@ -165,7 +41,6 @@ document.addEventListener('DOMContentLoaded', function() {
         timeSlotSelect.innerHTML = '<option value="">Загрузка...</option>';
         timeSlotSelect.disabled = true;
 
-        // Отправляем запрос на сервер
         fetch(availableSlotsUrl, {
             method: 'POST',
             headers: {
@@ -182,26 +57,17 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => {
             console.log('Response status:', response.status);
             if (!response.ok) {
-                return response.text().then(text => {
-                    console.error('Server response:', text);
-                    throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
-                });
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
-            console.log('Received slots data:', data);
-
+            console.log('Received data:', data);
             timeSlotSelect.innerHTML = '<option value="">Выберите временной слот</option>';
 
             if (data.error) {
                 console.error('API error:', data.error);
-                let errorMessage = 'Ошибка загрузки слотов';
-                if (data.error.includes('Неверный формат даты')) {
-                    errorMessage = 'Неверный формат даты';
-                }
-                timeSlotSelect.innerHTML = `<option value="">${errorMessage}</option>`;
-                timeSlotHidden.value = '';
+                timeSlotSelect.innerHTML = '<option value="">Ошибка загрузки слотов</option>';
                 return;
             }
 
@@ -215,22 +81,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     timeSlotSelect.appendChild(option);
                 });
 
-                // Автоматически выбираем текущий слот, если он есть в результатах
-                const currentSlotExists = data.slots.some(slot => slot.id == currentSlotId);
-                if (currentSlotExists) {
+                // Автоматически выбираем текущий слот, если он есть
+                const currentSlotOption = timeSlotSelect.querySelector(`option[value="${currentSlotId}"]`);
+                if (currentSlotOption) {
                     timeSlotSelect.value = currentSlotId;
-                    timeSlotHidden.value = currentSlotId;
+                    updateTimeSlotFields(currentSlotId, currentSlotOption.textContent);
                     console.log('Auto-selected current slot:', currentSlotId);
-                } else {
-                    // Если текущий слот не в результатах, выбираем первый доступный
+                } else if (data.slots.length > 0) {
+                    // Иначе выбираем первый доступный
                     timeSlotSelect.value = data.slots[0].id;
-                    timeSlotHidden.value = data.slots[0].id;
+                    updateTimeSlotFields(data.slots[0].id, `${data.slots[0].time} (${data.slots[0].cabinet})`);
                     console.log('Selected first available slot:', data.slots[0].id);
                 }
             } else {
                 console.log('No slots available for selected date');
                 timeSlotSelect.innerHTML = '<option value="">Нет доступных слотов на выбранную дату</option>';
-                timeSlotHidden.value = '';
             }
 
             timeSlotSelect.disabled = false;
@@ -238,10 +103,8 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error loading slots:', error);
-            console.error('Error details:', error.message);
             timeSlotSelect.innerHTML = '<option value="">Ошибка загрузки слотов</option>';
             timeSlotSelect.disabled = false;
-            timeSlotHidden.value = '';
         });
     }
 
@@ -267,14 +130,41 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!timeSlotSelect || !twoSlotsSection) return;
 
         const selectedOption = timeSlotSelect.options[timeSlotSelect.selectedIndex];
-        if (selectedOption.value && selectedOption.value !== '') {
+        if (selectedOption && selectedOption.value && selectedOption.value !== '') {
             const timeText = selectedOption.textContent.split(' (')[0];
-            document.getElementById('currentSlotTime').textContent = timeText;
-            document.getElementById('nextSlotTime').textContent = 'будет определен автоматически';
+            if (document.getElementById('currentSlotTime')) {
+                document.getElementById('currentSlotTime').textContent = timeText;
+            }
+            if (document.getElementById('nextSlotTime')) {
+                document.getElementById('nextSlotTime').textContent = 'будет определен автоматически';
+            }
         } else {
-            document.getElementById('currentSlotTime').textContent = 'не выбран';
-            document.getElementById('nextSlotTime').textContent = 'не доступен';
+            if (document.getElementById('currentSlotTime')) {
+                document.getElementById('currentSlotTime').textContent = 'не выбран';
+            }
+            if (document.getElementById('nextSlotTime')) {
+                document.getElementById('nextSlotTime').textContent = 'не доступен';
+            }
         }
+    }
+
+    // Функция для форматирования номера телефона
+    function formatPhoneNumber(input) {
+        let value = input.value.replace(/[^\d+]/g, '');
+
+        if (!value.startsWith('+7') && value.length > 0) {
+            if (value.startsWith('7') || value.startsWith('8')) {
+                value = '+7' + value.slice(1);
+            } else {
+                value = '+7' + value;
+            }
+        }
+
+        if (value.length > 12) {
+            value = value.substring(0, 12);
+        }
+
+        input.value = value;
     }
 
     // Обработка изменения даты
@@ -288,44 +178,52 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработка изменения выбора времени
     if (timeSlotSelect) {
         timeSlotSelect.addEventListener('change', function() {
-            // Обновляем скрытое поле формы
-            timeSlotHidden.value = this.value;
-            updateSlotInfo();
-
-            const twoSlotsRadio = document.querySelector('input[name="appointment_type"][value="two_slots"]');
-            if (twoSlotsRadio && twoSlotsRadio.checked) {
-                updateSlotInfo();
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption && selectedOption.value) {
+                updateTimeSlotFields(selectedOption.value, selectedOption.textContent);
+            } else {
+                updateTimeSlotFields('', '');
             }
+
+            updateSlotInfo();
         });
     }
 
     // Обработка изменения типа записи
-    appointmentTypeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (additionalServiceSection) {
-                additionalServiceSection.style.display = 'none';
-            }
-            if (twoSlotsSection) {
-                twoSlotsSection.style.display = 'none';
-            }
+    if (appointmentTypeRadios) {
+        appointmentTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (additionalServiceSection) {
+                    additionalServiceSection.style.display = 'none';
+                }
+                if (twoSlotsSection) {
+                    twoSlotsSection.style.display = 'none';
+                }
 
-            if (this.value === 'additional' && additionalServiceSection) {
-                additionalServiceSection.style.display = 'block';
-                populateAdditionalServices();
-            } else if (this.value === 'two_slots' && twoSlotsSection) {
-                twoSlotsSection.style.display = 'block';
-                updateSlotInfo();
-            }
+                if (this.value === 'additional' && additionalServiceSection) {
+                    additionalServiceSection.style.display = 'block';
+                    populateAdditionalServices();
+                } else if (this.value === 'two_slots' && twoSlotsSection) {
+                    twoSlotsSection.style.display = 'block';
+                    updateSlotInfo();
+                }
+            });
         });
-    });
+    }
 
-    // Обновляем дополнительные услуги при изменении основной услуги
-    if (mainServiceSelect) {
-        mainServiceSelect.addEventListener('change', function() {
-            if (additionalServiceSection.style.display === 'block') {
-                populateAdditionalServices();
-            }
+    // Форматирование номера телефона
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function() {
+            formatPhoneNumber(this);
         });
+
+        phoneInput.addEventListener('blur', function() {
+            formatPhoneNumber(this);
+        });
+
+        if (phoneInput.value) {
+            formatPhoneNumber(phoneInput);
+        }
     }
 
     // Инициализация при загрузке
@@ -337,8 +235,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Загружаем слоты для текущей даты при загрузке страницы
     if (appointmentDateInput && appointmentDateInput.value) {
         console.log('Initial load for date:', appointmentDateInput.value);
+        // Даем время для полной загрузки DOM
         setTimeout(() => {
             loadAvailableSlots(appointmentDateInput.value);
-        }, 100);
+        }, 500);
+    } else {
+        // Если дата не установлена, устанавливаем текущую дату
+        const today = new Date().toISOString().split('T')[0];
+        if (appointmentDateInput) {
+            appointmentDateInput.value = today;
+            setTimeout(() => {
+                loadAvailableSlots(today);
+            }, 500);
+        }
     }
 });

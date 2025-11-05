@@ -57,64 +57,100 @@ def check_patient_api(request):
 
 
 @csrf_exempt
+@require_http_methods(["POST"])
 def get_available_slots(request):
-    """API для получения доступных слотов"""
-    if request.method == "POST":
+    """API для получения доступных слотов для редактирования записи"""
+    try:
+        data = json.loads(request.body)
+        doctor_id = data.get("doctor_id")
+        date = data.get("date")
+        current_slot_id = data.get("current_slot_id")
+        current_appointment_id = data.get("current_appointment_id")
+
+        print(
+            f"API request - doctor_id: {doctor_id}, date: {date}, current_slot_id: {current_slot_id}, current_appointment_id: {current_appointment_id}"
+        )
+
+        if not doctor_id or not date:
+            return JsonResponse({"error": "Не указаны doctor_id или date"}, status=400)
+
+        # Преобразование даты
         try:
-            data = json.loads(request.body)
-            doctor_id = data.get("doctor_id")
-            date = data.get("date")
-            current_slot_id = data.get("current_slot_id")
-            current_appointment_id = data.get("current_appointment_id")
-
-            if not doctor_id or not date:
-                return JsonResponse(
-                    {"error": "Не указаны doctor_id или date"}, status=400
-                )
-
-            # Преобразование даты
-            try:
-                appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
-            except ValueError:
-                return JsonResponse(
-                    {"error": "Неверный формат даты. Ожидается YYYY-MM-DD"}, status=400
-                )
-
-            # Получение слотов
-            all_slots = (
-                TimeSlot.objects.filter(
-                    doctor_id=doctor_id, date=appointment_date, slot_type="working"
-                )
-                .select_related("cabinet", "doctor")
-                .order_by("start_time")
+            appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            return JsonResponse(
+                {"error": "Неверный формат даты. Ожидается YYYY-MM-DD"}, status=400
             )
 
-            # Фильтрация доступных слотов
-            available_slots = []
-            for slot in all_slots:
-                is_free = not slot.appointments.exists()
-                is_current_appointment = (
-                    current_appointment_id
-                    and slot.appointments.filter(id=current_appointment_id).exists()
+        # Получение всех рабочих слотов врача на указанную дату
+        all_slots = (
+            TimeSlot.objects.filter(
+                doctor_id=doctor_id, date=appointment_date, slot_type="working"
+            )
+            .select_related("cabinet", "doctor")
+            .prefetch_related("appointments")
+            .order_by("start_time")
+        )
+
+        print(
+            f"Found {all_slots.count()} total slots for doctor {doctor_id} on {appointment_date}"
+        )
+
+        # Фильтрация доступных слотов
+        available_slots = []
+        for slot in all_slots:
+            # Проверяем, занят ли слот
+            is_occupied = slot.appointments.exists()
+
+            # Проверяем, является ли этот слот текущим слотом редактируемой записи
+            is_current_slot = str(slot.id) == str(current_slot_id)
+
+            # Проверяем, принадлежит ли занятость текущей редактируемой записи
+            is_occupied_by_current = False
+            if is_occupied and current_appointment_id:
+                current_appointment = slot.appointments.filter(
+                    id=current_appointment_id
+                ).first()
+                is_occupied_by_current = current_appointment is not None
+
+            # Слот доступен если:
+            # 1. Он не занят ИЛИ
+            # 2. Это текущий слот записи ИЛИ
+            # 3. Он занят текущей редактируемой записью
+            if (not is_occupied) or is_current_slot or is_occupied_by_current:
+                available_slots.append(
+                    {
+                        "id": slot.id,
+                        "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
+                        "cabinet": f"Каб. {slot.cabinet.number}",
+                        "is_current": is_current_slot,
+                        "start_time": slot.start_time.strftime("%H:%M:%S"),
+                        "end_time": slot.end_time.strftime("%H:%M:%S"),
+                    }
                 )
-                is_current_slot = str(slot.id) == str(current_slot_id)
+                print(
+                    f"Added slot {slot.id}: {slot.start_time}-{slot.end_time} (current: {is_current_slot})"
+                )
 
-                if is_free or is_current_appointment or is_current_slot:
-                    available_slots.append(
-                        {
-                            "id": slot.id,
-                            "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
-                            "cabinet": f"Каб. {slot.cabinet.number}",
-                            "is_current": is_current_slot,
-                        }
-                    )
+        print(f"Returning {len(available_slots)} available slots")
 
-            return JsonResponse({"slots": available_slots})
+        return JsonResponse(
+            {
+                "slots": available_slots,
+                "debug": {
+                    "total_slots": all_slots.count(),
+                    "available_slots": len(available_slots),
+                    "doctor_id": doctor_id,
+                    "date": date,
+                    "current_slot_id": current_slot_id,
+                    "current_appointment_id": current_appointment_id,
+                },
+            }
+        )
 
-        except Exception as e:
-            return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
-
-    return JsonResponse({"error": "Метод не разрешен"}, status=405)
+    except Exception as e:
+        print(f"Error in api_get_available_slots: {str(e)}")
+        return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
 
 
 @csrf_exempt

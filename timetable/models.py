@@ -65,9 +65,7 @@ class MedicalService(models.Model):
 
 class Doctor(models.Model):
     class DoctorSpecialization(models.TextChoices):
-        RHEUMATOLOGIST_1 = "rheumatologist_1", _("Ревматолог категория 1")
-        RHEUMATOLOGIST_2 = "rheumatologist_2", _("Ревматолог категория 2")
-        RHEUMATOLOGIST_3 = "rheumatologist_3", _("Ревматолог категория 3")
+        RHEUMATOLOGIST = "rheumatologist", _("Ревматолог")
         ORTHOPEDIC_TRAUMATOLOGIST = "Orthopedic-traumatologist", _(
             "Травматолог-ортопед"
         )

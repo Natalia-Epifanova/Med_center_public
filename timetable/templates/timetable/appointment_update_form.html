@@ -114,41 +114,42 @@
 
                         <!-- Блок выбора времени и услуги -->
                         <div class="card mb-4">
-    <div class="card-header bg-light">
-        <h6 class="mb-0">2. Время и услуга</h6>
-    </div>
-    <div class="card-body">
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label for="{{ form.appointment_date.id_for_label }}" class="form-label">
-                    {{ form.appointment_date.label }}
-                </label>
-                {{ form.appointment_date }}
-                {% if form.appointment_date.errors %}
-                <div class="text-danger">{{ form.appointment_date.errors }}</div>
-                {% endif %}
-                <div class="form-text">
-                    Выберите дату приема
-                </div>
-            </div>
-            <div class="col-md-6">
-                <!-- ИЗМЕНЕНО: Заменяем поле формы на кастомный селект -->
-                <label for="time_slot_select" class="form-label">
-                    Временной слот*
-                </label>
-                <select name="time_slot_select" class="form-select" id="time_slot_select">
-                    <option value="">Выберите временной слот</option>
-                </select>
-                {% if form.time_slot.errors %}
-                <div class="text-danger">{{ form.time_slot.errors }}</div>
-                {% endif %}
-                <div class="form-text">
-                    Доступны только свободные слоты врача {{ doctor.surname }} на выбранную дату
-                </div>
-                <!-- Скрытое поле для передачи выбранного значения -->
-                {{ form.time_slot }}
-            </div>
-        </div>
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">2. Время и услуга</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="{{ form.appointment_date.id_for_label }}" class="form-label">
+                                            {{ form.appointment_date.label }}
+                                        </label>
+                                        {{ form.appointment_date }}
+                                        {% if form.appointment_date.errors %}
+                                        <div class="text-danger">{{ form.appointment_date.errors }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            Выберите дату приема
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="time_slot_select" class="form-label">
+                                            Временной слот*
+                                        </label>
+                                        <!-- Кастомный select для выбора слотов -->
+                                        <select id="time_slot_select" class="form-select">
+                                            <option value="">Загрузка слотов...</option>
+                                        </select>
+                                        <!-- Hidden поле для хранения выбранного ID -->
+                                        {{ form.time_slot_id }}
+                                        <!-- Поле для отображения выбранного слота -->
+                                        {% if form.time_slot_id.errors %}
+                                        <div class="text-danger">{{ form.time_slot_id.errors }}</div>
+                                        {% endif %}
+                                        <div class="form-text">
+                                            Доступны только свободные слоты врача {{ doctor.surname }} на выбранную дату
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div class="row mb-3">
                                     <div class="col-12">
@@ -186,35 +187,29 @@
                                     </div>
                                 </div>
 
-                                        <!-- Блок процедурного кабинета -->
-                                <div class="card mb-4">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">4. Процедурный кабинет</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row">
-                                            <div class="col-12">
-                                                <div class="form-check">
-                                                    {{ form.needs_procedural }}
-                                                    <label class="form-check-label" for="{{ form.needs_procedural.id_for_label }}">
-                                                        {{ form.needs_procedural.label }}
-                                                    </label>
-                                                    <div class="form-text">{{ form.needs_procedural.help_text }}</div>
-                                                </div>
+                                <!-- Блок процедурного кабинета (ПЕРЕМЕЩЕН СЮДА) -->
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            {{ form.needs_procedural }}
+                                            <label class="form-check-label" for="{{ form.needs_procedural.id_for_label }}">
+                                                {{ form.needs_procedural.label }}
+                                            </label>
+                                            <div class="form-text">{{ form.needs_procedural.help_text }}</div>
+                                        </div>
 
-                                                <!-- Блок для предупреждений о процедурном кабинете -->
-                                                <div id="proceduralInfo" class="mt-2">
-                                                    {% if form.needs_procedural.initial %}
-                                                    <div class="alert alert-info">
-                                                        <i class="fas fa-info-circle"></i>
-                                                        Запись в процедурном кабинете будет автоматически перенесена на новое время.
-                                                    </div>
-                                                    {% endif %}
-                                                </div>
+                                        <!-- Блок для предупреждений о процедурном кабинете -->
+                                        <div id="proceduralInfo" class="mt-2">
+                                            {% if form.needs_procedural.initial %}
+                                            <div class="alert alert-info">
+                                                <i class="fas fa-info-circle"></i>
+                                                Запись в процедурном кабинете будет автоматически перенесена на новое время.
                                             </div>
+                                            {% endif %}
                                         </div>
                                     </div>
                                 </div>
+
                                 <!-- Блок для второй услуги -->
                                 <div class="row mb-3" id="additionalServiceSection" style="display: none;">
                                     <div class="col-12">

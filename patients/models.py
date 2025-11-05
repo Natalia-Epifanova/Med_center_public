@@ -22,6 +22,11 @@ class Patient(models.Model):
         null=True,
         verbose_name="Номер карты пациента",
     )
+    card_number_IP = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Номер карты пациента (ИП)",
+    )
     phone_number = models.CharField(
         max_length=12,
         blank=True,
@@ -106,6 +111,17 @@ class Patient(models.Model):
         null=True,
         verbose_name="Паспорт номер",
     )
+    passport_issue_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name="Дата выдачи паспорта",
+    )
+    who_issued_the_passport = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        verbose_name="Кем выдан паспорт",
+    )
     polis_oms = models.CharField(
         max_length=20,
         blank=True,
@@ -163,6 +179,7 @@ class Patient(models.Model):
 
     def get_last_appointment(self):
         """Получить последнюю запись пациента"""
+        from timetable.models import Appointment
 
         return (
             Appointment.objects.filter(patient=self)

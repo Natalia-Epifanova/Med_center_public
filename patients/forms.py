@@ -42,6 +42,7 @@ class PatientFullForm(StyleFormMixin, ModelForm):
             "last_name",
             "phone_number",
             "card_number",
+            "card_number_IP",
             "date_of_birth",
             "gender",
             "area",
@@ -54,13 +55,15 @@ class PatientFullForm(StyleFormMixin, ModelForm):
             "apartment",
             "passport_series",
             "passport_number",
+            "passport_issue_date",
+            "who_issued_the_passport",
             "polis_oms",
             "snils",
             "insurance_company",
         ]
         widgets = {
             "date_of_birth": forms.DateInput(attrs={"type": "date"}),
-            "address": forms.Textarea(attrs={"rows": 3}),
+            "passport_issue_date": forms.DateInput(attrs={"type": "date"}),
         }
         labels = {
             "surname": "Фамилия*",
@@ -68,6 +71,7 @@ class PatientFullForm(StyleFormMixin, ModelForm):
             "last_name": "Отчество",
             "phone_number": "Телефон",
             "card_number": "Номер карты",
+            "card_number_IP": "Номер карты (ИП)",
             "date_of_birth": "Дата рождения",
             "gender": "Пол",
             "area": "Субъект РФ",
@@ -80,6 +84,8 @@ class PatientFullForm(StyleFormMixin, ModelForm):
             "apartment": "Квартира",
             "passport_series": "Паспор серия",
             "passport_number": "Паспорт номер",
+            "passport_issue_date": "Дата выдачи паспорта",
+            "who_issued_the_passport": "Кем выдан",
             "polis_oms": "Полис ОМС",
             "snils": "СНИЛС",
             "insurance_company": "Страховая компания",
