@@ -47,6 +47,80 @@
     font-weight: 500;
 }
 
+/* ===== ГОРИЗОНТАЛЬНАЯ ПРОКРУТКА ВСЕХ КАБИНЕТОВ ===== */
+
+/* Контейнер для всех карточек с горизонтальной прокруткой */
+.timetable-cards-scroll-container {
+    overflow-x: auto; /* Горизонтальная прокрутка */
+    padding-bottom: 12px; /* Отступ для скроллбара */
+    margin-bottom: 16px;
+}
+
+/* Внутренний контейнер с обычной сеткой Bootstrap */
+.timetable-cards-grid {
+    display: flex;
+    flex-wrap: nowrap; /* Запрещаем перенос на новую строку */
+    min-width: min-content; /* Минимальная ширина по содержимому */
+    gap: 8px; /* Уменьшаем отступ между карточками */
+}
+
+/* Уменьшаем ширину карточек для отображения 4 в ряд */
+.timetable-cards-grid .col-12,
+.timetable-cards-grid .col-sm-6,
+.timetable-cards-grid .col-md-4,
+.timetable-cards-grid .col-lg-3,
+.timetable-cards-grid .col-xl-3 {
+    flex: 0 0 auto;
+    width: 450px; /* Уменьшаем ширину карточки */
+    min-width: 450px;
+}
+
+/* Уменьшаем отступы внутри карточек */
+.timetable-cabinet-card .card-body {
+    padding: 6px !important;
+}
+
+/* Уменьшаем шрифт в таблицах */
+.timetable-table-sm th,
+.timetable-table-sm td {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.3rem !important;
+}
+
+/* Уменьшаем выпадающий список статуса */
+.appointment-status-select {
+    font-size: 0.65rem !important;
+    min-width: 90px !important;
+    max-width: 90px;
+    padding: 0.15rem 0.3rem !important;
+    height: 24px !important;
+}
+
+/* Уменьшаем кнопки действий */
+.btn-group-sm .btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.65rem;
+}
+
+/* Уменьшаем заголовок кабинета */
+.timetable-cabinet-header {
+    padding: 4px 6px !important;
+}
+
+.timetable-cabinet-header h6 {
+    font-size: 0.85rem;
+}
+
+/* Уменьшаем заголовок врача */
+.doctor-header {
+    padding: 4px !important;
+    margin-bottom: 6px !important;
+}
+
+.doctor-header strong {
+    font-size: 0.75rem;
+}
+
 /* ===== СТИЛИ СЛОТОВ ПО ТИПУ ОПЛАТЫ ===== */
 
 /* ДМС - розовая гамма */
@@ -121,6 +195,93 @@
     background-color: #6f42c1 !important;
     color: white !important;
     font-weight: bold;
+}
+
+/* ===== СТИЛИ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ СТАТУСОВ ===== */
+
+/* Базовые стили для выпадающих списков статусов */
+.appointment-status-select {
+    transition: all 0.3s ease;
+    font-size: 0.7rem !important;
+    border-width: 1px !important;
+    font-weight: 500;
+    min-width: 100px !important;
+    max-width: 110px;
+    margin-right: 4px;
+    padding: 0.2rem 0.4rem !important;
+    height: 28px !important;
+}
+
+/* Цвета фона для разных статусов */
+.appointment-status-select.status-scheduled {
+    background-color: #e7f1ff !important;
+    color: #0d6efd !important;
+}
+
+.appointment-status-select.status-confirmed {
+    background-color: #d1ecf1 !important;
+    color: #0dcaf0 !important;
+}
+
+.appointment-status-select.status-completed {
+    background-color: #d1e7dd !important;
+    color: #198754 !important;
+}
+
+.appointment-status-select.status-cancelled {
+    background-color: #fff3cd !important;
+    color: #ffc107 !important;
+}
+
+.appointment-status-select.status-no_show {
+    background-color: #f8d7da !important;
+    color: #dc3545 !important;
+}
+
+.appointment-status-select.status-default {
+    background-color: #f8f9fa !important;
+    color: #6c757d !important;
+}
+
+/* Усиленные цвета границ */
+.appointment-status-select.border-primary {
+    border-color: #0d6efd !important;
+}
+
+.appointment-status-select.border-info {
+    border-color: #0dcaf0 !important;
+}
+
+.appointment-status-select.border-success {
+    border-color: #198754 !important;
+}
+
+.appointment-status-select.border-warning {
+    border-color: #ffc107 !important;
+}
+
+.appointment-status-select.border-danger {
+    border-color: #dc3545 !important;
+}
+
+.appointment-status-select.border-secondary {
+    border-color: #6c757d !important;
+}
+
+/* Состояния */
+.appointment-status-select:disabled {
+    opacity: 0.6;
+}
+
+.appointment-status-select.loading {
+    opacity: 0.7;
+    background-color: #f8f9fa !important;
+}
+
+/* Эффекты при наведении */
+.appointment-status-select:not(:disabled):hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 /* ===== КНОПКИ ===== */
@@ -218,6 +379,12 @@
         font-size: 0.7rem;
         padding: 0.25rem 0.5rem;
     }
+
+    .appointment-status-select {
+        min-width: 90px !important;
+        font-size: 0.65rem !important;
+        height: 26px !important;
+    }
 }
 
 /* ===== УТИЛИТЫ ===== */
@@ -234,94 +401,27 @@
 #twoSlotsSection {
     transition: all 0.3s ease;
 }
-/* ===== СТИЛИ ДЛЯ ВЫПАДАЮЩИХ СПИСКОВ СТАТУСОВ ===== */
 
-/* Базовые стили для выпадающих списков статусов */
-.appointment-status-select {
-    transition: all 0.3s ease;
-    font-size: 0.75rem;
-    border-width: 2px !important;
-    font-weight: 500;
+/* Анимация для спиннера */
+.fa-spinner {
+    animation: spin 1s linear infinite;
 }
 
-/* Цвета фона для разных статусов */
-.appointment-status-select.status-scheduled {
-    background-color: #e7f1ff !important;
-    color: #0d6efd !important;
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
-.appointment-status-select.status-confirmed {
-    background-color: #d1ecf1 !important;
-    color: #0dcaf0 !important;
+/* Исправляем цвета подписей ДМС и ОМС под слотами */
+.timetable-slot-dms .badge.bg-pink,
+.timetable-slot-oms .badge.bg-purple {
+    color: white !important;
 }
 
-.appointment-status-select.status-completed {
-    background-color: #d1e7dd !important;
-    color: #198754 !important;
-}
-
-.appointment-status-select.status-cancelled {
-    background-color: #fff3cd !important;
-    color: #ffc107 !important;
-}
-
-.appointment-status-select.status-no_show {
-    background-color: #f8d7da !important;
-    color: #dc3545 !important;
-}
-
-.appointment-status-select.status-default {
-    background-color: #f8f9fa !important;
-    color: #6c757d !important;
-}
-
-/* Усиленные цвета границ */
-.appointment-status-select.border-primary {
-    border-color: #0d6efd !important;
-}
-
-.appointment-status-select.border-info {
-    border-color: #0dcaf0 !important;
-}
-
-.appointment-status-select.border-success {
-    border-color: #198754 !important;
-}
-
-.appointment-status-select.border-warning {
-    border-color: #ffc107 !important;
-}
-
-.appointment-status-select.border-danger {
-    border-color: #dc3545 !important;
-}
-
-.appointment-status-select.border-secondary {
-    border-color: #6c757d !important;
-}
-
-/* Состояния */
-.appointment-status-select:disabled {
-    opacity: 0.6;
-}
-
-.appointment-status-select.loading {
-    opacity: 0.7;
-    background-color: #f8f9fa !important;
-}
-
-/* Эффекты при наведении */
-.appointment-status-select:not(:disabled):hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-/* Адаптивность для мобильных устройств */
-@media (max-width: 768px) {
-    .appointment-status-select {
-        min-width: 110px !important;
-        font-size: 0.7rem;
-    }
+/* Убеждаемся, что текст в бейджах всегда белый */
+.badge.bg-pink,
+.badge.bg-purple {
+    color: white !important;
 }
 
 /* Анимация для спиннера */
@@ -332,4 +432,79 @@
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Исправляем цвета подписей ДМС и ОМС под слотами */
+.timetable-slot-dms .badge.bg-pink,
+.timetable-slot-oms .badge.bg-purple {
+    color: white !important;
+}
+
+/* Убеждаемся, что текст в бейджах всегда белый */
+.badge.bg-pink,
+.badge.bg-purple {
+    color: white !important;
+}
+
+/* Улучшаем отображение таблицы внутри карточек */
+.timetable-table-responsive table {
+    width: 100%;
+    min-width: 300px; /* Минимальная ширина таблицы */
+}
+
+.timetable-table-sm th,
+.timetable-table-sm td {
+    padding: 0.3rem 0.4rem; /* Увеличиваем отступы для лучшей читаемости */
+}
+
+/* Уменьшаем ширину определенных колонок для лучшего отображения */
+.timetable-table-sm th:nth-child(1), /* Время */
+.timetable-table-sm td:nth-child(1) {
+    min-width: 80px;
+    max-width: 80px;
+}
+
+.timetable-table-sm th:nth-child(2), /* Услуга */
+.timetable-table-sm td:nth-child(2) {
+    min-width: 70px;
+    max-width: 70px;
+}
+
+.timetable-table-sm th:nth-child(3), /* Пациент */
+.timetable-table-sm td:nth-child(3) {
+    min-width: 90px;
+    max-width: 90px;
+}
+
+.timetable-table-sm th:nth-child(4), /* Комментарий */
+.timetable-table-sm td:nth-child(4) {
+    min-width: 60px;
+    max-width: 60px;
+}
+
+.timetable-table-sm th:nth-child(5), /* Действия */
+.timetable-table-sm td:nth-child(5) {
+    min-width: 120px;
+    max-width: 120px;
+}
+/* Анимация для спиннера */
+.fa-spinner {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Исправляем цвета подписей ДМС и ОМС под слотами */
+.timetable-slot-dms .badge.bg-pink,
+.timetable-slot-oms .badge.bg-purple {
+    color: white !important; /* Белый текст на цветном фоне */
+}
+
+/* Убеждаемся, что текст в бейджах всегда белый */
+.badge.bg-pink,
+.badge.bg-purple {
+    color: white !important;
 }
