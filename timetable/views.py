@@ -37,10 +37,23 @@ class HomeView(TemplateView):
     template_name = "timetable/home.html"
 
 
-class TimeSlotCreateView(LoginRequiredMixin, FormView):  # Изменяем наследование
+class TimeSlotCreateView(LoginRequiredMixin, FormView):
     form_class = TimeSlotForm
     template_name = "timetable/schedule_create.html"
     success_url = reverse_lazy("timetable:schedule_create")
+
+    def get_initial(self):
+        """Предзаполняем дату из GET параметров"""
+        initial = super().get_initial()
+        date_param = self.request.GET.get("date")
+        if date_param:
+            try:
+                # Проверяем корректность даты
+                datetime.strptime(date_param, "%Y-%m-%d").date()
+                initial["date"] = date_param
+            except ValueError:
+                pass
+        return initial
 
     def form_valid(self, form):
         date = form.cleaned_data["date"]
@@ -123,11 +136,22 @@ class TimeSlotDetailView(LoginRequiredMixin, DetailView):
 class TimeSlotDeleteView(LoginRequiredMixin, DeleteView):
     model = TimeSlot
     template_name = "timetable/timeslot_confirm_delete.html"
-    success_url = reverse_lazy("timetable:schedule_day")
+
+    def get_success_url(self):
+        # Получаем дату из удаляемого слота
+        slot_date = self.object.date
+        return reverse_lazy("timetable:schedule_day") + f"?date={slot_date}"
 
     def delete(self, request, *args, **kwargs):
+        # Сохраняем дату перед удалением
+        self.object = self.get_object()
+        slot_date = self.object.date
+
         messages.success(self.request, "Слот успешно удален.")
-        return super().delete(request, *args, **kwargs)
+
+        # Выполняем удаление
+        response = super().delete(request, *args, **kwargs)
+        return response
 
 
 class ScheduleDayView(LoginRequiredMixin, TemplateView):

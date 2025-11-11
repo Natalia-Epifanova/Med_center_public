@@ -21,6 +21,24 @@ function formatPhoneNumber(input) {
 
     input.value = value;
 }
+
+// Функция для проверки, является ли услуга медикаментозной блокадой
+function isMedicalBlockade(serviceSelect) {
+    if (!serviceSelect) return false;
+
+    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+    if (!selectedOption || selectedOption.value === '') {
+        return false;
+    }
+
+    const serviceName = selectedOption.text.toLowerCase();
+
+    // Ключевые слова для идентификации блокад
+    const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
+
+    return blockadeKeywords.some(keyword => serviceName.includes(keyword));
+}
+
 // Функция для проверки ограничений врача Пищелева
 function checkPishchelevRestrictions(doctorName, serviceName, slotDuration) {
     const isPishchelev = doctorName.includes('Пищелёв');
@@ -36,53 +54,10 @@ function checkPishchelevRestrictions(doctorName, serviceName, slotDuration) {
     return { allowed: true };
 }
 
-// Добавьте проверку при выборе услуги
-if (serviceSelect) {
-    serviceSelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        const serviceName = selectedOption.textContent;
-
-        // Получаем информацию о враче и слоте
-        const doctorName = document.querySelector('.card-title')?.textContent || '';
-        const timeText = document.querySelector('.alert-info')?.textContent || '';
-
-        // Парсим длительность слота из времени (пример: "10:00-10:20" = 20 минут)
-        const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
-            const startHours = parseInt(timeMatch[1]);
-            const startMinutes = parseInt(timeMatch[2]);
-            const endHours = parseInt(timeMatch[3]);
-            const endMinutes = parseInt(timeMatch[4]);
-
-            const slotDuration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
-
-            // Проверяем ограничения
-            const restriction = checkPishchelevRestrictions(doctorName, serviceName, slotDuration);
-            if (!restriction.allowed) {
-                alert(restriction.message);
-                this.value = '';
-            }
-        }
-    });
-}
-// Функция для проверки, является ли услуга медикаментозной блокадой
-function isMedicalBlockade(serviceSelect) {
-    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-    if (!selectedOption || selectedOption.value === '') {
-        return false;
-    }
-
-    const serviceName = selectedOption.text.toLowerCase();
-
-    // Ключевые слова для идентификации блокад
-    const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
-
-    return blockadeKeywords.some(keyword => serviceName.includes(keyword));
-}
-
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== DEBUG: Appointment Form Loaded ===');
 
+    // ОСНОВНЫЕ ПЕРЕМЕННЫЕ - ОБЪЯВЛЯЕМ ИХ В НАЧАЛЕ
     const appointmentTypeRadios = document.querySelectorAll('input[name="appointment_type"]');
     const additionalServiceSection = document.getElementById('additionalServiceSection');
     const twoSlotsSection = document.getElementById('twoSlotsSection');
@@ -90,6 +65,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const serviceSelect = document.getElementById('id_service');
     const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
     const phoneInput = document.getElementById('id_phone_number');
+    const checkPatientBtn = document.getElementById('checkPatientBtn');
+    const patientCheckResult = document.getElementById('patientCheckResult');
+
+    console.log('Elements found:', {
+        appointmentTypeRadios: appointmentTypeRadios.length,
+        additionalServiceSection: !!additionalServiceSection,
+        twoSlotsSection: !!twoSlotsSection,
+        additionalServiceSelect: !!additionalServiceSelect,
+        serviceSelect: !!serviceSelect,
+        needsProceduralCheckbox: !!needsProceduralCheckbox,
+        phoneInput: !!phoneInput,
+        checkPatientBtn: !!checkPatientBtn,
+        patientCheckResult: !!patientCheckResult
+    });
 
     // Форматирование номера телефона
     if (phoneInput) {
@@ -109,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Автоматическая отметка процедурного кабинета для блокад
     if (serviceSelect && needsProceduralCheckbox) {
         serviceSelect.addEventListener('change', function() {
+            console.log('Service changed, checking for medical blockade');
             if (isMedicalBlockade(this)) {
                 needsProceduralCheckbox.checked = true;
                 console.log('Auto-checked procedural for medical blockade');
@@ -118,37 +108,84 @@ document.addEventListener('DOMContentLoaded', function() {
         // Инициализация при загрузке
         if (isMedicalBlockade(serviceSelect)) {
             needsProceduralCheckbox.checked = true;
+            console.log('Initial medical blockade detected');
         }
     }
 
     // Обработка изменения типа записи
-    appointmentTypeRadios.forEach(radio => {
-        radio.addEventListener('change', function() {
-            console.log('Appointment type changed to:', this.value);
+    if (appointmentTypeRadios.length > 0) {
+        appointmentTypeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                console.log('Appointment type changed to:', this.value);
 
-            // Сначала скрываем все секции
-            if (additionalServiceSection) {
-                additionalServiceSection.style.display = 'none';
-            }
-            if (twoSlotsSection) {
-                twoSlotsSection.style.display = 'none';
-            }
+                // Сначала скрываем все секции
+                if (additionalServiceSection) {
+                    additionalServiceSection.style.display = 'none';
+                }
+                if (twoSlotsSection) {
+                    twoSlotsSection.style.display = 'none';
+                }
 
-            // Показываем нужную секцию в зависимости от выбора
-            if (this.value === 'additional' && additionalServiceSection) {
-                additionalServiceSection.style.display = 'block';
-                console.log('Showing additional service section');
-            } else if (this.value === 'two_slots' && twoSlotsSection) {
-                twoSlotsSection.style.display = 'block';
-                console.log('Showing two slots section');
+                // Показываем нужную секцию в зависимости от выбора
+                if (this.value === 'additional' && additionalServiceSection) {
+                    additionalServiceSection.style.display = 'block';
+                    console.log('Showing additional service section');
+
+                    // Если есть select для дополнительной услуги, убедимся что он видим
+                    if (additionalServiceSelect) {
+                        console.log('Additional service select is available');
+                    }
+                } else if (this.value === 'two_slots' && twoSlotsSection) {
+                    twoSlotsSection.style.display = 'block';
+                    console.log('Showing two slots section');
+                }
+            });
+        });
+    } else {
+        console.error('No appointment type radios found');
+    }
+
+    // Проверка ограничений врача Пищелева при выборе услуги
+    if (serviceSelect) {
+        serviceSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (!selectedOption) return;
+
+            const serviceName = selectedOption.textContent;
+
+            // Получаем информацию о враче и слоте
+            const doctorName = document.querySelector('.card-title')?.textContent || '';
+            const timeText = document.querySelector('.alert-info')?.textContent || '';
+
+            console.log('Checking restrictions for:', {
+                doctorName: doctorName,
+                serviceName: serviceName,
+                timeText: timeText
+            });
+
+            // Парсим длительность слота из времени (пример: "10:00-10:20" = 20 минут)
+            const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+            if (timeMatch) {
+                const startHours = parseInt(timeMatch[1]);
+                const startMinutes = parseInt(timeMatch[2]);
+                const endHours = parseInt(timeMatch[3]);
+                const endMinutes = parseInt(timeMatch[4]);
+
+                const slotDuration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+
+                console.log('Slot duration calculated:', slotDuration + ' minutes');
+
+                // Проверяем ограничения
+                const restriction = checkPishchelevRestrictions(doctorName, serviceName, slotDuration);
+                if (!restriction.allowed) {
+                    alert(restriction.message);
+                    this.value = '';
+                }
             }
         });
-    });
+    }
 
     // Проверка существования пациента
-    const checkPatientBtn = document.getElementById('checkPatientBtn');
-    const patientCheckResult = document.getElementById('patientCheckResult');
-
     if (checkPatientBtn) {
         checkPatientBtn.addEventListener('click', function() {
             console.log('Check patient button clicked');
@@ -253,7 +290,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Инициализация - убедимся, что при загрузке страницы правильные секции видны
     const checkedRadio = document.querySelector('input[name="appointment_type"]:checked');
     if (checkedRadio) {
+        console.log('Initial radio checked:', checkedRadio.value);
         checkedRadio.dispatchEvent(new Event('change'));
+    } else {
+        console.log('No radio checked by default');
     }
 
     console.log('Event listeners initialized successfully');

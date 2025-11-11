@@ -6,28 +6,52 @@
     <p class="lead">Удаление слота</p>
 </div>
 {% endblock %}
-{% block content %}
 
+{% block content %}
 <div class="container">
-    <div class="row">
-        <div class="col-6">
-            <form class="row" method="post" enctype="multipart/form-data">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <form method="post">
                 <div class="card">
-                    <p class="card-text mt-3">Вы уверены, что хотите удалить слот на {{ object.date }} с {{ object.start_time }} по {{ object.end_time }}?</p>
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Подтверждение удаления</h5>
+                    </div>
                     <div class="card-body">
+                        <p class="card-text">Вы уверены, что хотите удалить слот?</p>
+                        <div class="alert alert-warning">
+                            <strong>Информация о слоте:</strong><br>
+                            Дата: {{ object.date|date:"d.m.Y" }}<br>
+                            Время: {{ object.start_time|time:"H:i" }} - {{ object.end_time|time:"H:i" }}<br>
+                            Врач: {{ object.doctor.surname }} {{ object.doctor.first_name.0 }}. {{ object.doctor.last_name.0 }}.<br>
+                            Кабинет: {{ object.cabinet.number }}{% if object.cabinet.name_of_cabinet %} ({{ object.cabinet.name_of_cabinet }}){% endif %}
+                        </div>
+
+                        {% if object.appointments.exists %}
+                        <div class="alert alert-danger">
+                            <strong>Внимание!</strong> В этом слоте есть записи пациентов. При удалении слота все связанные записи также будут удалены.
+                            <ul class="mt-2 mb-0">
+                                {% for appointment in object.appointments.all %}
+                                <li>{{ appointment.patient.get_full_name }} - {{ appointment.service.name }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                        {% endif %}
+
                         {% csrf_token %}
                     </div>
-                    <div class="btn-group mb-3">
-                        <button type="submit" class="btn btn-outline-danger">
-                            Удалить
-                        </button>
-                        <a class="btn btn-outline-secondary" href="{% url 'timetable:schedule_day' %}">Отменить</a>
+                    <div class="card-footer">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Удалить
+                            </button>
+                            <a class="btn btn-outline-secondary" href="{% url 'timetable:schedule_day' %}?date={{ object.date|date:'Y-m-d' }}">
+                                <i class="fas fa-times"></i> Отменить
+                            </a>
+                        </div>
                     </div>
                 </div>
             </form>
         </div>
     </div>
-
 </div>
-
 {% endblock %}

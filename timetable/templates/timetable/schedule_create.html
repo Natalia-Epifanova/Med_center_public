@@ -145,8 +145,7 @@
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
                             <button type="submit" class="btn timetable-btn-primary">Добавить слоты</button>
-                            <a href="{% url 'timetable:schedule_day' %}" class="btn btn-outline-secondary">Просмотр
-                                расписания</a>
+                            <a href="{% url 'timetable:schedule_day' %}" class="btn btn-outline-secondary" id="viewScheduleBtn">Просмотр расписания</a>
                         </div>
                     </form>
                 </div>
@@ -173,6 +172,25 @@
         const multipleRadio = document.getElementById('add_type_multiple');
         const singleSection = document.getElementById('single-section');
         const multipleSection = document.getElementById('multiple-section');
+        const dateInput = document.getElementById('id_date');
+        const viewScheduleBtn = document.getElementById('viewScheduleBtn');
+        const slotForm = document.getElementById('slotForm');
+
+        // Восстанавливаем выбранную дату из localStorage
+        function restoreSelectedDate() {
+            const savedDate = localStorage.getItem('lastSelectedDate');
+            if (savedDate && dateInput) {
+                dateInput.value = savedDate;
+                updateViewScheduleLink();
+            }
+        }
+
+        // Сохраняем выбранную дату в localStorage
+        function saveSelectedDate() {
+            if (dateInput && dateInput.value) {
+                localStorage.setItem('lastSelectedDate', dateInput.value);
+            }
+        }
 
         function toggleSections() {
             if (singleRadio.checked) {
@@ -184,11 +202,32 @@
             }
         }
 
+        function updateViewScheduleLink() {
+            if (dateInput.value) {
+                const date = dateInput.value;
+                viewScheduleBtn.href = "{% url 'timetable:schedule_day' %}?date=" + date;
+                saveSelectedDate(); // Сохраняем при изменении
+            } else {
+                const today = new Date().toISOString().split('T')[0];
+                viewScheduleBtn.href = "{% url 'timetable:schedule_day' %}?date=" + today;
+            }
+        }
+
+        // Сохраняем дату при отправке формы
+        if (slotForm) {
+            slotForm.addEventListener('submit', function() {
+                saveSelectedDate();
+            });
+        }
+
         singleRadio.addEventListener('change', toggleSections);
         multipleRadio.addEventListener('change', toggleSections);
+        dateInput.addEventListener('change', updateViewScheduleLink);
 
         // Initial state
         toggleSections();
+        restoreSelectedDate(); // Восстанавливаем сохраненную дату
+        updateViewScheduleLink();
     });
 </script>
 {% endblock %}

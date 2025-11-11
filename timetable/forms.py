@@ -245,14 +245,32 @@ class AppointmentForm(AppointmentBaseForm):
                 )
 
         if commit:
-            appointment.save()
+            try:
+                appointment.save()
 
-            # Создание процедурной записи
-            if self.cleaned_data.get("needs_procedural"):
-                AppointmentService.create_procedural_appointment(appointment)
+                # Создание процедурной записи
+                if self.cleaned_data.get("needs_procedural"):
+                    AppointmentService.create_procedural_appointment(appointment)
 
-            # Обработка последовательных записей
-            self._handle_consecutive_appointments(appointment)
+                # Обработка последовательных записей
+                self._handle_consecutive_appointments(appointment)
+
+            except Exception as e:
+                # Обрабатываем ошибку уникальности слота
+                if "unique_doctor_time_slot" in str(e):
+                    raise forms.ValidationError(
+                        "Невозможно создать запись: выбранное время уже занято другим пациентом. "
+                        "Пожалуйста, обновите страницу и выберите другое время."
+                    )
+                # Обрабатываем другие ошибки базы данных
+                elif "duplicate key" in str(e).lower():
+                    raise forms.ValidationError(
+                        "Невозможно создать запись: произошел конфликт расписания. "
+                        "Пожалуйста, обновите страницу и попробуйте снова."
+                    )
+                else:
+                    # Пробрасываем оригинальную ошибку для отладки
+                    raise
 
         return appointment
 
@@ -264,16 +282,26 @@ class AppointmentForm(AppointmentBaseForm):
             next_slot = main_appointment.time_slot.get_next_consecutive_slot()
 
             if next_slot and next_slot.is_available():
-                consecutive_appointment = (
-                    AppointmentService.create_consecutive_appointment(
-                        main_appointment,
-                        appointment_type,
-                        next_slot,
-                        self.cleaned_data.get("additional_service"),
+                try:
+                    consecutive_appointment = (
+                        AppointmentService.create_consecutive_appointment(
+                            main_appointment,
+                            appointment_type,
+                            next_slot,
+                            self.cleaned_data.get("additional_service"),
+                        )
                     )
-                )
-                if consecutive_appointment:
-                    consecutive_appointment.save()
+                    if consecutive_appointment:
+                        consecutive_appointment.save()
+                except Exception as e:
+                    # Обрабатываем ошибки при создании последовательных записей
+                    if "unique_doctor_time_slot" in str(e):
+                        raise forms.ValidationError(
+                            "Невозможно создать дополнительную запись: следующий временной слот уже занят. "
+                            "Пожалуйста, выберите другой тип записи или другое время."
+                        )
+                    else:
+                        raise
 
 
 class AppointmentUpdateForm(AppointmentBaseForm):
