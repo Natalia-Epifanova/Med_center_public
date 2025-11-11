@@ -274,7 +274,18 @@
                                         {% if slot.slot_type == 'working' %}
                                         {% with appointment=slot.appointments.first %}
                                         {% if appointment %}
-                                        <small>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</small>
+                                            {% if appointment.patient %}
+                                            <small>
+                                                <a href="{% url 'patients:patient_detail' appointment.patient.pk %}"
+                                                   class="text-decoration-none patient-link"
+                                                   title="Нажмите для просмотра карточки пациента"
+                                                   target="_blank">
+                                                    <strong>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</strong>
+                                                </a>
+                                            </small>
+                                            {% else %}
+                                            <small class="text-muted">-</small>
+                                            {% endif %}
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
