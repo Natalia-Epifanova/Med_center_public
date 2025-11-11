@@ -28,6 +28,23 @@
                         Кабинет: {{ time_slot.cabinet.number }}{% if time_slot.cabinet.name_of_cabinet %} ({{time_slot.cabinet.name_of_cabinet }}){% endif %}
                     </div>
 
+                    <!-- ОШИБКИ ФОРМЫ - ДОБАВЬТЕ ЭТОТ БЛОК -->
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Обнаружены ошибки при заполнении формы:
+                        </h6>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
                     {% if messages %}
                     <div class="messages">
                         {% for message in messages %}
@@ -39,6 +56,12 @@
                     </div>
                     {% endif %}
 
+                    <!-- Блок предупреждения для врача Пищелева -->
+                    <div id="pishchelevWarning" class="alert alert-warning mt-2" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Особенности записи:</strong>
+                        <span id="pishchelevWarningText"></span>
+                    </div>
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
 

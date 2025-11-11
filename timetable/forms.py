@@ -1,10 +1,10 @@
 from django import forms
-from django.db import models
 from django.forms import ModelForm
 from .mixins import StyleFormMixin, ServiceBasedFormMixin
 from patients.mixins import PatientFieldsMixin
 from .models import TimeSlot, Appointment, MedicalService, DayComment
 from .services import PatientService, AppointmentService
+from .utils import validate_pishchelev_restrictions, get_doctor_services
 from .validators import AppointmentValidator
 
 
@@ -182,7 +182,28 @@ class AppointmentBaseForm(
             current_time_slot = getattr(self, "current_time_slot", None)
             AppointmentValidator.validate_consecutive_slot(time_slot, current_time_slot)
 
+        # ВАЛИДАЦИЯ ДЛЯ ВРАЧА ПИЩЕЛЕВА П.В. с использованием утилит
+        self._validate_pishchelev_restrictions(cleaned_data)
+
         return cleaned_data
+
+    def _validate_pishchelev_restrictions(self, cleaned_data):
+        """Проверка ограничений для врача Пищелева П.В."""
+        doctor = None
+
+        # Получаем врача в зависимости от контекста
+        if hasattr(self, "time_slot") and self.time_slot:
+            doctor = self.time_slot.doctor
+        elif hasattr(self, "current_appointment") and self.current_appointment:
+            doctor = self.current_appointment.doctor
+        elif hasattr(self, "doctor") and self.doctor:
+            doctor = self.doctor
+
+        service = cleaned_data.get("service")
+        time_slot = getattr(self, "time_slot", None)
+
+        # Используем утилиту для валидации
+        validate_pishchelev_restrictions(doctor, service, time_slot)
 
     def _get_patient_data(self):
         """Извлекает данные пациента"""
@@ -301,22 +322,19 @@ class AppointmentUpdateForm(AppointmentBaseForm):
         self._set_service_queryset()
 
     def _set_service_queryset(self):
-        """Устанавливает queryset для поля service"""
-        from .models import MedicalService
-        from django.db.models import Q
+        """Устанавливает queryset для поля service с учетом врача"""
+        from .utils import get_doctor_services
 
-        # Получаем все активные услуги
-        all_services = MedicalService.objects.filter(is_active=True)
+        # Получаем врача из текущей записи
+        doctor = self.current_appointment.doctor if self.current_appointment else None
 
-        # Если есть текущая запись, включаем её услугу даже если она неактивна
+        # Получаем текущую услугу если есть
+        current_service = None
         if self.current_appointment and self.current_appointment.service:
             current_service = self.current_appointment.service
-            # Включаем текущую услугу и все активные услуги
-            services_queryset = MedicalService.objects.filter(
-                Q(id=current_service.id) | Q(is_active=True)
-            ).distinct()
-        else:
-            services_queryset = all_services
+
+        # Используем утилиту для получения услуг врача
+        services_queryset = get_doctor_services(doctor, current_service)
 
         self.fields["service"].queryset = services_queryset
 

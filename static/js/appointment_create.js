@@ -21,7 +21,50 @@ function formatPhoneNumber(input) {
 
     input.value = value;
 }
+// Функция для проверки ограничений врача Пищелева
+function checkPishchelevRestrictions(doctorName, serviceName, slotDuration) {
+    const isPishchelev = doctorName.includes('Пищелёв');
+    const isInsolesService = serviceName.toLowerCase().includes('стель');
 
+    if (isPishchelev && slotDuration === 20 && !isInsolesService) {
+        return {
+            allowed: false,
+            message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек. Выберите услугу "Изготовление стелек" или 30-минутный интервал.'
+        };
+    }
+
+    return { allowed: true };
+}
+
+// Добавьте проверку при выборе услуги
+if (serviceSelect) {
+    serviceSelect.addEventListener('change', function() {
+        const selectedOption = this.options[this.selectedIndex];
+        const serviceName = selectedOption.textContent;
+
+        // Получаем информацию о враче и слоте
+        const doctorName = document.querySelector('.card-title')?.textContent || '';
+        const timeText = document.querySelector('.alert-info')?.textContent || '';
+
+        // Парсим длительность слота из времени (пример: "10:00-10:20" = 20 минут)
+        const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+            const startHours = parseInt(timeMatch[1]);
+            const startMinutes = parseInt(timeMatch[2]);
+            const endHours = parseInt(timeMatch[3]);
+            const endMinutes = parseInt(timeMatch[4]);
+
+            const slotDuration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+
+            // Проверяем ограничения
+            const restriction = checkPishchelevRestrictions(doctorName, serviceName, slotDuration);
+            if (!restriction.allowed) {
+                alert(restriction.message);
+                this.value = '';
+            }
+        }
+    });
+}
 // Функция для проверки, является ли услуга медикаментозной блокадой
 function isMedicalBlockade(serviceSelect) {
     const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];

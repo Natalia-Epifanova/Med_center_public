@@ -40,7 +40,12 @@
                         {% endfor %}
                     </div>
                     {% endif %}
-
+                    <!-- Блок предупреждения для врача Пищелева -->
+                    <div id="pishchelevWarning" class="alert alert-warning mt-2" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Особенности записи:</strong>
+                        <span id="pishchelevWarningText"></span>
+                    </div>
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
 
