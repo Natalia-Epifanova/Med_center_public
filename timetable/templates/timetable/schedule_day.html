@@ -1,5 +1,11 @@
 {% extends "timetable/base.html" %}
 
+{% block extra_css %}
+{{ block.super }}
+<!-- Подключаем стили для печати -->
+<link rel="stylesheet" href="/static/css/print.css">
+{% endblock %}
+
 {% block header %}
 <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
     <h1 class="display-6">Просмотр расписания на день</h1>
@@ -415,181 +421,11 @@
         </div>
     </div>
 </div>
-
-<!-- Стили для печати -->
-<style>
-@media print {
-    /* Скрываем ВСЕ элементы кроме кабинетов */
-    .navbar, /* Меню */
-    .pricing-header, /* Заголовок страницы */
-    .timetable-day-navigation, /* Навигация по дням */
-    .timetable-form-card, /* Карточка с формой */
-    .btn, /* Все кнопки */
-    .alert, /* Сообщения */
-    .row.mb-4, /* Кнопки действий */
-    .row.mb-3, /* Кнопка процедурного кабинета */
-    .row.mb-4:last-child, /* Комментарий дня */
-    .modal, /* Модальные окна */
-    .test-styles, /* Тестовый блок */
-    .row.mb-3:last-child, /* Легенда */
-    .appointment-status-select, /* Выпадающие списки статусов */
-    .btn-group, /* Группы кнопок */
-    .fa-edit, .fa-clock, .fa-link, .fa-plus /* Иконки действий */ {
-        display: none !important;
-    }
-
-    /* Убираем отступы и фон */
-    body {
-        background: white !important;
-        padding: 5mm !important; /* Уменьшили отступы */
-        margin: 0 !important;
-        font-size: 10px !important; /* Уменьшили базовый размер шрифта */
-        line-height: 1.2 !important;
-    }
-
-    .container, .container-fluid {
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 !important;
-    }
-
-    /* Улучшаем отображение карточек при печати */
-    .timetable-container-fluid {
-        padding: 0 !important;
-    }
-
-    .card {
-        border: 1px solid #000 !important;
-        box-shadow: none !important;
-        margin-bottom: 6px !important; /* Уменьшили отступ между карточками */
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    .card-header {
-        background: #f8f9fa !important;
-        color: #000 !important;
-        border-bottom: 1px solid #000 !important;
-        padding: 4px 6px !important; /* Уменьшили отступы */
-    }
-
-    .card-header h6 {
-        font-size: 10px !important; /* Уменьшили размер шрифта */
-        margin: 0 !important;
-        font-weight: bold;
-    }
-
-    .card-body {
-        padding: 4px !important; /* Уменьшили отступы */
-    }
-
-    /* Улучшаем таблицы */
-    .table {
-        font-size: 8px !important; /* Уменьшили размер шрифта таблиц */
-        margin-bottom: 0 !important;
-    }
-
-    .table th,
-    .table td {
-        border: 1px solid #ccc !important;
-        padding: 2px !important; /* Уменьшили отступы в ячейках */
-        text-align: left;
-        line-height: 1.1 !important;
-    }
-
-    .table th {
-        background: #f8f9fa !important;
-        font-weight: bold;
-    }
-
-    /* Убираем лишние стили для слотов */
-    .timetable-slot-dms,
-    .timetable-slot-oms,
-    .timetable-slot-working,
-    .timetable-slot-break {
-        background: white !important;
-        color: black !important;
-        border-left: none !important;
-    }
-
-    /* Скрываем ссылки и делаем текст обычным */
-    a {
-        color: black !important;
-        text-decoration: none !important;
-    }
-
-    /* Улучшаем отображение бейджей */
-    .badge {
-        padding: 1px 3px !important; /* Уменьшили отступы */
-        font-size: 7px !important; /* Уменьшили размер шрифта */
-        border: 1px solid #ccc !important;
-        line-height: 1 !important;
-    }
-
-    /* Улучшаем заголовки врачей */
-    .doctor-header {
-        background: #ffff99 !important;
-        border: 1px solid #ccc !important;
-        padding: 3px !important; /* Уменьшили отступы */
-        margin-bottom: 4px !important; /* Уменьшили отступ */
-        font-size: 8px !important; /* Уменьшили размер шрифта */
-        line-height: 1.1 !important;
-    }
-
-    .doctor-header strong {
-        font-size: 8px !important; /* Уменьшили размер шрифта */
-    }
-
-    /* Убираем лишние отступы в строках */
-    .row.g-2 {
-        margin: 0 !important;
-    }
-
-    .col-12, .col-sm-6, .col-md-4, .col-lg-3, .col-xl-3 {
-        padding: 0 3px !important; /* Уменьшили отступы между колонками */
-    }
-
-    /* Уменьшаем высоту строк таблицы */
-    .table-sm td, .table-sm th {
-        padding: 1px 2px !important;
-    }
-
-    /* Скрываем лишние элементы в ячейках */
-    .table td br {
-        display: none !important;
-    }
-
-    .table td small {
-        font-size: 7px !important;
-    }
-}
-</style>
-
-<script>
-function printSchedule() {
-    // Запускаем печать
-    window.print();
-}
-
-// Обработка нажатия Ctrl+P
-document.addEventListener('keydown', function(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-        e.preventDefault();
-        printSchedule();
-    }
-});
-
-// Автоматическая отправка формы при изменении даты
-document.addEventListener('DOMContentLoaded', function() {
-    const dateInput = document.getElementById('date');
-    if (dateInput) {
-        dateInput.addEventListener('change', function() {
-            this.form.submit();
-        });
-    }
-});
-</script>
 {% endblock %}
+
 {% block extra_js %}
+{{ block.super }}
+<!-- Подключаем скрипты -->
 <script src="/static/js/schedule_day.js?v=1.2"></script>
+<script src="/static/js/print.js"></script>
 {% endblock %}
