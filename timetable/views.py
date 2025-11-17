@@ -7,6 +7,7 @@ from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.urls import reverse_lazy, reverse
 from django.utils import timezone
+from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import (
@@ -244,7 +245,54 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
             schedule_data[cabinet] = doctor_slots
 
         context["schedule_data"] = schedule_data
+        context["cabinets"] = Cabinet.objects.all().order_by("number")
+        context["doctors"] = Doctor.objects.all().order_by("surname", "first_name")
         return context
+
+
+class EmergencySlotCreateView(LoginRequiredMixin, View):
+    """Создание экстренного слота"""
+
+    def post(self, request):
+        try:
+            date_str = request.POST.get("date")
+            cabinet_id = request.POST.get("cabinet")
+            doctor_id = request.POST.get("doctor")
+            start_time = request.POST.get("start_time")
+            end_time = request.POST.get("end_time")
+            slot_type = request.POST.get("slot_type", "working")
+            description = request.POST.get("description", "")
+
+            # Валидация данных
+            if not all([date_str, cabinet_id, doctor_id, start_time, end_time]):
+                messages.error(request, "Все обязательные поля должны быть заполнены")
+                return redirect("timetable:schedule_day") + f"?date={date_str}"
+
+            # Создание слота
+            slot = TimeSlot(
+                date=datetime.strptime(date_str, "%Y-%m-%d").date(),
+                cabinet_id=cabinet_id,
+                doctor_id=doctor_id,
+                start_time=start_time,
+                end_time=end_time,
+                slot_type=slot_type,
+                description=description,
+            )
+
+            # Проверка конфликтов
+            if not slot.is_time_available():
+                messages.error(
+                    request, "Выбранное время конфликтует с существующими слотами"
+                )
+                return redirect("timetable:schedule_day")
+
+            slot.save()
+            messages.success(request, "Экстренный слот успешно создан")
+
+        except Exception as e:
+            messages.error(request, f"Ошибка при создании слота: {str(e)}")
+
+        return redirect("timetable:schedule_day")
 
 
 class AppointmentCreateView(CreateView):

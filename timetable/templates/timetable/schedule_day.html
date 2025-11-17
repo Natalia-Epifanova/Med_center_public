@@ -76,6 +76,9 @@
                                    class="btn btn-warning">
                                     <i class="fas fa-syringe"></i> Добавить запись в процедурный кабинет
                                 </a>
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#emergencySlotModal">
+                                    <i class="fas fa-plus-circle"></i> Добавить экстренный слот
+                                </button>
                                 <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary">
                                     <i class="fas fa-home"></i> На главную
                                 </a>
@@ -429,6 +432,76 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+<!-- Модальное окно для экстренного слота -->
+<div class="modal fade" id="emergencySlotModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-plus-circle"></i> Добавить экстренный слот
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'timetable:emergency_slot_create' %}">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Кабинет *</label>
+                            <select name="cabinet" class="form-select" required>
+                                <option value="">Выберите кабинет</option>
+                                {% for cabinet in cabinets %}
+                                <option value="{{ cabinet.id }}">Кабинет {{ cabinet.number }}{% if cabinet.name_of_cabinet %} - {{ cabinet.name_of_cabinet }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Врач *</label>
+                            <select name="doctor" class="form-select" required>
+                                <option value="">Выберите врача</option>
+                                {% for doctor in doctors %}
+                                <option value="{{ doctor.id }}">{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}. - {{ doctor.get_specialization_display }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Время начала *</label>
+                            <input type="time" name="start_time" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Время окончания *</label>
+                            <input type="time" name="end_time" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Тип слота</label>
+                            <select name="slot_type" class="form-select">
+                                <option value="working">Рабочий слот</option>
+                                <option value="break">Перерыв</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Описание</label>
+                            <input type="text" name="description" class="form-control" placeholder="Например: Экстренный прием">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-save"></i> Создать слот
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

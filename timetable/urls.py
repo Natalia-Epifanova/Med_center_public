@@ -15,6 +15,7 @@ from timetable.views import (
     ProceduralAppointmentCreateView,
     save_day_comment,
     update_appointment_status,
+    EmergencySlotCreateView,
 )
 from patients.views import (
     PatientListView,
@@ -44,6 +45,11 @@ urlpatterns = [
         "timeslot/<int:pk>/delete/",
         TimeSlotDeleteView.as_view(),
         name="timeslot_delete",
+    ),
+    path(
+        "emergency-slot/create/",
+        EmergencySlotCreateView.as_view(),
+        name="emergency_slot_create",
     ),
     path(
         "appointment/create/<int:time_slot_id>/",
