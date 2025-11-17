@@ -199,11 +199,20 @@
                         <div class="col-md-6 mb-3">
                             <h6 class="border-bottom pb-2">Информированные согласия</h6>
                             <div class="d-grid gap-2">
-                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent')">
-                                    <i class="fas fa-file-signature"></i> Согласие (платно и ОМС)
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_hyaluronic')">
+                                    <i class="fas fa-file-signature"></i> Согласие на блокаду (Гиалуроновая кислота)
                                 </button>
-                                <button type="button" class="btn btn-outline-warning" onclick="generateDocument('consent_IP')">
-                                    <i class="fas fa-file-signature"></i> Согласие (ИП Епифанова)
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_GKSP')">
+                                    <i class="fas fa-file-signature"></i> Согласие на блокаду (ГКСП)
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_plasma')">
+                                    <i class="fas fa-file-signature"></i> Согласие на блокаду (ПЛАЗМА)
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_xray')">
+                                    <i class="fas fa-file-signature"></i> Согласие на рентген
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_physio')">
+                                    <i class="fas fa-file-signature"></i> Согласие на физио
                                 </button>
                             </div>
                         </div>
@@ -243,15 +252,7 @@
                             </div>
                         </div>
 
-                        <!-- Прочие документы -->
-                        <div class="col-md-6 mb-3">
-                            <h6 class="border-bottom pb-2">Прочие документы</h6>
-                            <div class="d-grid gap-2">
-                                <button type="button" class="btn btn-outline-secondary" onclick="generateDocument('tax certificate')">
-                                    <i class="fas fa-receipt"></i> Налоговая справка
-                                </button>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             </div>

@@ -20,13 +20,25 @@ from patients.forms import PatientForm, PatientFullForm
 from patients.utils import number_to_words, get_russian_month_name
 
 DOCUMENT_TYPES = {
-    "consent": (
-        "informed_consent_template",
-        "Информированное_согласие",
+    "consent_hyaluronic": (
+        "informed_consent_hyaluronic_template",
+        "Согласие_на_блокаду_(Гиалуроновая_кислота)",
     ),
-    "consent_IP": (
-        "informed_consent_IP_template",
-        "Информированное_согласие_ИП_Епифанова_ОЕ",
+    "consent_GKSP": (
+        "informed_consent_GKSP_template",
+        "Согласие_на_блокаду_(ГКСП)",
+    ),
+    "consent_plasma": (
+        "informed_consent_plasma_template",
+        "Согласие_на_блокаду_(Плазма)",
+    ),
+    "consent_xray": (
+        "informed_consent_xray_template",
+        "Согласие_на_рентген",
+    ),
+    "consent_physio": (
+        "informed_consent_physio_template",
+        "Согласие_на_физио",
     ),
     "contract_revmamed": ("contract_revmamed_template", "Договор_Ревмамед"),
     "contract_IP": ("contract_IP_template", "Договор_ИП"),
@@ -38,7 +50,6 @@ DOCUMENT_TYPES = {
     "card_IP": ("card_IP_template", "Карта_ИП"),
     "card_paid": ("card_paid_template", "Карта_платно"),
     "card_xray": ("card_xray_template", "Карта_рентген"),
-    "tax certificate": ("tax certificate_template", "Налоговая справка"),
 }
 
 
@@ -204,7 +215,7 @@ class DocumentGenerator:
             "surname": patient.surname,
             "first_name": patient.first_name,
             "last_name": patient.last_name or "",
-            "date_of_birth": patient.date_of_birth,
+            "date_of_birth": patient.date_of_birth.strftime("%d.%m.%Y"),
             "b_day": patient.date_of_birth.strftime("%d"),
             "birth_month": patient.date_of_birth.strftime("%m"),
             "b_month_name": get_russian_month_name(patient.date_of_birth.month),
