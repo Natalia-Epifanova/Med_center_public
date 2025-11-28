@@ -386,3 +386,78 @@ class DayComment(models.Model):
 
     def __str__(self):
         return f"Комментарий на {self.date}: {self.comment[:50]}..."
+
+
+class BloodTestCategory(models.Model):
+    """Категории анализов крови"""
+
+    name = models.CharField(max_length=200, verbose_name="Название категории")
+    order = models.PositiveIntegerField(default=0, verbose_name="Порядок сортировки")
+    is_active = models.BooleanField(default=True, verbose_name="Активная категория")
+
+    class Meta:
+        verbose_name = "Категория анализов крови"
+        verbose_name_plural = "Категории анализов крови"
+
+    def __str__(self):
+        return self.name
+
+
+class BloodTest(models.Model):
+    """Модель для анализов крови"""
+
+    class BiomaterialType(models.TextChoices):
+        SERUM = "serum", _("Кровь (сыворотка)")
+        PLASMA = "plasma", _("Кровь (плазма с NaCi)")
+        EDTA = "edta", _("Кровь (ЭДТА)")
+        LITHIUM_HEPARIN = "lithium_heparin", _("Кровь (литий-гепарин)")
+
+    # Основная информация
+    code = models.CharField(max_length=20, verbose_name="Код услуги")
+    name = models.CharField(max_length=500, verbose_name="Наименование анализа")
+    category = models.ForeignKey(
+        BloodTestCategory,
+        on_delete=models.CASCADE,
+        related_name="tests",
+        verbose_name="Категория",
+    )
+    # Медицинская информация
+    biomaterial = models.CharField(
+        max_length=20,
+        choices=BiomaterialType.choices,
+        default=BiomaterialType.SERUM,
+        verbose_name="Биоматериал",
+    )
+    execution_time = models.CharField(
+        max_length=50, default="1 день", verbose_name="Срок выполнения"
+    )
+    # Ценовая информация
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, default=0, verbose_name="Цена"
+    )
+
+    class Meta:
+        verbose_name = "Анализ крови"
+        verbose_name_plural = "Анализы крови"
+
+    def __str__(self):
+        return f"{self.name} - {self.price} руб."
+
+
+class AppointmentBloodTest(models.Model):
+    """Связь между записью и выбранными анализами крови"""
+
+    appointment = models.ForeignKey(
+        Appointment,
+        on_delete=models.CASCADE,
+        related_name="selected_blood_tests",
+        verbose_name="Запись на прием",
+    )
+    blood_test = models.ForeignKey(
+        BloodTest, on_delete=models.CASCADE, verbose_name="Анализ крови"
+    )
+
+    class Meta:
+        verbose_name = "Выбранный анализ крови"
+        verbose_name_plural = "Выбранные анализы крови"
+        unique_together = ["appointment", "blood_test"]

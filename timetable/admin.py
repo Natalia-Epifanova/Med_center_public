@@ -1,40 +1,23 @@
 from django.contrib import admin
-from django.forms import ModelForm, MultipleChoiceField
 
 from timetable.models import (
     Cabinet,
     Doctor,
     MedicalService,
     MedicalServiceCategory,
-    TimeSlot,
+    BloodTestCategory,
+    BloodTest,
 )
-from patients.models import Patient
 
 
 @admin.register(Cabinet)
 class CabinetAdmin(admin.ModelAdmin):
-    list_display = ("id", "number", "name_of_cabinet")
-    search_fields = ("number",)
-
-
-@admin.register(Patient)
-class PatientAdmin(admin.ModelAdmin):
     list_display = (
-        "card_number",
-        "first_name",
-        "last_name",
-        "surname",
-        "phone_number",
-        "date_of_birth",
+        "id",
+        "number",
+        "name_of_cabinet",
     )
-    search_fields = (
-        "card_number",
-        "first_name",
-        "last_name",
-        "surname",
-        "phone_number",
-        "date_of_birth",
-    )
+    search_fields = ("number",)
 
 
 @admin.register(Doctor)
@@ -48,7 +31,11 @@ class DoctorAdmin(admin.ModelAdmin):
         "categories_display",
         "has_comment",
     )
-    search_fields = ("first_name", "last_name", "surname")
+    search_fields = (
+        "first_name",
+        "last_name",
+        "surname",
+    )
     list_filter = ("specialization",)
 
     # Добавляем фильтр для формы
@@ -95,6 +82,35 @@ class DoctorAdmin(admin.ModelAdmin):
 
 @admin.register(MedicalService)
 class MedicalServiceAdmin(admin.ModelAdmin):
-    list_display = ("code", "name", "category", "price", "is_active")
+    list_display = (
+        "code",
+        "name",
+        "category",
+        "price",
+        "is_active",
+    )
     list_filter = ("category", "is_active")
     search_fields = ("name", "code")
+
+
+@admin.register(BloodTestCategory)
+class BloodTestCategoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "order",
+        "is_active",
+    )
+    list_filter = ("is_active",)
+
+
+@admin.register(BloodTest)
+class BloodTestAdmin(admin.ModelAdmin):
+    list_display = (
+        "code",
+        "name",
+        "category",
+        "biomaterial",
+        "execution_time",
+        "price",
+    )
+    list_filter = ("category",)

@@ -1,0 +1,62 @@
+<div class="card mb-4" id="bloodTestSelectionSection" style="display: none;">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">3. Выбор анализов крови</h6>
+        <div>
+            <span class="badge bg-primary" id="selectedTestsCount">0 анализов</span>
+            <span class="badge bg-success ms-1" id="selectedTestsPrice">0 руб.</span>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- Поиск -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <label class="form-label">Поиск анализов:</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="bloodTestSearch"
+                           placeholder="Введите код или название анализа...">
+                    <button class="btn btn-outline-secondary" type="button" id="clearBloodTestSearch">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Категории -->
+        <div class="row mb-3">
+            <div class="col-12">
+                <label class="form-label">Категории анализов:</label>
+                <div class="blood-test-categories" style="max-height: 120px; overflow-y: auto;">
+                    <div id="bloodTestCategories" class="d-flex flex-wrap gap-2">
+                        <!-- Категории загружаются через JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Доступные анализы -->
+            <div class="col-md-7">
+                <label class="form-label">Доступные анализы:</label>
+                <div id="availableBloodTests" class="border rounded p-2" style="height: 400px; overflow-y: auto;">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка анализов...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Выбранные анализы -->
+            <div class="col-md-5">
+                <label class="form-label">Выбранные анализы:</label>
+                <div id="selectedBloodTests" class="border rounded p-2" style="height: 400px; overflow-y: auto;">
+                    <div class="text-muted text-center py-5">
+                        <i class="fas fa-inbox fa-2x mb-3"></i><br>
+                        Анализы не выбраны
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Скрытое поле формы -->
+        {{ form.selected_blood_tests_input }}
+    </div>
+</div>

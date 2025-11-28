@@ -2,10 +2,18 @@ from django import forms
 from django.forms import ModelForm
 from .mixins import StyleFormMixin, ServiceBasedFormMixin
 from patients.mixins import PatientFieldsMixin
-from .models import TimeSlot, Appointment, MedicalService, DayComment
+from .models import (
+    TimeSlot,
+    Appointment,
+    MedicalService,
+    DayComment,
+    BloodTest,
+    AppointmentBloodTest,
+)
 from .services import PatientService, AppointmentService
 from .utils import validate_pishchelev_restrictions, get_doctor_services
 from .validators import AppointmentValidator
+from django.utils import timezone
 
 
 class TimeSlotForm(StyleFormMixin, ModelForm):
@@ -559,45 +567,50 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
         widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
     )
 
+    # Поле для выбранных анализов крови
+    selected_blood_tests_input = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_selected_blood_tests"}),
+        label="Выбранные анализы крови",
+    )
+
     def __init__(self, *args, **kwargs):
-        # Обрабатываем параметр selected_date
         self.selected_date = kwargs.pop("selected_date", None)
-        # Убираем параметры, которые не нужны для процедурной формы
         kwargs.pop("time_slot", None)
         kwargs.pop("doctor", None)
         super().__init__(*args, **kwargs)
 
-        # Убираем поле needs_procedural и procedural_time_slot
-        if "needs_procedural" in self.fields:
-            del self.fields["needs_procedural"]
-        if "procedural_time_slot" in self.fields:
-            del self.fields["procedural_time_slot"]
+        # Удаляем ненужные поля
+        for field in [
+            "needs_procedural",
+            "procedural_time_slot",
+            "appointment_type",
+            "additional_service",
+        ]:
+            if field in self.fields:
+                del self.fields[field]
 
-        # Настраиваем queryset для услуг - только те, что доступны медсестре
+        # Удаляем оригинальное поле selected_blood_tests если оно есть
+        if "selected_blood_tests" in self.fields:
+            del self.fields["selected_blood_tests"]
+
         self.set_nurse_services()
 
     def set_nurse_services(self):
         """Устанавливает queryset услуг, доступных для медсестры"""
         from .models import MedicalServiceCategory
 
-        # Категории услуг, которые может оказывать медсестра
         nurse_categories = [
             MedicalServiceCategory.MEDICAL_BLOCKADES,
             MedicalServiceCategory.ANALYZES,
-            # Добавьте другие категории, если нужно
         ]
 
-        # Получаем услуги для указанных категорий
         nurse_services = MedicalService.objects.filter(
             category__in=nurse_categories, is_active=True
         )
 
         # Обновляем queryset для поля service
         self.fields["service"].queryset = nurse_services
-
-        # Также обновляем queryset для additional_service
-        if "additional_service" in self.fields:
-            self.fields["additional_service"].queryset = nurse_services
 
     def clean(self):
         cleaned_data = super().clean()
@@ -609,6 +622,54 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
         if start_time and end_time and start_time >= end_time:
             raise forms.ValidationError(
                 "Время окончания должно быть позже времени начала"
+            )
+
+        service = cleaned_data.get("service")
+        selected_blood_tests_input = cleaned_data.get("selected_blood_tests_input", "")
+
+        # ДОБАВЬТЕ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ
+        print(f"DEBUG - Service: {service}")
+        print(
+            f"DEBUG - selected_blood_tests_input value: '{selected_blood_tests_input}'"
+        )
+        print(
+            f"DEBUG - selected_blood_tests_input type: {type(selected_blood_tests_input)}"
+        )
+
+        # Преобразуем строку с ID в список объектов BloodTest
+        selected_blood_tests = []
+        if selected_blood_tests_input:
+            try:
+                test_ids = [
+                    int(id.strip())
+                    for id in selected_blood_tests_input.split(",")
+                    if id.strip()
+                ]
+                print(f"DEBUG - Parsed test IDs: {test_ids}")
+                selected_blood_tests = BloodTest.objects.filter(id__in=test_ids)
+                print(f"DEBUG - Found blood tests: {list(selected_blood_tests)}")
+            except (ValueError, TypeError) as e:
+                print(f"DEBUG - Error parsing blood tests: {e}")
+                raise forms.ValidationError("Неверный формат выбранных анализов")
+
+        # Сохраняем в cleaned_data для использования в save
+        cleaned_data["selected_blood_tests"] = selected_blood_tests
+
+        # ДОБАВЬТЕ ПРОВЕРКУ ДЛЯ ОТЛАДКИ
+        print(f"DEBUG - Final selected_blood_tests: {selected_blood_tests}")
+        print(
+            f"DEBUG - Service name contains 'забор крови': {service and 'забор крови' in service.name.lower()}"
+        )
+        print(f"DEBUG - Selected tests empty: {not selected_blood_tests}")
+
+        if (
+            service
+            and "забор крови" in service.name.lower()
+            and not selected_blood_tests
+        ):
+            print("DEBUG - Validation error: blood tests required but none selected")
+            raise forms.ValidationError(
+                "Для услуги 'Забор крови' необходимо выбрать хотя бы один анализ"
             )
 
         return cleaned_data
@@ -631,14 +692,34 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
 
         if commit:
             appointment.save()
-            # Обработка последовательных записей
-            self._handle_consecutive_appointments(appointment)
+
+            # Сохраняем выбранные анализы крови из cleaned_data
+            selected_blood_tests = self.cleaned_data.get("selected_blood_tests", [])
+            for test in selected_blood_tests:
+                AppointmentBloodTest.objects.create(
+                    appointment=appointment, blood_test=test
+                )
+
+            # Добавляем комментарий с стоимостью
+            if selected_blood_tests:
+                tests_price = sum(test.price for test in selected_blood_tests)
+                total_price = tests_price + 150
+
+                comment_lines = []
+                if appointment.comment:
+                    comment_lines.append(appointment.comment)
+
+                comment_lines.append(
+                    f"Анализы: {tests_price} руб. + Забор крови: 150 руб. = Итого: {total_price} руб."
+                )
+                appointment.comment = "\n".join(comment_lines)
+                appointment.save()
 
         return appointment
 
     def create_procedural_slot(self, start_time, end_time):
         """Создает временный слот для процедурного кабинета"""
-        from django.utils import timezone
+
         from .models import Cabinet, Doctor, TimeSlot
 
         try:
@@ -660,25 +741,6 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
             return time_slot
         except Exception as e:
             raise forms.ValidationError(f"Ошибка при создании слота: {str(e)}")
-
-    def _handle_consecutive_appointments(self, main_appointment):
-        """Обработка последовательных записей"""
-        appointment_type = self.cleaned_data.get("appointment_type")
-
-        if appointment_type in ["additional", "two_slots"]:
-            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
-
-            if next_slot and next_slot.is_available():
-                consecutive_appointment = (
-                    AppointmentService.create_consecutive_appointment(
-                        main_appointment,
-                        appointment_type,
-                        next_slot,
-                        self.cleaned_data.get("additional_service"),
-                    )
-                )
-                if consecutive_appointment:
-                    consecutive_appointment.save()
 
 
 class DayCommentForm(StyleFormMixin, ModelForm):

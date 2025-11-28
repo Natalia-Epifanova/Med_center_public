@@ -1,9 +1,10 @@
+from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 import json
 from datetime import datetime
-from .models import TimeSlot
+from .models import TimeSlot, BloodTestCategory, BloodTest
 from patients.models import Patient
 
 
@@ -224,3 +225,36 @@ def check_procedural_availability(request):
             return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
 
     return JsonResponse({"error": "Метод не разрешен"}, status=405)
+
+
+def get_blood_tests(request):
+    """API для получения анализов крови с категориями"""
+    categories = (
+        BloodTestCategory.objects.filter(is_active=True)
+        .prefetch_related(Prefetch("tests", queryset=BloodTest.objects.all()))
+        .order_by("order")
+    )
+
+    categories_data = []
+    for category in categories:
+        tests_data = []
+        for test in category.tests.all():
+            tests_data.append(
+                {
+                    "id": test.id,
+                    "code": test.code,
+                    "name": test.name,
+                    "biomaterial": test.biomaterial,
+                    "biomaterial_display": test.get_biomaterial_display(),
+                    "price": float(test.price),
+                    "execution_time": test.execution_time,
+                    "category_id": category.id,  # ДОБАВЛЯЕМ ЭТО ПОЛЕ
+                    "category_name": category.name,  # И ЭТО ТОЖЕ
+                }
+            )
+
+        categories_data.append(
+            {"id": category.id, "name": category.name, "tests": tests_data}
+        )
+
+    return JsonResponse({"categories": categories_data})

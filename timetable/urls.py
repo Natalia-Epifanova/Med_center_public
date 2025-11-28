@@ -29,6 +29,7 @@ from timetable.views_api import (
     check_patient_api,
     get_available_slots,
     check_procedural_availability,
+    get_blood_tests,
 )
 
 app_name = TimetableConfig.name
@@ -100,4 +101,5 @@ urlpatterns = [
         name="update_appointment_status",
     ),
     path("doctor-report/<str:date>/", DoctorReportView.as_view(), name="doctor_report"),
+    path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
 ]
