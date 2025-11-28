@@ -600,3 +600,50 @@ def get_status_badge_class(status):
         "no_show": "bg-danger",
     }
     return status_classes.get(status, "bg-secondary")
+
+
+class DoctorReportView(TemplateView):
+    template_name = "timetable/doctor_report.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        date_str = self.kwargs.get("date")
+
+        try:
+            report_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            report_date = datetime.now().date()
+
+        # Получаем все записи на указанную дату с правильными связями
+        appointments = Appointment.objects.filter(
+            time_slot__date=report_date,
+            status__in=[
+                "scheduled",
+                "confirmed",
+                "completed",
+            ],
+        ).select_related("time_slot__doctor", "service", "patient")
+
+        # Группируем по врачам и услугам
+        report_data = {}
+        for appointment in appointments:
+            # Получаем врача через time_slot
+            doctor = appointment.time_slot.doctor
+            service_name = appointment.service.name
+
+            if doctor not in report_data:
+                report_data[doctor] = {}
+
+            if service_name not in report_data[doctor]:
+                report_data[doctor][service_name] = 0
+
+            report_data[doctor][service_name] += 1
+
+        context.update(
+            {
+                "report_date": report_date,
+                "report_data": report_data,
+                "selected_date": report_date,
+            }
+        )
+        return context

@@ -79,8 +79,10 @@
                                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#emergencySlotModal">
                                     <i class="fas fa-plus-circle"></i> Добавить экстренный слот
                                 </button>
-                                <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary">
-                                    <i class="fas fa-home"></i> На главную
+                                <!-- НОВАЯ КНОПКА ДЛЯ ОТЧЕТА -->
+                                <a href="{% url 'timetable:doctor_report' selected_date|date:'Y-m-d' %}"
+                                   class="btn btn-info">
+                                    <i class="fas fa-chart-bar"></i> Отчет по врачам за {{ selected_date|date:"d.m.Y" }}
                                 </a>
                             </div>
                         </div>

@@ -305,5 +305,5 @@
     const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
 </script>
-<script src="/static/js/appointment_create.js"></script>
+<script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>
 {% endblock %}

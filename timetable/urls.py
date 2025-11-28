@@ -16,6 +16,7 @@ from timetable.views import (
     save_day_comment,
     update_appointment_status,
     EmergencySlotCreateView,
+    DoctorReportView,
 )
 from patients.views import (
     PatientListView,
@@ -98,4 +99,5 @@ urlpatterns = [
         update_appointment_status,
         name="update_appointment_status",
     ),
+    path("doctor-report/<str:date>/", DoctorReportView.as_view(), name="doctor_report"),
 ]

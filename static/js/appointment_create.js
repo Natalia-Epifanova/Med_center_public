@@ -39,12 +39,30 @@ function isMedicalBlockade(serviceSelect) {
     return blockadeKeywords.some(keyword => serviceName.includes(keyword));
 }
 
+// Функция для проверки, является ли услуга изготовлением стелек
+function isInsolesService(serviceName) {
+    if (!serviceName) return false;
+
+    const serviceNameLower = serviceName.toLowerCase();
+    const insolesKeywords = ["стель", "стелек", "manufacture_of_insoles"];
+
+    return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
+}
+
 // Функция для проверки ограничений врача Пищелева
 function checkPishchelevRestrictions(doctorName, serviceName, slotDuration) {
     const isPishchelev = doctorName.includes('Пищелёв');
-    const isInsolesService = serviceName.toLowerCase().includes('стель');
+    const isInsolesServiceValue = isInsolesService(serviceName);
 
-    if (isPishchelev && slotDuration === 20 && !isInsolesService) {
+    console.log('Pishchelev restriction check:', {
+        doctorName: doctorName,
+        serviceName: serviceName,
+        slotDuration: slotDuration,
+        isPishchelev: isPishchelev,
+        isInsolesService: isInsolesServiceValue
+    });
+
+    if (isPishchelev && slotDuration === 20 && !isInsolesServiceValue) {
         return {
             allowed: false,
             message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек. Выберите услугу "Изготовление стелек" или 30-минутный интервал.'
@@ -54,10 +72,59 @@ function checkPishchelevRestrictions(doctorName, serviceName, slotDuration) {
     return { allowed: true };
 }
 
+// Функция для расчета длительности слота из текста
+function getSlotDurationFromText(timeText) {
+    const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+        const startHours = parseInt(timeMatch[1]);
+        const startMinutes = parseInt(timeMatch[2]);
+        const endHours = parseInt(timeMatch[3]);
+        const endMinutes = parseInt(timeMatch[4]);
+
+        return (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+    }
+    return null;
+}
+
+// Функция для проверки ограничений при выборе услуги
+function checkServiceRestrictions(serviceSelect) {
+    if (!serviceSelect) return;
+
+    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+    if (!selectedOption) return;
+
+    const serviceName = selectedOption.textContent;
+
+    // Получаем информацию о враче и слоте
+    const doctorName = document.querySelector('.card-title')?.textContent || '';
+    const timeText = document.querySelector('.alert-info')?.textContent || '';
+
+    console.log('Checking restrictions for:', {
+        doctorName: doctorName,
+        serviceName: serviceName,
+        timeText: timeText
+    });
+
+    // Парсим длительность слота из времени
+    const slotDuration = getSlotDurationFromText(timeText);
+    if (slotDuration !== null) {
+        console.log('Slot duration calculated:', slotDuration + ' minutes');
+
+        // Проверяем ограничения
+        const restriction = checkPishchelevRestrictions(doctorName, serviceName, slotDuration);
+        if (!restriction.allowed) {
+            alert(restriction.message);
+            console.log('Restriction violated, but allowing selection');
+        } else {
+            console.log('No restrictions violated');
+        }
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('=== DEBUG: Appointment Form Loaded ===');
 
-    // ОСНОВНЫЕ ПЕРЕМЕННЫЕ - ОБЪЯВЛЯЕМ ИХ В НАЧАЛЕ
+    // ОСНОВНЫЕ ПЕРЕМЕННЫЕ
     const appointmentTypeRadios = document.querySelectorAll('input[name="appointment_type"]');
     const additionalServiceSection = document.getElementById('additionalServiceSection');
     const twoSlotsSection = document.getElementById('twoSlotsSection');
@@ -130,11 +197,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (this.value === 'additional' && additionalServiceSection) {
                     additionalServiceSection.style.display = 'block';
                     console.log('Showing additional service section');
-
-                    // Если есть select для дополнительной услуги, убедимся что он видим
-                    if (additionalServiceSelect) {
-                        console.log('Additional service select is available');
-                    }
                 } else if (this.value === 'two_slots' && twoSlotsSection) {
                     twoSlotsSection.style.display = 'block';
                     console.log('Showing two slots section');
@@ -148,41 +210,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Проверка ограничений врача Пищелева при выборе услуги
     if (serviceSelect) {
         serviceSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            if (!selectedOption) return;
-
-            const serviceName = selectedOption.textContent;
-
-            // Получаем информацию о враче и слоте
-            const doctorName = document.querySelector('.card-title')?.textContent || '';
-            const timeText = document.querySelector('.alert-info')?.textContent || '';
-
-            console.log('Checking restrictions for:', {
-                doctorName: doctorName,
-                serviceName: serviceName,
-                timeText: timeText
-            });
-
-            // Парсим длительность слота из времени (пример: "10:00-10:20" = 20 минут)
-            const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
-            if (timeMatch) {
-                const startHours = parseInt(timeMatch[1]);
-                const startMinutes = parseInt(timeMatch[2]);
-                const endHours = parseInt(timeMatch[3]);
-                const endMinutes = parseInt(timeMatch[4]);
-
-                const slotDuration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
-
-                console.log('Slot duration calculated:', slotDuration + ' minutes');
-
-                // Проверяем ограничения
-                const restriction = checkPishchelevRestrictions(doctorName, serviceName, slotDuration);
-                if (!restriction.allowed) {
-                    alert(restriction.message);
-                    this.value = '';
-                }
-            }
+            checkServiceRestrictions(this);
         });
+
+        // Также проверяем при загрузке страницы
+        checkServiceRestrictions(serviceSelect);
     }
 
     // Проверка существования пациента
