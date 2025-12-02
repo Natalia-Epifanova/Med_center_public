@@ -627,15 +627,6 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
         service = cleaned_data.get("service")
         selected_blood_tests_input = cleaned_data.get("selected_blood_tests_input", "")
 
-        # ДОБАВЬТЕ ОТЛАДОЧНУЮ ИНФОРМАЦИЮ
-        print(f"DEBUG - Service: {service}")
-        print(
-            f"DEBUG - selected_blood_tests_input value: '{selected_blood_tests_input}'"
-        )
-        print(
-            f"DEBUG - selected_blood_tests_input type: {type(selected_blood_tests_input)}"
-        )
-
         # Преобразуем строку с ID в список объектов BloodTest
         selected_blood_tests = []
         if selected_blood_tests_input:
@@ -645,29 +636,19 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
                     for id in selected_blood_tests_input.split(",")
                     if id.strip()
                 ]
-                print(f"DEBUG - Parsed test IDs: {test_ids}")
                 selected_blood_tests = BloodTest.objects.filter(id__in=test_ids)
-                print(f"DEBUG - Found blood tests: {list(selected_blood_tests)}")
             except (ValueError, TypeError) as e:
-                print(f"DEBUG - Error parsing blood tests: {e}")
                 raise forms.ValidationError("Неверный формат выбранных анализов")
 
         # Сохраняем в cleaned_data для использования в save
         cleaned_data["selected_blood_tests"] = selected_blood_tests
-
-        # ДОБАВЬТЕ ПРОВЕРКУ ДЛЯ ОТЛАДКИ
-        print(f"DEBUG - Final selected_blood_tests: {selected_blood_tests}")
-        print(
-            f"DEBUG - Service name contains 'забор крови': {service and 'забор крови' in service.name.lower()}"
-        )
-        print(f"DEBUG - Selected tests empty: {not selected_blood_tests}")
 
         if (
             service
             and "забор крови" in service.name.lower()
             and not selected_blood_tests
         ):
-            print("DEBUG - Validation error: blood tests required but none selected")
+
             raise forms.ValidationError(
                 "Для услуги 'Забор крови' необходимо выбрать хотя бы один анализ"
             )
@@ -787,7 +768,6 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
         if selected_tests:
             # Получаем ID самих анализов крови
             test_ids = [str(test.blood_test.id) for test in selected_tests]
-            print(f"DEBUG: Initial BloodTest IDs from DB: {test_ids}")
             self.fields["selected_blood_tests_input"].initial = ",".join(test_ids)
         else:
             print("DEBUG: No selected tests found")
@@ -853,41 +833,26 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
 
         selected_blood_tests_input = cleaned_data.get("selected_blood_tests_input", "")
 
-        print(
-            f"DEBUG - Selected blood tests input BEFORE parsing: '{selected_blood_tests_input}'"
-        )
-
         # Преобразуем строку с ID в список объектов BloodTest
         selected_blood_tests = []
         if selected_blood_tests_input:
             try:
                 # Убираем лишние пробелы
                 selected_blood_tests_input = selected_blood_tests_input.strip()
-                print(
-                    f"DEBUG - Selected blood tests input AFTER strip: '{selected_blood_tests_input}'"
-                )
 
                 test_ids = [
                     int(id.strip())
                     for id in selected_blood_tests_input.split(",")
                     if id.strip() and id.strip().isdigit()
                 ]
-                print(f"DEBUG - Parsed test IDs: {test_ids}")
 
                 selected_blood_tests = BloodTest.objects.filter(id__in=test_ids)
-                print(f"DEBUG - Found blood tests: {list(selected_blood_tests)}")
-                print(f"DEBUG - Number of found tests: {len(selected_blood_tests)}")
 
             except (ValueError, TypeError) as e:
-                print(f"DEBUG - Error parsing blood tests: {e}")
                 raise forms.ValidationError("Неверный формат выбранных анализов")
 
         # Сохраняем в cleaned_data для использования в save
         cleaned_data["selected_blood_tests"] = selected_blood_tests
-
-        print(
-            f"DEBUG - Final selected_blood_tests in cleaned_data: {selected_blood_tests}"
-        )
 
         return cleaned_data
 
@@ -911,12 +876,6 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
             # Проверяем, изменилось ли время
             if start_time != time_slot.start_time or end_time != time_slot.end_time:
 
-                print(
-                    f"DEBUG: Updating time slot {time_slot.id} from "
-                    f"{time_slot.start_time}-{time_slot.end_time} to "
-                    f"{start_time}-{end_time}"
-                )
-
                 # Обновляем существующий слот
                 time_slot.start_time = start_time
                 time_slot.end_time = end_time
@@ -924,7 +883,6 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
                 try:
                     time_slot.save()
                 except Exception as e:
-                    print(f"DEBUG: Error saving time slot: {str(e)}")
                     raise forms.ValidationError(
                         f"Ошибка при обновлении времени: {str(e)}. "
                         "Возможно, выбранное время уже занято другим врачом."
@@ -945,9 +903,6 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
             # ВАЖНОЕ ИСПРАВЛЕНИЕ: Получаем выбранные анализы крови ИЗ НОВОГО СПИСКА
             selected_blood_tests = self.cleaned_data.get("selected_blood_tests", [])
 
-            print(f"DEBUG: New selected tests from form: {selected_blood_tests}")
-            print(f"DEBUG: New test IDs: {[test.id for test in selected_blood_tests]}")
-
             # Получаем текущие связи
             current_relations = AppointmentBloodTest.objects.filter(
                 appointment=appointment
@@ -957,30 +912,22 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
             )
             new_test_ids = set(test.id for test in selected_blood_tests)
 
-            print(f"DEBUG: Current test IDs in DB: {current_test_ids}")
-            print(f"DEBUG: New test IDs from form: {new_test_ids}")
-
             # Находим анализы для удаления
             tests_to_remove = current_test_ids - new_test_ids
             # Находим анализы для добавления
             tests_to_add = new_test_ids - current_test_ids
-
-            print(f"DEBUG: Tests to remove: {tests_to_remove}")
-            print(f"DEBUG: Tests to add: {tests_to_add}")
 
             # Удаляем старые связи, которые больше не нужны
             if tests_to_remove:
                 AppointmentBloodTest.objects.filter(
                     appointment=appointment, blood_test_id__in=tests_to_remove
                 ).delete()
-                print(f"DEBUG: Removed {len(tests_to_remove)} tests")
 
             # Добавляем новые связи
             for test_id in tests_to_add:
                 AppointmentBloodTest.objects.create(
                     appointment=appointment, blood_test_id=test_id
                 )
-                print(f"DEBUG: Added test ID: {test_id}")
 
             # Обновляем комментарий с ПРАВИЛЬНОЙ суммой
             user_comment = self.cleaned_data.get("comment", "").strip()
@@ -1014,7 +961,6 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
                 appointment=appointment
             )
             final_test_ids = [relation.blood_test_id for relation in final_relations]
-            print(f"DEBUG: Final test IDs after save: {final_test_ids}")
 
         return appointment
 

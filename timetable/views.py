@@ -255,8 +255,9 @@ class EmergencySlotCreateView(LoginRequiredMixin, View):
     """Создание экстренного слота"""
 
     def post(self, request):
+        date_str = request.POST.get("date", "")
+
         try:
-            date_str = request.POST.get("date")
             cabinet_id = request.POST.get("cabinet")
             doctor_id = request.POST.get("doctor")
             start_time = request.POST.get("start_time")
@@ -267,25 +268,56 @@ class EmergencySlotCreateView(LoginRequiredMixin, View):
             # Валидация данных
             if not all([date_str, cabinet_id, doctor_id, start_time, end_time]):
                 messages.error(request, "Все обязательные поля должны быть заполнены")
-                return redirect("timetable:schedule_day") + f"?date={date_str}"
+                return HttpResponseRedirect(
+                    f"{reverse('timetable:schedule_day')}?date={date_str}"
+                )
 
-            # Создание слота
-            slot = TimeSlot(
-                date=datetime.strptime(date_str, "%Y-%m-%d").date(),
+            # Проверка форматов времени
+            try:
+                date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                start_time_obj = datetime.strptime(start_time, "%H:%M").time()
+                end_time_obj = datetime.strptime(end_time, "%H:%M").time()
+
+                if start_time_obj >= end_time_obj:
+                    messages.error(
+                        request, "Время окончания должно быть позже времени начала"
+                    )
+                    return HttpResponseRedirect(
+                        f"{reverse('timetable:schedule_day')}?date={date_str}"
+                    )
+            except ValueError as e:
+                messages.error(request, f"Неверный формат времени или даты: {str(e)}")
+                return HttpResponseRedirect(
+                    f"{reverse('timetable:schedule_day')}?date={date_str}"
+                )
+
+            # Проверка конфликтов перед созданием слота
+            conflicting_slots = TimeSlot.objects.filter(
+                date=date,
                 cabinet_id=cabinet_id,
                 doctor_id=doctor_id,
-                start_time=start_time,
-                end_time=end_time,
-                slot_type=slot_type,
-                description=description,
-            )
+                start_time__lt=end_time_obj,
+                end_time__gt=start_time_obj,
+            ).exists()
 
-            # Проверка конфликтов
-            if not slot.is_time_available():
+            if conflicting_slots:
                 messages.error(
                     request, "Выбранное время конфликтует с существующими слотами"
                 )
-                return redirect("timetable:schedule_day")
+                return HttpResponseRedirect(
+                    f"{reverse('timetable:schedule_day')}?date={date_str}"
+                )
+
+            # Создание и сохранение слота
+            slot = TimeSlot(
+                date=date,
+                cabinet_id=cabinet_id,
+                doctor_id=doctor_id,
+                start_time=start_time_obj,
+                end_time=end_time_obj,
+                slot_type=slot_type,
+                description=description,
+            )
 
             slot.save()
             messages.success(request, "Экстренный слот успешно создан")
@@ -293,7 +325,9 @@ class EmergencySlotCreateView(LoginRequiredMixin, View):
         except Exception as e:
             messages.error(request, f"Ошибка при создании слота: {str(e)}")
 
-        return redirect("timetable:schedule_day")
+        return HttpResponseRedirect(
+            f"{reverse('timetable:schedule_day')}?date={date_str}"
+        )
 
 
 class AppointmentCreateView(CreateView):
