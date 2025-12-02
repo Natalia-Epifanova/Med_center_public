@@ -682,7 +682,7 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
         # Создание записи
         appointment = super().save(commit=False)
 
-        # Создаем новый слот
+        # Создаем или находим слот
         start_time = self.cleaned_data.get("procedural_start_time")
         end_time = self.cleaned_data.get("procedural_end_time")
         time_slot = self.create_procedural_slot(start_time, end_time)
@@ -700,26 +700,35 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
                     appointment=appointment, blood_test=test
                 )
 
-            # Добавляем комментарий с стоимостью
+            # Добавляем комментарий с ПРАВИЛЬНОЙ стоимостью
+            user_comment = self.cleaned_data.get("comment", "").strip()
+
+            # Создаем список для комментариев
+            comment_lines = []
+
+            # Добавляем пользовательский комментарий
+            if user_comment:
+                comment_lines.append(user_comment)
+
+            # Добавляем информацию об анализах, если они есть
             if selected_blood_tests:
                 tests_price = sum(test.price for test in selected_blood_tests)
                 total_price = tests_price + 150
 
-                comment_lines = []
-                if appointment.comment:
-                    comment_lines.append(appointment.comment)
-
                 comment_lines.append(
                     f"Анализы: {tests_price} руб. + Забор крови: 150 руб. = Итого: {total_price} руб."
                 )
+
+            # Объединяем все комментарии
+            if comment_lines:
                 appointment.comment = "\n".join(comment_lines)
-                appointment.save()
+
+            appointment.save()
 
         return appointment
 
     def create_procedural_slot(self, start_time, end_time):
-        """Создает временный слот для процедурного кабинета"""
-
+        """Создает или находит существующий временной слот для процедурного кабинета"""
         from .models import Cabinet, Doctor, TimeSlot
 
         try:
@@ -729,18 +738,285 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
             # Используем дату из параметра или текущую дату
             date = self.selected_date or timezone.now().date()
 
-            time_slot = TimeSlot.objects.create(
+            # Пытаемся найти существующий слот
+            time_slot = TimeSlot.objects.filter(
                 date=date,
                 cabinet=procedural_cabinet,
                 doctor=nurse_doctor,
                 start_time=start_time,
                 end_time=end_time,
                 slot_type="working",
-                description="Процедурный кабинет - индивидуальная запись",
-            )
+            ).first()
+
+            if not time_slot:
+                # Создаем новый слот только если его нет
+                time_slot = TimeSlot.objects.create(
+                    date=date,
+                    cabinet=procedural_cabinet,
+                    doctor=nurse_doctor,
+                    start_time=start_time,
+                    end_time=end_time,
+                    slot_type="working",
+                    description="Процедурный кабинет - индивидуальная запись",
+                )
+
             return time_slot
         except Exception as e:
-            raise forms.ValidationError(f"Ошибка при создании слота: {str(e)}")
+            raise forms.ValidationError(f"Ошибка при создании/поиске слота: {str(e)}")
+
+
+class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
+    """Форма для редактирования записи в процедурный кабинет"""
+
+    def __init__(self, *args, **kwargs):
+        self.current_appointment = kwargs.pop("current_appointment", None)
+        super().__init__(*args, **kwargs)
+
+        # ВАЖНО: Убедитесь, что поле имеет правильный id
+        self.fields["selected_blood_tests_input"].widget.attrs.update(
+            {"id": "id_selected_blood_tests", "name": "selected_blood_tests_input"}
+        )
+
+        if self.current_appointment and self.instance.pk:
+            self._set_initial_blood_tests()
+            self._set_initial_comment_without_tests()
+
+    def _set_initial_blood_tests(self):
+        """Устанавливает начальные значения для выбранных анализов крови"""
+        selected_tests = self.current_appointment.selected_blood_tests.all()
+        if selected_tests:
+            # Получаем ID самих анализов крови
+            test_ids = [str(test.blood_test.id) for test in selected_tests]
+            print(f"DEBUG: Initial BloodTest IDs from DB: {test_ids}")
+            self.fields["selected_blood_tests_input"].initial = ",".join(test_ids)
+        else:
+            print("DEBUG: No selected tests found")
+
+    def _set_initial_comment_without_tests(self):
+        """Устанавливает начальный комментарий без информации об анализах"""
+        if self.current_appointment and self.current_appointment.comment:
+            # Удаляем из комментария информацию об анализах
+            comment = self.current_appointment.comment
+            lines = comment.split("\n")
+
+            # Оставляем только строки, которые НЕ содержат информацию об анализах
+            filtered_lines = []
+            for line in lines:
+                if not any(
+                    keyword in line
+                    for keyword in ["Анализы:", "Итого:", "Забор крови:"]
+                ):
+                    filtered_lines.append(line)
+
+            # Объединяем обратно в строку
+            clean_comment = "\n".join(filtered_lines).strip()
+
+            # Устанавливаем очищенный комментарий как начальное значение
+            self.fields["comment"].initial = clean_comment
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        # Проверяем, изменилось ли время
+        start_time = cleaned_data.get("procedural_start_time")
+        end_time = cleaned_data.get("procedural_end_time")
+
+        if self.current_appointment and start_time and end_time:
+            # Получаем текущий слот записи
+            current_time_slot = self.current_appointment.time_slot
+
+            # Проверяем, изменилось ли время
+            if (
+                start_time != current_time_slot.start_time
+                or end_time != current_time_slot.end_time
+            ):
+
+                # Проверяем, существует ли уже слот с таким временем у этого же врача
+                from .models import TimeSlot
+
+                existing_slot = (
+                    TimeSlot.objects.filter(
+                        date=current_time_slot.date,
+                        doctor=current_time_slot.doctor,
+                        start_time=start_time,
+                        end_time=end_time,
+                    )
+                    .exclude(id=current_time_slot.id)
+                    .first()
+                )
+
+                if existing_slot:
+                    raise forms.ValidationError(
+                        f"Время {start_time}-{end_time} уже занято другим слотом. "
+                        "Пожалуйста, выберите другое время."
+                    )
+
+        selected_blood_tests_input = cleaned_data.get("selected_blood_tests_input", "")
+
+        print(
+            f"DEBUG - Selected blood tests input BEFORE parsing: '{selected_blood_tests_input}'"
+        )
+
+        # Преобразуем строку с ID в список объектов BloodTest
+        selected_blood_tests = []
+        if selected_blood_tests_input:
+            try:
+                # Убираем лишние пробелы
+                selected_blood_tests_input = selected_blood_tests_input.strip()
+                print(
+                    f"DEBUG - Selected blood tests input AFTER strip: '{selected_blood_tests_input}'"
+                )
+
+                test_ids = [
+                    int(id.strip())
+                    for id in selected_blood_tests_input.split(",")
+                    if id.strip() and id.strip().isdigit()
+                ]
+                print(f"DEBUG - Parsed test IDs: {test_ids}")
+
+                selected_blood_tests = BloodTest.objects.filter(id__in=test_ids)
+                print(f"DEBUG - Found blood tests: {list(selected_blood_tests)}")
+                print(f"DEBUG - Number of found tests: {len(selected_blood_tests)}")
+
+            except (ValueError, TypeError) as e:
+                print(f"DEBUG - Error parsing blood tests: {e}")
+                raise forms.ValidationError("Неверный формат выбранных анализов")
+
+        # Сохраняем в cleaned_data для использования в save
+        cleaned_data["selected_blood_tests"] = selected_blood_tests
+
+        print(
+            f"DEBUG - Final selected_blood_tests in cleaned_data: {selected_blood_tests}"
+        )
+
+        return cleaned_data
+
+    def save(self, commit=True):
+        # Получаем объект appointment
+        appointment = super().save(commit=False)
+
+        # Используем текущий слот из существующей записи
+        time_slot = (
+            self.current_appointment.time_slot
+            if self.current_appointment
+            else appointment.time_slot
+        )
+
+        # Получаем новое время из формы
+        start_time = self.cleaned_data.get("procedural_start_time")
+        end_time = self.cleaned_data.get("procedural_end_time")
+
+        # Обновляем время в существующем слоте
+        if start_time and end_time and time_slot:
+            # Проверяем, изменилось ли время
+            if start_time != time_slot.start_time or end_time != time_slot.end_time:
+
+                print(
+                    f"DEBUG: Updating time slot {time_slot.id} from "
+                    f"{time_slot.start_time}-{time_slot.end_time} to "
+                    f"{start_time}-{end_time}"
+                )
+
+                # Обновляем существующий слот
+                time_slot.start_time = start_time
+                time_slot.end_time = end_time
+
+                try:
+                    time_slot.save()
+                except Exception as e:
+                    print(f"DEBUG: Error saving time slot: {str(e)}")
+                    raise forms.ValidationError(
+                        f"Ошибка при обновлении времени: {str(e)}. "
+                        "Возможно, выбранное время уже занято другим врачом."
+                    )
+
+        # Устанавливаем обновленный слот для записи
+        appointment.time_slot = time_slot
+
+        # Обновляем пациента
+        patient_data = self._get_patient_data()
+        patient, created = PatientService.get_or_create_patient(patient_data)
+        appointment.patient = patient
+
+        if commit:
+            # Сохраняем запись (перед созданием связей)
+            appointment.save()
+
+            # ВАЖНОЕ ИСПРАВЛЕНИЕ: Получаем выбранные анализы крови ИЗ НОВОГО СПИСКА
+            selected_blood_tests = self.cleaned_data.get("selected_blood_tests", [])
+
+            print(f"DEBUG: New selected tests from form: {selected_blood_tests}")
+            print(f"DEBUG: New test IDs: {[test.id for test in selected_blood_tests]}")
+
+            # Получаем текущие связи
+            current_relations = AppointmentBloodTest.objects.filter(
+                appointment=appointment
+            )
+            current_test_ids = set(
+                relation.blood_test_id for relation in current_relations
+            )
+            new_test_ids = set(test.id for test in selected_blood_tests)
+
+            print(f"DEBUG: Current test IDs in DB: {current_test_ids}")
+            print(f"DEBUG: New test IDs from form: {new_test_ids}")
+
+            # Находим анализы для удаления
+            tests_to_remove = current_test_ids - new_test_ids
+            # Находим анализы для добавления
+            tests_to_add = new_test_ids - current_test_ids
+
+            print(f"DEBUG: Tests to remove: {tests_to_remove}")
+            print(f"DEBUG: Tests to add: {tests_to_add}")
+
+            # Удаляем старые связи, которые больше не нужны
+            if tests_to_remove:
+                AppointmentBloodTest.objects.filter(
+                    appointment=appointment, blood_test_id__in=tests_to_remove
+                ).delete()
+                print(f"DEBUG: Removed {len(tests_to_remove)} tests")
+
+            # Добавляем новые связи
+            for test_id in tests_to_add:
+                AppointmentBloodTest.objects.create(
+                    appointment=appointment, blood_test_id=test_id
+                )
+                print(f"DEBUG: Added test ID: {test_id}")
+
+            # Обновляем комментарий с ПРАВИЛЬНОЙ суммой
+            user_comment = self.cleaned_data.get("comment", "").strip()
+
+            # Создаем список для комментариев
+            comment_lines = []
+
+            # Добавляем пользовательский комментарий
+            if user_comment:
+                comment_lines.append(user_comment)
+
+            # Добавляем информацию об анализах, если они есть
+            if selected_blood_tests:
+                tests_price = sum(test.price for test in selected_blood_tests)
+                total_price = tests_price + 150
+
+                comment_lines.append(
+                    f"Анализы: {tests_price} руб. + Забор крови: 150 руб. = Итого: {total_price} руб."
+                )
+
+            # Объединяем все комментарии
+            if comment_lines:
+                appointment.comment = "\n".join(comment_lines)
+            else:
+                appointment.comment = ""
+
+            appointment.save()
+
+            # Проверяем итоговые связи
+            final_relations = AppointmentBloodTest.objects.filter(
+                appointment=appointment
+            )
+            final_test_ids = [relation.blood_test_id for relation in final_relations]
+            print(f"DEBUG: Final test IDs after save: {final_test_ids}")
+
+        return appointment
 
 
 class DayCommentForm(StyleFormMixin, ModelForm):

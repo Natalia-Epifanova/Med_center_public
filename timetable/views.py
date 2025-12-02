@@ -29,6 +29,7 @@ from timetable.forms import (
     AppointmentUpdateForm,
     ProceduralAppointmentForm,
     DayCommentForm,
+    ProceduralAppointmentUpdateForm,
 )
 from timetable.models import TimeSlot, Appointment, Cabinet, Doctor, DayComment
 from timetable.services import TimeSlotService
@@ -514,6 +515,91 @@ class ProceduralAppointmentCreateView(LoginRequiredMixin, CreateView):
 
     def get_success_url(self):
         return reverse("timetable:schedule_day") + f"?date={self.selected_date}"
+
+
+class ProceduralAppointmentUpdateView(LoginRequiredMixin, UpdateView):
+    """Редактирование записи в процедурный кабинет"""
+
+    model = Appointment
+    form_class = ProceduralAppointmentUpdateForm
+    template_name = "timetable/procedural_appointment_update_form.html"
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["current_appointment"] = self.object
+        kwargs["selected_date"] = self.object.date
+
+        print(f"DEBUG: In get_form_kwargs, request method: {self.request.method}")
+        print(f"DEBUG: In get_form_kwargs, request POST data: {self.request.POST}")
+
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Получаем выбранные анализы для передачи в JavaScript
+        selected_tests = self.object.selected_blood_tests.all()
+
+        # ВАЖНОЕ ИСПРАВЛЕНИЕ: получаем ID самих анализов крови
+        initial_test_ids = [test.blood_test.id for test in selected_tests]
+
+        # ДОБАВЬТЕ ДЛЯ ОТЛАДКИ
+        print(f"DEBUG: Appointment ID: {self.object.id}")
+        print(f"DEBUG: Selected AppointmentBloodTest objects: {list(selected_tests)}")
+        print(f"DEBUG: BloodTest IDs: {initial_test_ids}")
+
+        context.update(
+            {
+                "selected_date": self.object.date,
+                "procedural_cabinet": self.object.cabinet,
+                "nurse_doctor": self.object.doctor,
+                "initial_test_ids": json.dumps(
+                    initial_test_ids
+                ),  # Используйте json.dumps!
+                "current_appointment": self.object,
+            }
+        )
+        return context
+
+    def get_initial(self):
+        initial = super().get_initial()
+
+        # Заполняем поля пациента
+        patient = self.object.patient
+        initial.update(
+            {
+                "surname": patient.surname,
+                "first_name": patient.first_name,
+                "last_name": patient.last_name,
+                "phone_number": patient.phone_number,
+                "card_number": patient.card_number,
+                "date_of_birth": patient.date_of_birth,
+            }
+        )
+
+        # Заполняем время из слота
+        initial.update(
+            {
+                "procedural_start_time": self.object.start_time,
+                "procedural_end_time": self.object.end_time,
+            }
+        )
+
+        return initial
+
+    def form_valid(self, form):
+        try:
+            response = super().form_valid(form)
+            messages.success(
+                self.request, "Запись в процедурный кабинет успешно обновлена!"
+            )
+            return response
+        except Exception as e:
+            messages.error(self.request, f"Ошибка при обновлении записи: {str(e)}")
+            return self.form_invalid(form)
+
+    def get_success_url(self):
+        return reverse("timetable:schedule_day") + f"?date={self.object.date}"
 
 
 @login_required

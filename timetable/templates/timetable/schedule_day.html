@@ -348,6 +348,13 @@
                                                         </span>
                                                     </span>
                                                     {% endif %}
+                                                    <!-- ДОБАВЬТЕ ЭТУ КНОПКУ ДЛЯ ПРОЦЕДУРНОГО КАБИНЕТА -->
+                                                    {% if appointment.time_slot.cabinet.number == 6 and "забор крови" in appointment.service.name|lower %}
+                                                    <a href="{% url 'timetable:appointment_update_procedural' appointment.pk %}"
+                                                       class="btn btn-sm btn-outline-info" title="Редактировать анализы крови">
+                                                        <i class="fas fa-vial"></i>
+                                                    </a>
+                                                    {% endif %}
 
                                                     <!-- Индикатор последовательной записи -->
                                                     {% if appointment.is_consecutive %}
