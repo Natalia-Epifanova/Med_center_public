@@ -413,8 +413,10 @@ class BloodTest(models.Model):
         LITHIUM_HEPARIN = "lithium_heparin", _("Кровь (литий-гепарин)")
 
     # Основная информация
-    code = models.CharField(max_length=20, verbose_name="Код услуги")
-    name = models.CharField(max_length=500, verbose_name="Наименование анализа")
+    code = models.CharField(max_length=25, verbose_name="Код услуги")
+    name = models.CharField(
+        max_length=500, verbose_name="Наименование анализа", unique=True
+    )
     category = models.ForeignKey(
         BloodTestCategory,
         on_delete=models.CASCADE,
