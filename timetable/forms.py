@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django import forms
 from django.forms import ModelForm
 from .mixins import StyleFormMixin, ServiceBasedFormMixin
@@ -9,6 +11,8 @@ from .models import (
     DayComment,
     BloodTest,
     AppointmentBloodTest,
+    Cabinet,
+    Doctor,
 )
 from .services import PatientService, AppointmentService
 from .utils import validate_pishchelev_restrictions, get_doctor_services
@@ -983,3 +987,97 @@ class DayCommentForm(StyleFormMixin, ModelForm):
         labels = {
             "comment": "Комментарий для дня",
         }
+
+
+class CopyScheduleForm(StyleFormMixin, forms.Form):
+    """Форма для копирования расписания с одного дня на другой"""
+
+    source_date = forms.DateField(
+        required=True,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        label="Дата, с которой копировать расписание",
+    )
+
+    target_date = forms.DateField(
+        required=True,
+        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+        label="Дата, на которую копировать расписание",
+    )
+
+    COPY_TYPE_CHOICES = [
+        ("all", "Все слоты"),
+        ("by_cabinet", "Только определенные кабинеты"),
+        ("by_doctor", "Только определенных врачей"),
+    ]
+
+    copy_type = forms.ChoiceField(
+        choices=COPY_TYPE_CHOICES,
+        initial="all",
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        label="Что копировать?",
+    )
+
+    # Динамические поля для выбора кабинетов/врачей
+    cabinets = forms.ModelMultipleChoiceField(
+        queryset=Cabinet.objects.all().order_by("number"),
+        required=False,
+        widget=forms.SelectMultiple(attrs={"class": "form-select", "size": "5"}),
+        label="Кабинеты для копирования",
+    )
+
+    doctors = forms.ModelMultipleChoiceField(
+        queryset=Doctor.objects.all().order_by("surname"),
+        required=False,
+        widget=forms.SelectMultiple(attrs={"class": "form-select", "size": "5"}),
+        label="Врачи для копирования",
+    )
+
+    OVERRIDE_CHOICES = [
+        ("skip", "Пропускать существующие слоты"),
+        ("override", "Перезаписать существующие слоты"),
+        ("delete_and_create", "Удалить все слоты и создать новые"),
+    ]
+
+    conflict_resolution = forms.ChoiceField(
+        choices=OVERRIDE_CHOICES,
+        initial="skip",
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        label="Что делать с существующими слотами на целевой дате?",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source_date = cleaned_data.get("source_date")
+        target_date = cleaned_data.get("target_date")
+
+        if source_date and target_date:
+            if source_date == target_date:
+                raise forms.ValidationError("Даты источника и цели не могут совпадать")
+
+            if target_date < source_date:
+                if not self.request.user.is_staff:
+                    raise forms.ValidationError(
+                        "Копирование на прошедшую дату разрешено только администраторам"
+                    )
+
+        copy_type = cleaned_data.get("copy_type")
+        if copy_type == "by_cabinet" and not cleaned_data.get("cabinets"):
+            raise forms.ValidationError(
+                "Для копирования по кабинетам необходимо выбрать хотя бы один кабинет"
+            )
+
+        if copy_type == "by_doctor" and not cleaned_data.get("doctors"):
+            raise forms.ValidationError(
+                "Для копирования по врачам необходимо выбрать хотя бы одного врача"
+            )
+
+        return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request", None)
+        super().__init__(*args, **kwargs)
+
+        # Предзаполняем текущей датой
+        today = timezone.now().date()
+        self.fields["source_date"].initial = today
+        self.fields["target_date"].initial = today + timedelta(days=7)

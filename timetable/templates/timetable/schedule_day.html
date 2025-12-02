@@ -84,6 +84,10 @@
                                    class="btn btn-info">
                                     <i class="fas fa-chart-bar"></i> Отчет по врачам за {{ selected_date|date:"d.m.Y" }}
                                 </a>
+                                <a href="{% url 'timetable:copy_schedule' %}?date={{ selected_date|date:'Y-m-d' }}"
+                                   class="btn btn-info">
+                                    <i class="fas fa-copy"></i> Копировать расписание
+                                </a>
                             </div>
                         </div>
                     </div>

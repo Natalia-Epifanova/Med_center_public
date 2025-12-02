@@ -18,13 +18,8 @@ from timetable.views import (
     EmergencySlotCreateView,
     DoctorReportView,
     ProceduralAppointmentUpdateView,
-)
-from patients.views import (
-    PatientListView,
-    PatientCreateView,
-    PatientUpdateView,
-    PatientDetailView,
-    PatientDeleteView,
+    CopyScheduleView,
+    CopyWeeklyScheduleView,
 )
 from timetable.views_api import (
     check_patient_api,
@@ -108,4 +103,10 @@ urlpatterns = [
     ),
     path("doctor-report/<str:date>/", DoctorReportView.as_view(), name="doctor_report"),
     path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
+    path("copy-schedule/", CopyScheduleView.as_view(), name="copy_schedule"),
+    path(
+        "copy-weekly-schedule/",
+        CopyWeeklyScheduleView.as_view(),
+        name="copy_weekly_schedule",
+    ),
 ]
