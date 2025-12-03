@@ -120,7 +120,7 @@ class DocumentGenerator:
     @staticmethod
     def get_multiple_appointments_context(patient, appointment_ids):
         """Формирует контекст для нескольких записей"""
-        from timetable.models import Appointment
+        from appointments.models import Appointment
 
         appointments = (
             Appointment.objects.filter(id__in=appointment_ids, patient=patient)
@@ -341,7 +341,7 @@ def generate_document(request, pk, doc_type):
     is_contract = doc_type in ["contract_revmamed", "contract_IP"]
 
     if appointment_ids:
-        from timetable.models import Appointment
+        from appointments.models import Appointment
 
         if is_contract and len(appointment_ids) > 1:
             # Для договоров с несколькими записями

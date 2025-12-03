@@ -6,7 +6,7 @@
         "first_name": "Ольга",
         "last_name": "Евгеньевна",
         "surname": "Епифанова",
-        "specialization": "rheumatologist_1",
+        "specialization": "rheumatologist",
         "provided_services": "joint_us,densitometry,first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2600 рублей",
         "excluded_services": [
@@ -32,7 +32,7 @@
         "first_name": "Лариса",
         "last_name": "Викторовна",
         "surname": "Илюшина",
-        "specialization": "rheumatologist_1",
+        "specialization": "rheumatologist",
         "provided_services": "first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2600 рублей",
         "excluded_services": [
@@ -58,7 +58,7 @@
         "first_name": "Ирина",
         "last_name": "Валерьевна",
         "surname": "Плесовская",
-        "specialization": "rheumatologist_2",
+        "specialization": "rheumatologist",
         "provided_services": "first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2300 рублей",
         "excluded_services": [
@@ -84,7 +84,7 @@
         "first_name": "Екатерина",
         "last_name": "Борисовна",
         "surname": "Кузнецова",
-        "specialization": "rheumatologist_3",
+        "specialization": "rheumatologist",
         "provided_services": "first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2000 рублей",
         "excluded_services": [
@@ -110,7 +110,7 @@
         "first_name": "Оксана",
         "last_name": "Михайловна",
         "surname": "Нижник",
-        "specialization": "rheumatologist_3",
+        "specialization": "rheumatologist",
         "provided_services": "densitometry,first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2000 рублей",
         "excluded_services": [
@@ -136,7 +136,7 @@
         "first_name": "Анастасия",
         "last_name": "Александровна",
         "surname": "Королькова",
-        "specialization": "rheumatologist_3",
+        "specialization": "rheumatologist",
         "provided_services": "first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2000 рублей",
         "excluded_services": [
@@ -162,7 +162,7 @@
         "first_name": "Ксения",
         "last_name": "Александровна",
         "surname": "Пишинская",
-        "specialization": "rheumatologist_3",
+        "specialization": "rheumatologist",
         "provided_services": "densitometry,first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2000 рублей",
         "excluded_services": [
@@ -188,7 +188,7 @@
         "first_name": "Владислав",
         "last_name": "Викторович",
         "surname": "Рубцов",
-        "specialization": "rheumatologist_3",
+        "specialization": "rheumatologist",
         "provided_services": "first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2000 рублей",
         "excluded_services": [
@@ -214,7 +214,7 @@
         "first_name": "Елена",
         "last_name": "Алексеевна",
         "surname": "Носкова",
-        "specialization": "rheumatologist_3",
+        "specialization": "rheumatologist",
         "provided_services": "first_consult,second_consult,medical_blockades",
         "schedule_comment": "стоимость приема 2000 рублей",
         "excluded_services": [

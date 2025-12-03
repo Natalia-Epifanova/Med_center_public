@@ -10,7 +10,6 @@ class BloodTestSelection {
 
         console.log('=== BloodTestSelection Constructor ===');
         console.log('Initial tests:', this.initialTests);
-        console.log('Number of initial tests:', this.initialTests.length);
 
         this.init();
     }
@@ -21,67 +20,67 @@ class BloodTestSelection {
         // Загружаем анализы с сервера
         await this.loadBloodTests();
 
-        // Инициализируем выбранные анализы из initialTests
+        // Инициализируем выбранные анализы
         if (this.initialTests && this.initialTests.length > 0) {
-            console.log('Initializing selected tests from initialTests:', this.initialTests);
-
-            // Преобразуем строки в числа
-            const initialTestIds = this.initialTests.map(id => parseInt(id));
-
-            // Добавляем тесты в selectedTests
-            initialTestIds.forEach(testId => {
+            console.log('Setting initial tests from initialTests:', this.initialTests);
+            this.initialTests.forEach(id => {
+                const testId = parseInt(id);
                 if (!isNaN(testId)) {
                     this.selectedTests.add(testId);
                 }
             });
-
-            console.log('Selected tests after initialization:', Array.from(this.selectedTests));
-
-            // Рендерим выбранные тесты
-            this.renderSelectedTests();
-        } else {
-            console.log('No initial tests provided');
         }
+
+        console.log('Selected tests after init:', Array.from(this.selectedTests));
 
         this.bindEvents();
         this.renderCategories();
         this.renderTests();
+        this.renderSelectedTests();
+
+        console.log('=== BloodTestSelection Initialization Complete ===');
     }
 
     async loadBloodTests() {
         try {
-            console.log('Loading blood tests from API...');
+            console.log('Loading blood tests from /timetable/api/blood-tests/');
             const response = await fetch('/timetable/api/blood-tests/');
+            console.log('Response status:', response.status);
+
             const data = await response.json();
+            console.log('API response data:', data);
 
-            console.log('API response:', data);
             this.categories = data.categories || [];
-
             this.allTests = [];
+
+            // Собираем все тесты из категорий
             this.categories.forEach(category => {
+                console.log(`Processing category: ${category.name} with ${category.tests ? category.tests.length : 0} tests`);
+
                 if (category.tests && Array.isArray(category.tests)) {
                     category.tests.forEach(test => {
                         test.category_id = category.id;
                         test.category_name = category.name;
-                        // Убедимся, что id - число
                         test.id = parseInt(test.id);
                         this.allTests.push(test);
                     });
                 }
             });
 
-            console.log(`Loaded ${this.allTests.length} tests from ${this.categories.length} categories`);
+            console.log(`Total tests loaded: ${this.allTests.length}`);
+            console.log('Categories:', this.categories);
 
         } catch (error) {
             console.error('Error loading blood tests:', error);
             const container = document.getElementById('availableBloodTests');
             if (container) {
-                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки анализов</div>';
+                container.innerHTML = '<div class="alert alert-danger">Ошибка загрузки анализов. Пожалуйста, обновите страницу.</div>';
             }
         }
     }
 
     bindEvents() {
+        // Поиск
         const searchInput = document.getElementById('bloodTestSearch');
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
@@ -90,12 +89,11 @@ class BloodTestSelection {
             });
         }
 
+        // Очистка поиска
         const clearButton = document.getElementById('clearBloodTestSearch');
         if (clearButton) {
             clearButton.addEventListener('click', () => {
-                if (searchInput) {
-                    searchInput.value = '';
-                }
+                if (searchInput) searchInput.value = '';
                 this.searchTerm = '';
                 this.renderTests();
             });
@@ -109,7 +107,10 @@ class BloodTestSelection {
 
     renderCategories() {
         const container = document.getElementById('bloodTestCategories');
-        if (!container) return;
+        if (!container) {
+            console.error('Categories container not found!');
+            return;
+        }
 
         let html = `
             <button type="button" class="btn btn-outline-primary btn-sm active"
@@ -147,11 +148,14 @@ class BloodTestSelection {
 
     renderTests() {
         const container = document.getElementById('availableBloodTests');
-        if (!container) return;
+        if (!container) {
+            console.error('Available tests container not found!');
+            return;
+        }
 
         // Проверяем, загружены ли тесты
         if (!this.allTests || this.allTests.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-5">Загрузка анализов...</div>';
+            container.innerHTML = '<div class="text-center text-muted py-5">Загрузка анализов...</div>';
             return;
         }
 
@@ -172,7 +176,7 @@ class BloodTestSelection {
         });
 
         if (filteredTests.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-5">Анализы не найдены</div>';
+            container.innerHTML = '<div class="text-center text-muted py-5">Анализы не найдены</div>';
             return;
         }
 
@@ -204,17 +208,20 @@ class BloodTestSelection {
 
     renderSelectedTests() {
         const container = document.getElementById('selectedBloodTests');
-        if (!container) return;
+        if (!container) {
+            console.error('Selected tests container not found!');
+            return;
+        }
 
         if (!this.allTests || this.allTests.length === 0) {
-            container.innerHTML = '<div class="text-muted text-center py-5">Загрузка анализов...</div>';
+            container.innerHTML = '<div class="text-center text-muted py-5">Загрузка анализов...</div>';
             return;
         }
 
         // Получаем массив выбранных тестов
         const selectedTestsArray = Array.from(this.selectedTests)
             .map(id => this.allTests.find(test => test.id === id))
-            .filter(Boolean); // Убираем undefined
+            .filter(Boolean);
 
         console.log('Rendering selected tests:', selectedTestsArray);
 
@@ -247,6 +254,7 @@ class BloodTestSelection {
 
         this.updateCounters();
         this.updateFormField();
+
         // Обновляем список доступных тестов
         this.renderTests();
 
@@ -263,26 +271,13 @@ class BloodTestSelection {
         console.log('Adding test:', testId);
         this.selectedTests.add(testId);
         this.renderSelectedTests();
-
-        // Принудительно обновляем поле формы
-        this.updateFormField();
-
-        // ДЛЯ ОТЛАДКИ
-        console.log('After adding test', testId, 'selected tests are:', Array.from(this.selectedTests));
     }
 
     removeTest(testId) {
         console.log('Removing test:', testId);
         this.selectedTests.delete(testId);
         this.renderSelectedTests();
-
-        // Принудительно обновляем поле формы
-        this.updateFormField();
-
-        // ДЛЯ ОТЛАДКИ
-        console.log('After removing test', testId, 'selected tests are:', Array.from(this.selectedTests));
     }
-
 
     updateCounters() {
         const selectedTestsArray = Array.from(this.selectedTests)
@@ -307,100 +302,37 @@ class BloodTestSelection {
     }
 
     updateFormField() {
-        const fields = document.querySelectorAll('[name="selected_blood_tests_input"]');
-        console.log(`Found ${fields.length} fields with name selected_blood_tests_input`);
+        let field = document.getElementById('id_selected_blood_tests');
 
-        // Удаляем все лишние поля
-        if (fields.length > 1) {
-            console.log('Removing duplicate fields...');
-            for (let i = 1; i < fields.length; i++) {
-                if (fields[i].parentNode) {
-                    fields[i].parentNode.removeChild(fields[i]);
-                }
+        if (!field) {
+            console.log('Creating hidden field...');
+            field = document.createElement('input');
+            field.type = 'hidden';
+            field.id = 'id_selected_blood_tests';
+            field.name = 'selected_blood_tests_input';
+
+            const form = document.getElementById('appointmentForm');
+            if (form) {
+                form.appendChild(field);
+            } else {
+                console.error('Form not found!');
+                return;
             }
         }
 
-        // Обновляем оставшееся поле
-        const field = document.getElementById('id_selected_blood_tests');
-        if (field) {
-            const selectedIds = Array.from(this.selectedTests);
-            field.value = selectedIds.join(',');
-            console.log('Updated form field with IDs:', field.value);
+        const selectedIds = Array.from(this.selectedTests);
+        field.value = selectedIds.join(',');
 
-            // ВАЖНОЕ ИСПРАВЛЕНИЕ: Триггерим события для формы
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-            field.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('Updated hidden field with IDs:', field.value);
+        console.log('Selected tests count:', selectedIds.length);
 
-            // Также обновляем свойство value напрямую
-            field.setAttribute('value', field.value);
-
-            console.log('Field after update:', {
-                id: field.id,
-                name: field.name,
-                value: field.value,
-                attributes: {
-                    value: field.getAttribute('value'),
-                    'data-value': field.getAttribute('data-value')
-                }
-            });
-        } else {
-            console.error('Form field with id "id_selected_blood_tests" not found!');
-        }
+        // Триггерим события
+        field.dispatchEvent(new Event('change', { bubbles: true }));
+        field.dispatchEvent(new Event('input', { bubbles: true }));
     }
 }
 
-// Инициализация при загрузке страницы
-document.addEventListener('DOMContentLoaded', function() {
-    const bloodTestSection = document.getElementById('bloodTestSelectionSection');
-    if (!bloodTestSection) return;
-
-    console.log('DOM loaded, initialTestIds:', initialTestIds);
-    console.log('Type of initialTestIds:', typeof initialTestIds);
-
-    // Убедимся, что initialTestIds - массив
-    let initialTests = initialTestIds;
-    if (!Array.isArray(initialTestIds)) {
-        console.log('initialTestIds is not array, converting...');
-        if (typeof initialTestIds === 'string') {
-            try {
-                initialTests = JSON.parse(initialTestIds);
-            } catch (e) {
-                console.error('Error parsing initialTestIds:', e);
-                initialTests = [];
-            }
-        } else {
-            initialTests = [];
-        }
-    }
-
-    console.log('Final initialTests for BloodTestSelection:', initialTests);
-
-    // Инициализируем с предзагруженными анализами
-    window.bloodTestSelection = new BloodTestSelection({
-        initialTests: initialTests
-    });
-
-    // Обработка изменения услуги
-    const serviceSelect = document.getElementById('id_service');
-    if (serviceSelect) {
-        const toggleBloodTestSection = () => {
-            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-            const isBloodTest = selectedOption && selectedOption.text.toLowerCase().includes('забор крови');
-
-            console.log('Service change detected:', selectedOption ? selectedOption.text : 'none', 'Is blood test?', isBloodTest);
-
-            if (bloodTestSection) {
-                bloodTestSection.style.display = isBloodTest ? 'block' : 'none';
-
-                if (!isBloodTest) {
-                    window.bloodTestSelection.selectedTests.clear();
-                    window.bloodTestSelection.renderSelectedTests();
-                }
-            }
-        };
-
-        serviceSelect.addEventListener('change', toggleBloodTestSection);
-        // Вызываем сразу для установки начального состояния
-        toggleBloodTestSection();
-    }
-});
+// Экспорт класса для использования
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = BloodTestSelection;
+}

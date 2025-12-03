@@ -8,4 +8,5 @@ urlpatterns = [
     path("timetable/", include("timetable.urls", namespace="timetable")),
     path("users/", include("users.urls", namespace="users")),
     path("patients/", include("patients.urls", namespace="patients")),
+    path("appointments/", include("appointments.urls", namespace="appointments")),
 ]

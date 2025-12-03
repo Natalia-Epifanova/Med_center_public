@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         console.log(`Sending request to update appointment ${appointmentId} to status: ${newStatus}`);
 
-        fetch(`/timetable/appointment/${appointmentId}/update-status/`, {
+        fetch(`/appointments/${appointmentId}/update-status/`, {
             method: 'POST',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',

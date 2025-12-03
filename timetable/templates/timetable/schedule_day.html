@@ -1,4 +1,5 @@
 {% extends "timetable/base.html" %}
+{% load appointment_tags %}
 
 {% block extra_css %}
 {{ block.super }}
@@ -72,7 +73,7 @@
                                    class="btn timetable-btn-success">
                                     <i class="fas fa-plus"></i> Добавить расписание на {{ selected_date|date:"d.m.Y" }}
                                 </a>
-                                <a href="{% url 'timetable:appointment_create_procedural' %}?date={{ selected_date|date:'Y-m-d' }}"
+                                <a href="{% url 'appointments:appointment_create_procedural' %}?date={{ selected_date|date:'Y-m-d' }}"
                                    class="btn btn-warning">
                                     <i class="fas fa-syringe"></i> Добавить запись в процедурный кабинет
                                 </a>
@@ -233,13 +234,13 @@
                                 {% for slot in doctor_data.slots %}
                                 <tr class="{% if slot.slot_type == 'break' %}timetable-slot-break bg-warning bg-opacity-25
                                             {% else %}
-                                                {% with appointment=slot.appointments.first %}
-                                                    {% if appointment %}
-                                                        {% if appointment.insurance_type == 'dms' %}timetable-slot-dms
-                                                        {% elif appointment.insurance_type == 'oms' %}timetable-slot-oms
-                                                        {% else %}timetable-slot-working{% endif %}
+                                                {% get_appointment slot as appointment %}
+                                                {% if appointment %}
+                                                    {% if appointment.insurance_type == 'dms' %}timetable-slot-dms
+                                                    {% elif appointment.insurance_type == 'oms' %}timetable-slot-oms
                                                     {% else %}timetable-slot-working{% endif %}
-                                                {% endwith %}
+                                                {% else %}timetable-slot-working{% endif %}
+
                                             {% endif %}">
                                     <td>
                                         <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
@@ -253,35 +254,33 @@
                                         {% endif %}
 
                                         <!-- Индикатор типа оплаты -->
-                                        {% with appointment=slot.appointments.first %}
-                                            {% if appointment and slot.slot_type == 'working' %}
-                                                <br>
-                                                <small class="badge
-                                                    {% if appointment.insurance_type == 'dms' %}bg-pink text-white
-                                                    {% elif appointment.insurance_type == 'oms' %}bg-purple text-white
-                                                    {% elif appointment.insurance_type == 'paid' %}bg-success text-white
-                                                    {% else %}bg-secondary text-white{% endif %}">
-                                                    <strong>{{ appointment.get_insurance_type_display }}</strong>
-                                                </small>
-                                            {% endif %}
-                                        {% endwith %}
+                                        {% get_appointment slot as appointment %}
+                                        {% if appointment and slot.slot_type == 'working' %}
+                                            <br>
+                                            <small class="badge
+                                                {% if appointment.insurance_type == 'dms' %}bg-pink text-white
+                                                {% elif appointment.insurance_type == 'oms' %}bg-purple text-white
+                                                {% elif appointment.insurance_type == 'paid' %}bg-success text-white
+                                                {% else %}bg-secondary text-white{% endif %}">
+                                                <strong>{{ appointment.get_insurance_type_display }}</strong>
+                                            </small>
+                                        {% endif %}
                                     </td>
                                     <td>
                                         {% if slot.slot_type == 'working' %}
-                                        {% with appointment=slot.appointments.first %}
+                                        {% get_appointment slot as appointment %}
                                         {% if appointment %}
                                         <small>{{ appointment.service.name }}</small>
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
-                                        {% endwith %}
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if slot.slot_type == 'working' %}
-                                        {% with appointment=slot.appointments.first %}
+                                        {% get_appointment slot as appointment %}
                                         {% if appointment %}
                                             {% if appointment.patient %}
                                             <small>
@@ -298,14 +297,13 @@
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
-                                        {% endwith %}
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
                                     </td>
                                     <td>
                                         {% if slot.slot_type == 'working' %}
-                                        {% with appointment=slot.appointments.first %}
+                                        {% get_appointment slot as appointment %}
                                         {% if appointment and appointment.comment %}
                                         <small class="text-muted" title="{{ appointment.comment }}">
                                             {{ appointment.comment|truncatechars:20 }}
@@ -313,69 +311,68 @@
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
-                                        {% endwith %}
                                         {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
                                     </td>
                                     <td>
                                     {% if slot.slot_type == 'working' %}
-                                        {% with appointment=slot.appointments.first %}
-                                            {% if appointment %}
-                                                <!-- Выпадающий список статуса -->
-                                                <select class="form-select form-select-sm appointment-status-select"
-                                                        data-appointment-id="{{ appointment.pk }}"
-                                                        style="min-width: 130px; font-size: 0.75rem;">
-                                                    {% for status_value, status_label in appointment.AppointmentStatus.choices %}
-                                                    <option value="{{ status_value }}"
-                                                            {% if appointment.status == status_value %}selected{% endif %}>
-                                                        {{ status_label }}
-                                                    </option>
-                                                    {% endfor %}
-                                                </select>
+                                        {% get_appointment slot as appointment %}
+                                        {% if appointment %}
+                                            <!-- Выпадающий список статуса -->
+                                            <select class="form-select form-select-sm appointment-status-select"
+                                                    data-appointment-id="{{ appointment.pk }}"
+                                                    style="min-width: 130px; font-size: 0.75rem;">
+                                                {% for status_value, status_label in appointment.AppointmentStatus.choices %}
+                                                <option value="{{ status_value }}"
+                                                        {% if appointment.status == status_value %}selected{% endif %}>
+                                                    {{ status_label }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
 
-                                                <!-- Блок действий -->
-                                                <div class="btn-group btn-group-sm mt-1" role="group">
-                                                    <!-- Кнопка редактирования записи -->
-                                                    <a href="{% url 'timetable:appointment_update' appointment.pk %}"
-                                                       class="btn btn-outline-warning" title="Редактировать запись">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-
-                                                    <!-- Индикатор перезаписи -->
-                                                    {% if appointment.needs_reschedule %}
-                                                    <span class="btn btn-outline-info position-relative"
-                                                          title="Просил(а) перезаписать раньше">
-                                                        <i class="fas fa-clock"></i>
-                                                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
-                                                            <span class="visually-hidden">Требуется перезапись</span>
-                                                        </span>
-                                                    </span>
-                                                    {% endif %}
-                                                    <!-- ДОБАВЬТЕ ЭТУ КНОПКУ ДЛЯ ПРОЦЕДУРНОГО КАБИНЕТА -->
-                                                    {% if appointment.time_slot.cabinet.number == 6 and "забор крови" in appointment.service.name|lower %}
-                                                    <a href="{% url 'timetable:appointment_update_procedural' appointment.pk %}"
-                                                       class="btn btn-sm btn-outline-info" title="Редактировать анализы крови">
-                                                        <i class="fas fa-vial"></i>
-                                                    </a>
-                                                    {% endif %}
-
-                                                    <!-- Индикатор последовательной записи -->
-                                                    {% if appointment.is_consecutive %}
-                                                    <span class="btn btn-outline-secondary" title="Последовательная запись">
-                                                        <i class="fas fa-link"></i>
-                                                    </span>
-                                                    {% endif %}
-                                                </div>
-                                            {% else %}
-                                                <!-- Кнопка добавления записи -->
-                                                <a href="{% url 'timetable:appointment_create' slot.id %}"
-                                                   class="btn btn-sm btn-outline-success"
-                                                   title="Добавить запись пациента">
-                                                    <i class="fas fa-plus"></i>
+                                            <!-- Блок действий -->
+                                            <div class="btn-group btn-group-sm mt-1" role="group">
+                                                <!-- Кнопка редактирования записи -->
+                                                <a href="{% url 'appointments:appointment_update' appointment.pk %}"
+                                                   class="btn btn-outline-warning" title="Редактировать запись">
+                                                    <i class="fas fa-edit"></i>
                                                 </a>
-                                            {% endif %}
-                                        {% endwith %}
+
+                                                <!-- Индикатор перезаписи -->
+                                                {% if appointment.needs_reschedule %}
+                                                <span class="btn btn-outline-info position-relative"
+                                                      title="Просил(а) перезаписать раньше">
+                                                    <i class="fas fa-clock"></i>
+                                                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                                        <span class="visually-hidden">Требуется перезапись</span>
+                                                    </span>
+                                                </span>
+                                                {% endif %}
+                                                <!-- ДОБАВЬТЕ ЭТУ КНОПКУ ДЛЯ ПРОЦЕДУРНОГО КАБИНЕТА -->
+                                                {% if appointment.time_slot.cabinet.number == 6 and "забор крови" in appointment.service.name|lower %}
+                                                <a href="{% url 'appointments:appointment_update_procedural' appointment.pk %}"
+                                                   class="btn btn-sm btn-outline-info" title="Редактировать анализы крови">
+                                                    <i class="fas fa-vial"></i>
+                                                </a>
+                                                {% endif %}
+
+                                                <!-- Индикатор последовательной записи -->
+                                                {% if appointment.is_consecutive %}
+                                                <span class="btn btn-outline-secondary" title="Последовательная запись">
+                                                    <i class="fas fa-link"></i>
+                                                </span>
+                                                {% endif %}
+                                            </div>
+                                        {% else %}
+                                            <!-- Кнопка добавления записи -->
+                                            <a href="{% url 'appointments:appointment_create' slot.id %}"
+                                               class="btn btn-sm btn-outline-success"
+                                               title="Добавить запись пациента">
+                                                <i class="fas fa-plus"></i>
+                                            </a>
+                                        {% endif %}
+
                                     {% else %}
                                         <small class="text-muted">Недоступно для записи</small>
                                     {% endif %}
@@ -523,6 +520,6 @@
 {% block extra_js %}
 {{ block.super }}
 <!-- Подключаем скрипты -->
-<script src="/static/js/schedule_day.js?v=1.2"></script>
+<script src="/static/js/schedule_day.js?v=1.4"></script>
 <script src="/static/js/print.js"></script>
 {% endblock %}

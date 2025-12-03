@@ -179,7 +179,7 @@ class Patient(models.Model):
 
     def get_last_appointment(self):
         """Получить последнюю запись пациента"""
-        from timetable.models import Appointment
+        from appointments.models import Appointment
 
         return (
             Appointment.objects.filter(patient=self)
@@ -190,7 +190,7 @@ class Patient(models.Model):
 
     def get_appointment_history(self):
         """Получить историю записей пациента"""
-        from timetable.models import Appointment
+        from appointments.models import Appointment
 
         return (
             Appointment.objects.filter(patient=self)
@@ -200,7 +200,7 @@ class Patient(models.Model):
 
     def get_appointments_for_documents(self):
         """Получить все записи пациента для выбора в документах"""
-        from timetable.models import Appointment
+        from appointments.models import Appointment
 
         return (
             Appointment.objects.filter(patient=self)

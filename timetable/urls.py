@@ -1,5 +1,6 @@
 from django.urls import path
 
+from appointments.views import update_appointment_status
 from timetable.apps import TimetableConfig
 from timetable.views import (
     HomeView,
@@ -8,19 +9,14 @@ from timetable.views import (
     TimeSlotDetailView,
     TimeSlotUpdateView,
     TimeSlotDeleteView,
-    AppointmentUpdateView,
-    AppointmentDeleteView,
     RescheduleRequestsView,
-    AppointmentCreateView,
-    ProceduralAppointmentCreateView,
     save_day_comment,
-    update_appointment_status,
     EmergencySlotCreateView,
     DoctorReportView,
-    ProceduralAppointmentUpdateView,
     CopyScheduleView,
     CopyWeeklyScheduleView,
 )
+
 from timetable.views_api import (
     check_patient_api,
     get_available_slots,
@@ -49,21 +45,6 @@ urlpatterns = [
         EmergencySlotCreateView.as_view(),
         name="emergency_slot_create",
     ),
-    path(
-        "appointment/create/<int:time_slot_id>/",
-        AppointmentCreateView.as_view(),
-        name="appointment_create",
-    ),
-    path(
-        "appointment/<int:pk>/update/",
-        AppointmentUpdateView.as_view(),
-        name="appointment_update",
-    ),
-    path(
-        "appointment/<int:pk>/delete/",
-        AppointmentDeleteView.as_view(),
-        name="appointment_delete",
-    ),
     # Запросы на перезапись
     path(
         "reschedule-requests/",
@@ -85,22 +66,7 @@ urlpatterns = [
         check_procedural_availability,
         name="api_check_procedural_availability",
     ),
-    path(
-        "appointment/create-procedural/",
-        ProceduralAppointmentCreateView.as_view(),
-        name="appointment_create_procedural",
-    ),
-    path(
-        "appointment/update-procedural/<int:pk>/",
-        ProceduralAppointmentUpdateView.as_view(),
-        name="appointment_update_procedural",
-    ),
     path("day-comment/save/", save_day_comment, name="save_day_comment"),
-    path(
-        "appointment/<int:pk>/update-status/",
-        update_appointment_status,
-        name="update_appointment_status",
-    ),
     path("doctor-report/<str:date>/", DoctorReportView.as_view(), name="doctor_report"),
     path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
     path("copy-schedule/", CopyScheduleView.as_view(), name="copy_schedule"),

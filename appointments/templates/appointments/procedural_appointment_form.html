@@ -3,7 +3,7 @@
 
 {% block header %}
 <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
-    <h1 class="display-6">Редактирование записи в процедурный кабинет</h1>
+    <h1 class="display-6">Запись в процедурный кабинет</h1>
     <p class="lead">Дата: {{ selected_date|date:"d.m.Y" }}</p>
 </div>
 {% endblock %}
@@ -16,7 +16,7 @@
                 <div class="card-header bg-warning text-dark">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-syringe"></i>
-                        Редактирование записи в процедурный кабинет №{{ procedural_cabinet.number }}
+                        Запись в процедурный кабинет №{{ procedural_cabinet.number }}
                     </h5>
                 </div>
                 <div class="card-body">
@@ -56,8 +56,6 @@
 
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
-
-                        <!-- ВАЖНО: Скрытое поле с выбранными анализами -->
                         {{ form.selected_blood_tests_input }}
 
                         <!-- Блок выбора времени -->
@@ -66,6 +64,7 @@
                                 <h6 class="mb-0">1. Выбор времени</h6>
                             </div>
                             <div class="card-body">
+                                <!-- Создание нового слота -->
                                 <div class="row">
                                     <div class="col-md-6">
                                         <label for="{{ form.procedural_start_time.id_for_label }}" class="form-label">
@@ -105,7 +104,7 @@
                                 <div class="row">
                                     <div class="col-md-4">
                                         <label for="{{ form.surname.id_for_label }}" class="form-label">
-                                            {{ form.surname.label }} *
+                                            {{ form.surname.label }}
                                         </label>
                                         {{ form.surname }}
                                         {% if form.surname.errors %}
@@ -114,7 +113,7 @@
                                     </div>
                                     <div class="col-md-4">
                                         <label for="{{ form.first_name.id_for_label }}" class="form-label">
-                                            {{ form.first_name.label }} *
+                                            {{ form.first_name.label }}
                                         </label>
                                         {{ form.first_name }}
                                         {% if form.first_name.errors %}
@@ -161,6 +160,16 @@
                                         {% endif %}
                                     </div>
                                 </div>
+
+                                <!-- Кнопка проверки пациента -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-outline-primary" id="checkPatientBtn">
+                                            <i class="fas fa-search"></i> Проверить пациента в базе
+                                        </button>
+                                        <div id="patientCheckResult" class="mt-2" style="display: none;"></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -183,9 +192,9 @@
                                             Доступные услуги для процедурного кабинета
                                         </div>
                                     </div>
-                                </div>
 
                                 {% include 'timetable/includes/blood_test_selection.html' %}
+                                </div>
                             </div>
                         </div>
 
@@ -238,15 +247,9 @@
                                class="btn btn-secondary">
                                 <i class="fas fa-arrow-left"></i> Назад к расписанию
                             </a>
-                            <div>
-                                <a href="{% url 'timetable:appointment_delete' current_appointment.pk %}"
-                                   class="btn btn-outline-danger me-2">
-                                    <i class="fas fa-trash"></i> Удалить запись
-                                </a>
-                                <button type="submit" class="btn btn-warning">
-                                    <i class="fas fa-save"></i> Сохранить изменения
-                                </button>
-                            </div>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-calendar-check"></i> Записать пациента
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -258,62 +261,78 @@
 
 {% block extra_js %}
 <script>
-    const initialTestIds = {{ initial_test_ids|safe }};
-    console.log('Initial test IDs from template:', initialTestIds);
+    const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
+    const csrfToken = "{{ csrf_token }}";
+    const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
 
+    // Убедитесь, что поле существует в DOM
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('appointmentForm');
+        // Проверяем, существует ли поле
+        const field = document.getElementById('id_selected_blood_tests');
+        if (!field) {
+            console.log('Field not found, creating...');
+            // Создаем поле если его нет
+            const form = document.getElementById('appointmentForm');
+            if (form) {
+                const hiddenField = document.createElement('input');
+                hiddenField.type = 'hidden';
+                hiddenField.id = 'id_selected_blood_tests';
+                hiddenField.name = 'selected_blood_tests_input';
+                form.appendChild(hiddenField);
+            }
+        }
+    });
 
-        // Проверяем, сколько полей с именем selected_blood_tests_input
-        const allFields = document.querySelectorAll('[name="selected_blood_tests_input"]');
-        console.log(`Found ${allFields.length} fields with name selected_blood_tests_input`);
+    // ДЛЯ СОЗДАНИЯ ФОРМЫ: пустой список начальных анализов
+    const initialTestIds = [];
+</script>
+<script src="/static/js/blood_test_selection.js?v={% now 'U' %}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const bloodTestSection = document.getElementById('bloodTestSelectionSection');
+        if (!bloodTestSection) return;
 
-        allFields.forEach((field, index) => {
-            console.log(`Field ${index + 1}: id="${field.id}", value="${field.value}"`);
+        console.log('Initializing BloodTestSelection with tests:', initialTestIds);
+
+        // Инициализируем с пустым списком для создания
+        window.bloodTestSelection = new BloodTestSelection({
+            initialTests: initialTestIds
         });
 
-        if (form) {
-            // Обработчик отправки формы
-            form.addEventListener('submit', function(e) {
-                console.log('=== FORM SUBMIT HANDLER ===');
+        const serviceSelect = document.getElementById('id_service');
+        if (serviceSelect) {
+            const toggleBloodTestSection = () => {
+                const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+                const isBloodTest = selectedOption && selectedOption.text.toLowerCase().includes('забор крови');
 
-                // Удаляем все лишние поля с таким же именем
-                const fields = document.querySelectorAll('[name="selected_blood_tests_input"]');
-                if (fields.length > 1) {
-                    console.log(`WARNING: Found ${fields.length} fields with same name, removing extras`);
+                console.log('Service change:', selectedOption ? selectedOption.text : 'none', 'Is blood test?', isBloodTest);
 
-                    // Оставляем только первое поле
-                    for (let i = 1; i < fields.length; i++) {
-                        if (fields[i].parentNode) {
-                            fields[i].parentNode.removeChild(fields[i]);
-                        }
+                if (bloodTestSection) {
+                    bloodTestSection.style.display = isBloodTest ? 'block' : 'none';
+
+                    if (!isBloodTest) {
+                        window.bloodTestSelection.selectedTests.clear();
+                        window.bloodTestSelection.renderSelectedTests();
                     }
                 }
+            };
 
-                // ОБЯЗАТЕЛЬНО обновляем оставшееся поле
+            serviceSelect.addEventListener('change', toggleBloodTestSection);
+            toggleBloodTestSection(); // Вызовите сразу для установки правильного состояния
+        }
+
+        // Обработчик отправки формы
+        const appointmentForm = document.getElementById('appointmentForm');
+        if (appointmentForm) {
+            appointmentForm.addEventListener('submit', function(e) {
+                // Не отменяем отправку, только обновляем поле
                 if (window.bloodTestSelection) {
-                    console.log('Updating form field before submit...');
                     window.bloodTestSelection.updateFormField();
-                }
-
-                // Проверяем итоговое значение
-                const hiddenField = document.getElementById('id_selected_blood_tests');
-                if (hiddenField) {
-                    console.log('Final hidden field value:', hiddenField.value);
-
-                    if (window.bloodTestSelection && window.bloodTestSelection.selectedTests) {
-                        const selectedTests = Array.from(window.bloodTestSelection.selectedTests);
-                        const expectedValue = selectedTests.join(',');
-
-                        if (hiddenField.value !== expectedValue) {
-                            console.log('Mismatch detected! Setting correct value...');
-                            hiddenField.value = expectedValue;
-                        }
-                    }
+                    console.log('Form submit - final field value:',
+                        document.getElementById('id_selected_blood_tests').value);
                 }
             });
         }
     });
 </script>
-<script src="/static/js/blood_test_selection.js?v={% now 'U' %}"></script>
 {% endblock %}
