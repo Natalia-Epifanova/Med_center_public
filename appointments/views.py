@@ -248,12 +248,13 @@ class ProceduralAppointmentUpdateView(LoginRequiredMixin, UpdateView):
         # ВАЖНОЕ ИСПРАВЛЕНИЕ: Получаем ID самих анализов крови
         initial_test_ids = [test.blood_test.id for test in selected_tests]
 
-        # ДОБАВЬТЕ ДЛЯ ОТЛАДКИ
+        # ДЛЯ ОТЛАДКИ
         print(f"DEBUG: Appointment ID: {self.object.id}")
         print(
             f"DEBUG: Selected AppointmentBloodTest objects count: {selected_tests.count()}"
         )
         print(f"DEBUG: BloodTest IDs: {initial_test_ids}")
+        print(f"DEBUG: JSON dumps result: {json.dumps(initial_test_ids)}")
 
         context.update(
             {

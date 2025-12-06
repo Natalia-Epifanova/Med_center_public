@@ -281,7 +281,7 @@
                                         <th>Время</th>
                                         <th>Врач</th>
                                         <th>Услуга</th>
-                                        <th>Цена услуги</th>
+                                        <th>Сумма</th> <!-- Изменили заголовок -->
                                         <th>Кабинет</th>
                                         <th>Статус</th>
                                         <th>Тип оплаты</th>
@@ -301,12 +301,27 @@
                                                 Не указан
                                             {% endif %}
                                         </td>
-                                        <td>{{ appointment.service.name }}</td>
                                         <td>
-                                            {% if appointment.service.price %}
-                                                {{ appointment.service.price }} руб.
+                                            {{ appointment.service.name }}
+                                            {% if appointment.selected_blood_tests.exists %}
+                                                <br>
+                                                <small class="text-muted">
+                                                    + {{ appointment.selected_blood_tests.count }} анализ{{ appointment.selected_blood_tests.count|pluralize:"ов" }}
+                                                </small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <!-- ОТОБРАЖАЕМ СОХРАНЕННУЮ СУММУ С АНАЛИЗАМИ -->
+                                            {% if appointment.total_with_blood_tests %}
+                                                {{ appointment.total_with_blood_tests }} руб.
+                                                {% if appointment.selected_blood_tests.exists %}
+                                                    <br>
+                                                    <small class="text-muted">
+                                                        (вкл. {{ appointment.selected_blood_tests.count }} анализ{{ appointment.selected_blood_tests.count|pluralize:"ов" }})
+                                                    </small>
+                                                {% endif %}
                                             {% else %}
-                                                -
+                                                {{ appointment.price_at_appointment|default:appointment.service.price }} руб.
                                             {% endif %}
                                         </td>
                                         <td>

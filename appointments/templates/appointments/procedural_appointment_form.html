@@ -56,6 +56,7 @@
 
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
+                        <input type="hidden" name="total_sum" id="id_total_sum" value="0.00">
                         {{ form.selected_blood_tests_input }}
 
                         <!-- Блок выбора времени -->
@@ -260,79 +261,15 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Определяем переменные для JS -->
 <script>
     const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
     const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
-
-    // Убедитесь, что поле существует в DOM
-    document.addEventListener('DOMContentLoaded', function() {
-        // Проверяем, существует ли поле
-        const field = document.getElementById('id_selected_blood_tests');
-        if (!field) {
-            console.log('Field not found, creating...');
-            // Создаем поле если его нет
-            const form = document.getElementById('appointmentForm');
-            if (form) {
-                const hiddenField = document.createElement('input');
-                hiddenField.type = 'hidden';
-                hiddenField.id = 'id_selected_blood_tests';
-                hiddenField.name = 'selected_blood_tests_input';
-                form.appendChild(hiddenField);
-            }
-        }
-    });
-
-    // ДЛЯ СОЗДАНИЯ ФОРМЫ: пустой список начальных анализов
-    const initialTestIds = [];
+    const initialTestIds = {% if initial_test_ids %}{{ initial_test_ids|safe }}{% else %}[]{% endif %};
 </script>
+
+<!-- Подключаем внешние JS файлы -->
 <script src="/static/js/blood_test_selection.js?v={% now 'U' %}"></script>
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const bloodTestSection = document.getElementById('bloodTestSelectionSection');
-        if (!bloodTestSection) return;
-
-        console.log('Initializing BloodTestSelection with tests:', initialTestIds);
-
-        // Инициализируем с пустым списком для создания
-        window.bloodTestSelection = new BloodTestSelection({
-            initialTests: initialTestIds
-        });
-
-        const serviceSelect = document.getElementById('id_service');
-        if (serviceSelect) {
-            const toggleBloodTestSection = () => {
-                const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-                const isBloodTest = selectedOption && selectedOption.text.toLowerCase().includes('забор крови');
-
-                console.log('Service change:', selectedOption ? selectedOption.text : 'none', 'Is blood test?', isBloodTest);
-
-                if (bloodTestSection) {
-                    bloodTestSection.style.display = isBloodTest ? 'block' : 'none';
-
-                    if (!isBloodTest) {
-                        window.bloodTestSelection.selectedTests.clear();
-                        window.bloodTestSelection.renderSelectedTests();
-                    }
-                }
-            };
-
-            serviceSelect.addEventListener('change', toggleBloodTestSection);
-            toggleBloodTestSection(); // Вызовите сразу для установки правильного состояния
-        }
-
-        // Обработчик отправки формы
-        const appointmentForm = document.getElementById('appointmentForm');
-        if (appointmentForm) {
-            appointmentForm.addEventListener('submit', function(e) {
-                // Не отменяем отправку, только обновляем поле
-                if (window.bloodTestSelection) {
-                    window.bloodTestSelection.updateFormField();
-                    console.log('Form submit - final field value:',
-                        document.getElementById('id_selected_blood_tests').value);
-                }
-            });
-        }
-    });
-</script>
+<script src="/static/js/procedural_appointment_create.js?v={% now 'U' %}"></script>
 {% endblock %}

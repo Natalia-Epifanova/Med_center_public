@@ -15,6 +15,8 @@ from django.views.generic import (
     DeleteView,
 )
 from docxtpl import DocxTemplate
+
+from appointments.models import Appointment
 from patients.models import Patient
 from patients.forms import PatientForm, PatientFullForm
 from patients.utils import number_to_words, get_russian_month_name
@@ -95,7 +97,16 @@ class PatientDetailView(LoginRequiredMixin, DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         patient = self.object
-        context["appointment_history"] = patient.get_appointment_history()
+
+        # Получаем историю с предзагрузкой связанных данных
+        appointment_history = (
+            Appointment.objects.filter(patient=patient)
+            .select_related("time_slot__doctor", "time_slot__cabinet", "service")
+            .prefetch_related("selected_blood_tests")
+            .order_by("-time_slot__date", "-time_slot__start_time")
+        )
+
+        context["appointment_history"] = appointment_history
         return context
 
 

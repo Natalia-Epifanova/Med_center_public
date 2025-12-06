@@ -317,4 +317,42 @@
     const currentAppointmentId = {{ current_appointment.id }};
 </script>
 <script src="/static/js/appointment_update.js"></script>
+
+<!-- ДОБАВЬТЕ ЭТОТ СКРИПТ -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const serviceSelect = document.getElementById('id_service');
+    const totalField = document.getElementById('id_total_sum');
+
+    if (!serviceSelect || !totalField) return;
+
+    // Функция для обновления суммы
+    function updateTotalSum() {
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        if (selectedOption && selectedOption.dataset.price) {
+            totalField.value = parseFloat(selectedOption.dataset.price).toFixed(2);
+        } else if (selectedOption) {
+            // Пытаемся извлечь цену из текста опции
+            const priceMatch = selectedOption.text.match(/\((\d+(?:\.\d{2})?) руб\.\)/);
+            if (priceMatch && priceMatch[1]) {
+                totalField.value = parseFloat(priceMatch[1]).toFixed(2);
+            }
+        }
+    }
+
+    // Обновляем при изменении услуги
+    serviceSelect.addEventListener('change', updateTotalSum);
+
+    // Инициализируем при загрузке
+    updateTotalSum();
+
+    // Обновляем перед отправкой формы
+    const form = document.getElementById('appointmentForm');
+    if (form) {
+        form.addEventListener('submit', function() {
+            updateTotalSum();
+        });
+    }
+});
+</script>
 {% endblock %}

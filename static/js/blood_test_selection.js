@@ -38,6 +38,9 @@ class BloodTestSelection {
         this.renderTests();
         this.renderSelectedTests();
 
+        // Обновляем сумму при инициализации
+        this.updateTotalSum();
+
         console.log('=== BloodTestSelection Initialization Complete ===');
     }
 
@@ -102,6 +105,7 @@ class BloodTestSelection {
         // Добавляем обработчик для обновления скрытого поля при изменении выбора
         document.addEventListener('bloodTestsUpdated', () => {
             this.updateFormField();
+            this.updateTotalSum();
         });
     }
 
@@ -254,6 +258,7 @@ class BloodTestSelection {
 
         this.updateCounters();
         this.updateFormField();
+        this.updateTotalSum(); // Обновляем сумму
 
         // Обновляем список доступных тестов
         this.renderTests();
@@ -277,6 +282,13 @@ class BloodTestSelection {
         console.log('Removing test:', testId);
         this.selectedTests.delete(testId);
         this.renderSelectedTests();
+    }
+
+    clearSelectedTests() {
+        console.log('Clearing all selected tests');
+        this.selectedTests.clear();
+        this.renderSelectedTests();
+        this.updateTotalSum(0); // Обнуляем сумму
     }
 
     updateCounters() {
@@ -330,9 +342,100 @@ class BloodTestSelection {
         field.dispatchEvent(new Event('change', { bubbles: true }));
         field.dispatchEvent(new Event('input', { bubbles: true }));
     }
+
+    // НОВАЯ ФУНКЦИЯ: Обновление итоговой суммы
+    updateTotalSum(customSum = null) {
+        const totalField = document.getElementById('id_total_sum');
+        const serviceSelect = document.getElementById('id_service');
+
+        if (!totalField) {
+            // Создаем поле если его нет
+            console.log('Creating total sum field...');
+            const field = document.createElement('input');
+            field.type = 'hidden';
+            field.id = 'id_total_sum';
+            field.name = 'total_sum';
+
+            const form = document.getElementById('appointmentForm');
+            if (form) {
+                form.appendChild(field);
+                console.log('Total sum field created');
+            } else {
+                console.error('Form not found! Cannot create total sum field');
+                return;
+            }
+        }
+
+        // Если передана кастомная сумма (например, 0 при очистке)
+        if (customSum !== null) {
+            document.getElementById('id_total_sum').value = customSum.toFixed(2);
+            console.log('Total sum set to custom value:', customSum);
+            return;
+        }
+
+        if (!serviceSelect) {
+            console.error('Service select not found!');
+            return;
+        }
+
+        // Считаем сумму анализов
+        let testsTotal = 0;
+        this.selectedTests.forEach(id => {
+            const test = this.allTests.find(t => t.id === id);
+            if (test && test.price) {
+                testsTotal += test.price;
+            }
+        });
+
+        // Определяем стоимость услуги
+        let servicePrice = 0;
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        const isBloodTest = selectedOption && selectedOption.text.toLowerCase().includes('забор крови');
+
+        if (isBloodTest) {
+            // Пытаемся получить цену из data-атрибута или используем фиксированную
+            servicePrice = selectedOption.dataset.price ? parseFloat(selectedOption.dataset.price) : this.bloodCollectionPrice;
+        }
+
+        // Итоговая сумма
+        const total = testsTotal + servicePrice;
+        document.getElementById('id_total_sum').value = total.toFixed(2);
+
+        console.log('Total sum updated:', {
+            testsTotal: testsTotal,
+            servicePrice: servicePrice,
+            total: total
+        });
+
+        // Создаем событие для обновления UI (опционально)
+        const event = new CustomEvent('totalSumUpdated', {
+            detail: {
+                total: total,
+                testsTotal: testsTotal,
+                servicePrice: servicePrice
+            }
+        });
+        document.dispatchEvent(event);
+
+        return total;
+    }
 }
 
 // Экспорт класса для использования
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = BloodTestSelection;
+}
+
+// Глобальная функция для очистки выбранных анализов (если нужно вызывать извне)
+function clearBloodTestsSelection() {
+    if (window.bloodTestSelection && typeof window.bloodTestSelection.clearSelectedTests === 'function') {
+        window.bloodTestSelection.clearSelectedTests();
+    }
+}
+
+// Функция для обновления суммы при изменении услуги
+function handleServiceChangeForBloodTests() {
+    if (window.bloodTestSelection && typeof window.bloodTestSelection.updateTotalSum === 'function') {
+        window.bloodTestSelection.updateTotalSum();
+    }
 }

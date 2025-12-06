@@ -257,88 +257,15 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Данные для JS (оставляем только переменные) -->
 <script>
-    // ВАЖНО: Используйте json.dumps для безопасной передачи списка
-    const initialTestIds = {{ initial_test_ids|safe }};
-    console.log('Initial test IDs from template:', initialTestIds);
-    console.log('Type of initialTestIds:', typeof initialTestIds);
-    console.log('Is array?', Array.isArray(initialTestIds));
-
-    document.addEventListener('DOMContentLoaded', function() {
-        console.log('=== EDIT FORM INITIALIZATION ===');
-        console.log('Initial test IDs:', initialTestIds);
-
-        // Убедимся, что initialTestIds - массив
-        let initialTests = initialTestIds;
-        if (!Array.isArray(initialTestIds)) {
-            console.log('initialTestIds is not array, converting...');
-            if (typeof initialTestIds === 'string') {
-                try {
-                    initialTests = JSON.parse(initialTestIds);
-                } catch (e) {
-                    console.error('Error parsing initialTestIds:', e);
-                    initialTests = [];
-                }
-            } else if (initialTestIds === null || initialTestIds === undefined) {
-                initialTests = [];
-            }
-        }
-
-        console.log('Final initial tests for BloodTestSelection:', initialTests);
-
-        const bloodTestSection = document.getElementById('bloodTestSelectionSection');
-        if (!bloodTestSection) {
-            console.error('Blood test section not found!');
-            return;
-        }
-
-        // Инициализируем с предзагруженными анализами
-        window.bloodTestSelection = new BloodTestSelection({
-            initialTests: initialTests
-        });
-
-        const serviceSelect = document.getElementById('id_service');
-        if (serviceSelect) {
-            const toggleBloodTestSection = () => {
-                const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-                const isBloodTest = selectedOption && selectedOption.text.toLowerCase().includes('забор крови');
-
-                console.log('Service change detected:', selectedOption ? selectedOption.text : 'none', 'Is blood test?', isBloodTest);
-
-                if (bloodTestSection) {
-                    bloodTestSection.style.display = isBloodTest ? 'block' : 'none';
-
-                    if (!isBloodTest) {
-                        window.bloodTestSelection.selectedTests.clear();
-                        window.bloodTestSelection.renderSelectedTests();
-                    }
-                }
-            };
-
-            serviceSelect.addEventListener('change', toggleBloodTestSection);
-            toggleBloodTestSection(); // Вызовите сразу для установки правильного состояния
-        }
-
-        // Обработчик отправки формы
-        const appointmentForm = document.getElementById('appointmentForm');
-        if (appointmentForm) {
-            appointmentForm.addEventListener('submit', function(e) {
-                console.log('=== FORM SUBMIT HANDLER ===');
-
-                if (window.bloodTestSelection) {
-                    console.log('Updating form field before submit...');
-                    window.bloodTestSelection.updateFormField();
-
-                    // Проверяем итоговое значение
-                    const hiddenField = document.getElementById('id_selected_blood_tests');
-                    if (hiddenField) {
-                        console.log('Final hidden field value:', hiddenField.value);
-                        console.log('Selected tests count:', window.bloodTestSelection.selectedTests.size);
-                    }
-                }
-            });
-        }
-    });
+    const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
+    const csrfToken = "{{ csrf_token }}";
+    const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
+    const initialTestIds = {% if initial_test_ids %}{{ initial_test_ids|safe }}{% else %}[]{% endif %};
 </script>
+
+<!-- Подключаем внешние JS файлы -->
 <script src="/static/js/blood_test_selection.js?v={% now 'U' %}"></script>
+<script src="/static/js/procedural_appointment_update.js?v={% now 'U' %}"></script>
 {% endblock %}

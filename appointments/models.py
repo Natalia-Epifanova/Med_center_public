@@ -65,6 +65,21 @@ class Appointment(models.Model):
         verbose_name="Занимает два временных слота",
         help_text="Отметьте, если услуга требует два последовательных временных слота",
     )
+    price_at_appointment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Цена на момент записи",
+        help_text="Цена услуги на момент создания записи",
+    )
+    total_with_blood_tests = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Общая сумма с анализами",
+    )
 
     class Meta:
         verbose_name = "Запись на прием"
@@ -102,6 +117,23 @@ class Appointment(models.Model):
     @property
     def cabinet(self):
         return self.time_slot.cabinet
+
+    @property
+    def actual_price(self):
+        """Возвращает цену, которая должна отображаться в истории"""
+        return self.price_at_appointment or self.service.price
+
+    def save(self, *args, **kwargs):
+        """Переопределяем save для сохранения цены на момент записи"""
+        # Если запись создается и у нее есть услуга
+        if not self.pk and self.service and not self.price_at_appointment:
+            self.price_at_appointment = self.service.price
+
+        # Если обновляется услуга
+        elif self.service and not self.price_at_appointment:
+            self.price_at_appointment = self.service.price
+
+        super().save(*args, **kwargs)
 
     def get_consecutive_appointments(self):
         """Возвращает все последующие записи в цепочке"""
