@@ -5,6 +5,26 @@
 function printSchedule() {
     console.log('=== PRINT DEBUG ===');
 
+    // Получаем дату из переменной, установленной в шаблоне
+    const scheduleDate = window.selectedDate;
+
+    if (!scheduleDate) {
+        console.error('ERROR: selectedDate is not defined!');
+        console.log('Available global variables:', Object.keys(window).filter(key => key.includes('Date')));
+
+        // Попробуем найти дату на странице другими способами
+        const dateFromPage = findDateOnPage();
+        if (dateFromPage) {
+            console.log('Found date on page:', dateFromPage);
+            window.selectedDate = dateFromPage;
+        } else {
+            console.log('Using current date as fallback');
+            window.selectedDate = new Date().toLocaleDateString('ru-RU');
+        }
+    }
+
+    console.log('Printing schedule for date:', window.selectedDate);
+
     // Создаем клон основного контента для печати
     const originalContainer = document.querySelector('.timetable-container-fluid');
     if (!originalContainer) {
@@ -76,7 +96,7 @@ function printSchedule() {
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Расписание на {{ selected_date|date:"d.m.Y" }}</title>
+            <title>Расписание на ${window.selectedDate}</title>
             <style>
                 body {
                     margin: 0;
@@ -122,7 +142,7 @@ function printSchedule() {
             </style>
         </head>
         <body>
-            <h2 style="text-align: center; margin-bottom: 5mm; font-size: 14px;">Расписание на {{ selected_date|date:"d.m.Y" }}</h2>
+            <h2 style="text-align: center; margin-bottom: 5mm; font-size: 14px;">Расписание на ${window.selectedDate}</h2>
             ${printContainer.outerHTML}
         </body>
         </html>
@@ -138,9 +158,62 @@ function printSchedule() {
 }
 
 /**
+ * Функция для поиска даты на странице
+ */
+function findDateOnPage() {
+    // Способ 1: Из заголовка с классом .timetable-current-date
+    const dateHeader = document.querySelector('.timetable-current-date strong');
+    if (dateHeader) {
+        const text = dateHeader.textContent.trim();
+        console.log('Found date in header:', text);
+        return text;
+    }
+
+    // Способ 2: Из заголовка навигации
+    const leadText = document.querySelector('.lead');
+    if (leadText) {
+        const text = leadText.textContent.trim();
+        const dateMatch = text.match(/(\d{2}\.\d{2}\.\d{4})/);
+        if (dateMatch) {
+            console.log('Found date in lead text:', dateMatch[1]);
+            return dateMatch[1];
+        }
+    }
+
+    // Способ 3: Из кнопки печати
+    const printButton = document.querySelector('button[onclick*="printSchedule"]');
+    if (printButton) {
+        const buttonText = printButton.textContent || printButton.innerText;
+        const dateMatch = buttonText.match(/(\d{2}\.\d{2}\.\d{4})/);
+        if (dateMatch) {
+            console.log('Found date on print button:', dateMatch[1]);
+            return dateMatch[1];
+        }
+    }
+
+    // Способ 4: Из скрытого поля с датой
+    const hiddenDate = document.querySelector('input[name="date"]');
+    if (hiddenDate && hiddenDate.value) {
+        const dateValue = hiddenDate.value;
+        // Преобразуем из формата YYYY-MM-DD в DD.MM.YYYY
+        const parts = dateValue.split('-');
+        if (parts.length === 3) {
+            const formattedDate = `${parts[2]}.${parts[1]}.${parts[0]}`;
+            console.log('Found date in hidden field:', formattedDate);
+            return formattedDate;
+        }
+    }
+
+    return null;
+}
+
+/**
  * Инициализация обработчиков для печати
  */
 function initializePrintHandlers() {
+    console.log('Initializing print handlers...');
+    console.log('window.selectedDate on init:', window.selectedDate);
+
     // Обработка нажатия Ctrl+P
     document.addEventListener('keydown', function(e) {
         if ((e.ctrlKey || e.metaKey) && e.key === 'p') {

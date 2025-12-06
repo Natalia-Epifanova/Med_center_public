@@ -520,6 +520,11 @@
 {% block extra_js %}
 {{ block.super }}
 <!-- Подключаем скрипты -->
+<script>
+    // Передаем дату из Django в JavaScript
+    const selectedDate = "{{ selected_date|date:'d.m.Y' }}";
+    console.log('Selected date for printing:', selectedDate);
+</script>
 <script src="/static/js/schedule_day.js?v=1.4"></script>
-<script src="/static/js/print.js"></script>
+<script src="/static/js/print.js?v=1.3"></script>
 {% endblock %}

@@ -16,6 +16,8 @@ class PatientForm(StyleFormMixin, ModelForm):
             "last_name",
             "phone_number",
             "card_number",
+            "card_number_IP",
+            "card_number_OMS",
             "date_of_birth",
         ]
         widgets = {
@@ -27,6 +29,8 @@ class PatientForm(StyleFormMixin, ModelForm):
             "last_name": "Отчество",
             "phone_number": "Телефон",
             "card_number": "Номер карты",
+            "card_number_IP": "Номер карты (ИП)",
+            "card_number_OMS": "Номер карты (ОМС)",
             "date_of_birth": "Дата рождения",
         }
 
@@ -43,6 +47,7 @@ class PatientFullForm(StyleFormMixin, ModelForm):
             "phone_number",
             "card_number",
             "card_number_IP",
+            "card_number_OMS",
             "date_of_birth",
             "gender",
             "area",
@@ -72,6 +77,7 @@ class PatientFullForm(StyleFormMixin, ModelForm):
             "phone_number": "Телефон",
             "card_number": "Номер карты",
             "card_number_IP": "Номер карты (ИП)",
+            "card_number_OMS": "Номер карты (ОМС)",
             "date_of_birth": "Дата рождения",
             "gender": "Пол",
             "area": "Субъект РФ",

@@ -8,6 +8,8 @@ from patients.models import Patient
 class PatientAdmin(admin.ModelAdmin):
     list_display = (
         "card_number",
+        "card_number_IP",
+        "card_number_OMS",
         "first_name",
         "last_name",
         "surname",
@@ -16,6 +18,8 @@ class PatientAdmin(admin.ModelAdmin):
     )
     search_fields = (
         "card_number",
+        "card_number_IP",
+        "card_number_OMS",
         "first_name",
         "last_name",
         "surname",

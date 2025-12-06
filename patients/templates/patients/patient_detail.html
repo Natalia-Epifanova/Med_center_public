@@ -36,6 +36,10 @@
                         <div class="col-sm-8">{{ patient.card_number_IP|default:"Не присвоен" }}</div>
                     </div>
                     <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Номер карты (ОМС):</strong></div>
+                        <div class="col-sm-8">{{ patient.card_number_OMS|default:"Не присвоен" }}</div>
+                    </div>
+                    <div class="row mb-2">
                         <div class="col-sm-4"><strong>Дата рождения:</strong></div>
                         <div class="col-sm-8">{{ patient.date_of_birth|date:"d.m.Y"|default:"Не указана" }}</div>
                     </div>

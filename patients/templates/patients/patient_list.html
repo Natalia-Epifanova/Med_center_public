@@ -70,7 +70,9 @@
                                 <tr>
                                     <th>ФИО</th>
                                     <th>Телефон</th>
-                                    <th>Номер карты</th>
+                                    <th>Номер карты (платно)</th>
+                                    <th>Номер карты (ИП)</th>
+                                    <th>Номер карты (ОМС)</th>
                                     <th>Дата рождения</th>
                                     <th class="text-center">Действия</th>
                                 </tr>
@@ -83,6 +85,8 @@
                                     </td>
                                     <td>{{ patient.phone_number|default:"-" }}</td>
                                     <td>{{ patient.card_number|default:"-" }}</td>
+                                     <td>{{ patient.card_number_IP|default:"-" }}</td>
+                                     <td>{{ patient.card_number_OMS|default:"-" }}</td>
                                     <td>{{ patient.date_of_birth|date:"d.m.Y"|default:"-" }}</td>
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">

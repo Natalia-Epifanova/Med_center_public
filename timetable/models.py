@@ -16,6 +16,7 @@ class MedicalServiceCategory(models.TextChoices):
     MANUFACTURE_OF_INSOLES = "manufacture_of_insoles", _("Изготовление стелек")
     ANALYZES = "analyzes", _("Анализы")
     MEDICAL_BLOCKADES = "medical_blockades", _("Медикаментозные блокады")
+    PHYSIO_PROCEDURES = "physio_procedures", _("Физио процедуры")
 
 
 class Cabinet(models.Model):
@@ -79,7 +80,7 @@ class Doctor(models.Model):
         ULTRASOUND_DIAGNOSTICS_DOCTOR = "ultrasound_diagnostics_doctor", _(
             "Врач ультразвуковой диагностики"
         )
-        RADIOLOGIST = "radiologist", _("Рентгенолог")
+        RADIOLOGIST = "radiologist", _("Рентгенолаборант")
 
     first_name = models.CharField(max_length=20, verbose_name="Имя врача")
     last_name = models.CharField(max_length=30, verbose_name="Отчество врача")

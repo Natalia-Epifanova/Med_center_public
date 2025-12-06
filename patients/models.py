@@ -27,6 +27,11 @@ class Patient(models.Model):
         null=True,
         verbose_name="Номер карты пациента (ИП)",
     )
+    card_number_OMS = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        verbose_name="Номер карты пациента (ОМС)",
+    )
     phone_number = models.CharField(
         max_length=12,
         blank=True,
