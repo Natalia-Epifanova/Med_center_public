@@ -2,14 +2,10 @@ from datetime import timedelta
 
 from django import forms
 from django.forms import ModelForm
-from .mixins import StyleFormMixin
-from .models import (
-    TimeSlot,
-    DayComment,
-    Cabinet,
-    Doctor,
-)
 from django.utils import timezone
+
+from .mixins import StyleFormMixin
+from .models import Cabinet, DayComment, Doctor, TimeSlot
 
 
 class TimeSlotForm(StyleFormMixin, ModelForm):

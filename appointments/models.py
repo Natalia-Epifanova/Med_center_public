@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 from patients.models import Patient
-from timetable.models import TimeSlot, MedicalService, BloodTest
+from timetable.models import BloodTest, MedicalService, TimeSlot
 
 
 class Appointment(models.Model):

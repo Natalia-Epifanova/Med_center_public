@@ -3,8 +3,8 @@ from django.urls import path
 from appointments.apps import AppointmentsConfig
 from appointments.views import (
     AppointmentCreateView,
-    AppointmentUpdateView,
     AppointmentDeleteView,
+    AppointmentUpdateView,
     ProceduralAppointmentCreateView,
     ProceduralAppointmentUpdateView,
     update_appointment_status,

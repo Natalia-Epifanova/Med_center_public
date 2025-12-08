@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
-from django.db import transaction
+
 from django.contrib import messages
+from django.db import transaction
+
 from .models import TimeSlot
 
 

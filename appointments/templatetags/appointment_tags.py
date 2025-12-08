@@ -1,4 +1,5 @@
 from django import template
+
 from appointments.models import Appointment
 
 register = template.Library()

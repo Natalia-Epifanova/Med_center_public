@@ -1,11 +1,14 @@
+import json
+from datetime import datetime
+
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-import json
-from datetime import datetime
-from .models import TimeSlot, BloodTestCategory, BloodTest
+
 from patients.models import Patient
+
+from .models import BloodTest, BloodTestCategory, TimeSlot
 
 
 @csrf_exempt

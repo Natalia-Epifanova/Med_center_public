@@ -3,24 +3,23 @@ from django.urls import path
 from appointments.views import update_appointment_status
 from timetable.apps import TimetableConfig
 from timetable.views import (
-    HomeView,
-    ScheduleDayView,
-    TimeSlotCreateView,
-    TimeSlotDetailView,
-    TimeSlotUpdateView,
-    TimeSlotDeleteView,
-    RescheduleRequestsView,
-    save_day_comment,
-    EmergencySlotCreateView,
-    DoctorReportView,
     CopyScheduleView,
     CopyWeeklyScheduleView,
+    DoctorReportView,
+    EmergencySlotCreateView,
+    HomeView,
+    RescheduleRequestsView,
+    ScheduleDayView,
+    TimeSlotCreateView,
+    TimeSlotDeleteView,
+    TimeSlotDetailView,
+    TimeSlotUpdateView,
+    save_day_comment,
 )
-
 from timetable.views_api import (
     check_patient_api,
-    get_available_slots,
     check_procedural_availability,
+    get_available_slots,
     get_blood_tests,
 )
 

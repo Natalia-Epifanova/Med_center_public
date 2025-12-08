@@ -3,13 +3,13 @@ from django.forms import ModelForm
 from django.utils import timezone
 
 from appointments.models import Appointment, AppointmentBloodTest
-from patients.mixins import PatientFieldsMixin
-from timetable.mixins import StyleFormMixin, ServiceBasedFormMixin
-from timetable.models import MedicalService, TimeSlot, BloodTest
-from patients.services import PatientService
 from appointments.services import AppointmentService
-from timetable.utils import validate_pishchelev_restrictions, get_doctor_services
 from appointments.validators import AppointmentValidator
+from patients.mixins import PatientFieldsMixin
+from patients.services import PatientService
+from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
+from timetable.models import BloodTest, MedicalService, TimeSlot
+from timetable.utils import get_doctor_services, validate_pishchelev_restrictions
 
 
 class AppointmentBaseForm(
