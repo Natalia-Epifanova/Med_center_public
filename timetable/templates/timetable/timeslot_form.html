@@ -1,0 +1,110 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+    <p class="lead">Изменение слота</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <form method="post" enctype="multipart/form-data">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            Редактирование слота на {{ object.date|date:"d.m.Y" }} {{ object.start_time|time:"H:i" }}-{{ object.end_time|time:"H:i" }}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.date.label }}</label>
+                                {{ form.date }}
+                                {% if form.date.errors %}
+                                <div class="text-danger small">{{ form.date.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.cabinet.label }}</label>
+                                {{ form.cabinet }}
+                                {% if form.cabinet.errors %}
+                                <div class="text-danger small">{{ form.cabinet.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.doctor.label }}</label>
+                                {{ form.doctor }}
+                                {% if form.doctor.errors %}
+                                <div class="text-danger small">{{ form.doctor.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{{ form.start_time.label }}</label>
+                                {{ form.start_time }}
+                                {% if form.start_time.errors %}
+                                <div class="text-danger small">{{ form.start_time.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">{{ form.end_time.label }}</label>
+                                {{ form.end_time }}
+                                {% if form.end_time.errors %}
+                                <div class="text-danger small">{{ form.end_time.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.slot_type.label }}</label>
+                                {{ form.slot_type }}
+                                {% if form.slot_type.errors %}
+                                <div class="text-danger small">{{ form.slot_type.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">{{ form.description.label }}</label>
+                                {{ form.description }}
+                                {% if form.description.errors %}
+                                <div class="text-danger small">{{ form.description.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">
+                                {% if object %}
+                                Сохранить изменения
+                                {% else %}
+                                Создать слот
+                                {% endif %}
+                            </button>
+                            <a href="{% if object %}{% url 'timetable:timeslot_detail' object.pk %}{% else %}{% url 'timetable:schedule_day' %}{% endif %}"
+                               class="btn btn-outline-secondary">
+                                Отмена
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
