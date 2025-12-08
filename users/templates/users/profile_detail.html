@@ -1,0 +1,76 @@
+{% extends "timetable/base.html" %}
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+    <p class="lead">Информация о профиле</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Профиль пользователя</h5>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Логин:</strong>
+                            <p>{{ user.username }}</p>
+                        </div>
+                        {% if user.email %}
+                        <div class="col-md-6">
+                            <strong>Email:</strong>
+                            <p>{{ user.email }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row mb-3">
+                        {% if user.first_name %}
+                        <div class="col-md-6">
+                            <strong>Имя:</strong>
+                            <p>{{ user.first_name }}</p>
+                        </div>
+                        {% endif %}
+                        {% if user.last_name %}
+                        <div class="col-md-6">
+                            <strong>Фамилия:</strong>
+                            <p>{{ user.last_name }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if user.phone %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <strong>Телефон:</strong>
+                            <p>{{ user.phone }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="alert alert-info">
+                        <strong>Роль:</strong> {{ user.get_role_display }}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <div class="btn-group">
+                            <a class="btn btn-outline-primary" href="{% url 'users:edit_profile' %}">
+                                <i class="fas fa-edit"></i> Редактировать профиль
+                            </a>
+                            <a class="btn btn-outline-warning" href="{% url 'users:change_password' %}">
+                                <i class="fas fa-key"></i> Изменить пароль
+                            </a>
+                        </div>
+                        <a class="btn btn-primary" href="{% url 'timetable:home' %}">
+                            <i class="fas fa-home"></i> На главную
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,72 @@
+<nav class="navbar navbar-expand-lg custom-navbar">
+    <div class="container-fluid">
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <!-- Основное меню слева -->
+            <div class="navbar-nav me-auto">
+                <a class="nav-link" href="{% url 'timetable:home' %}">Главная</a>
+                <a class="nav-link" href="{% url 'timetable:schedule_day' %}">Расписание</a>
+                <a class="nav-link" href="{% url 'patients:patient_list' %}">База пациентов</a>
+            </div>
+
+            <!-- Меню пользователя справа -->
+            <div class="navbar-nav ms-auto">
+                {% if user.is_authenticated %}
+                <!-- Выпадающее меню пользователя -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center"
+                       href="#"
+                       id="userDropdown"
+                       role="button"
+                       data-bs-toggle="dropdown"
+                       aria-expanded="false">
+                        <i class="fas fa-user me-1"></i>
+                        <span>{{ user.username }}</span>
+                        {% if user.is_admin or user.is_medical_admin %}
+                        <small class="ms-1">
+                            ({{ user.get_role_display }})
+                        </small>
+                        {% endif %}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li>
+                            <span class="dropdown-item-text text-muted small">
+                                <i class="fas fa-user-circle me-1"></i>
+                                {{ user.get_role_display }}
+                            </span>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'users:profile' %}">
+                                <i class="fas fa-id-card me-2"></i> Профиль
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'users:edit_profile' %}">
+                                <i class="fas fa-edit me-2"></i> Редактировать профиль
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="{% url 'users:change_password' %}">
+                                <i class="fas fa-key me-2"></i> Изменить пароль
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form method="post" action="{% url 'users:logout' %}" class="dropdown-item p-0">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-link text-decoration-none p-0 w-100 text-start">
+                                    <i class="fas fa-sign-out-alt me-2"></i> Выйти
+                                </button>
+                            </form>
+                        </li>
+                    </ul>
+                </li>
+                {% else %}
+                <a class="nav-link btn btn-outline-primary ms-2" href="{% url 'users:login' %}">
+                    <i class="fas fa-sign-in-alt me-1"></i> Войти
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</nav>
