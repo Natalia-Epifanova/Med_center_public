@@ -1,0 +1,37 @@
+{% extends "timetable/base.html" %}
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+    <p class="lead">Регистрация в личном кабинете</p>
+</div>
+{% endblock %}
+{% block content %}
+
+<div class="container">
+    <div class="row">
+        <div class="col-6">
+            <form class="row" method="post" enctype="multipart/form-data">
+                <div class="card">
+                    <div class="card-body">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                    </div>
+                    <div class="px-3 mb-4">
+                        <button type="submit" class="btn btn-outline-primary mb-3">
+                            {% if object %}
+                            Сохранить
+                            {% else %}
+                            Зарегистрироваться
+                            {% endif %}
+                        </button>
+                        <a href="{% url 'timetable:home' %}" class="btn btn-outline-secondary mb-3">Отмена</a>
+                    </div>
+
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
