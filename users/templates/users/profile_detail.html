@@ -7,26 +7,70 @@
 {% endblock %}
 
 {% block content %}
-<div class="album py-5">
-    <div class="container">
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-3">
-            <div class="col">
-                <div class="card shadow-sm">
-                    <div class="card-body">
-                        <h5 class="card-title">Email: {{ object.email }}</h5>
-                        <p class="card-title">Телефон: {{ object.phone }}</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="btn-group">
-                                <a class="p-2 btn btn-outline-primary" href="{% url 'users:edit_profile' object.pk %}">Редактировать профиль</a>
-                                <a class="btn btn-primary" href="{% url 'timetable:home' %}">Назад</a>
-                            </div>
+<div class="container">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title">Профиль пользователя</h5>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Логин:</strong>
+                            <p>{{ user.username }}</p>
                         </div>
+                        {% if user.email %}
+                        <div class="col-md-6">
+                            <strong>Email:</strong>
+                            <p>{{ user.email }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="row mb-3">
+                        {% if user.first_name %}
+                        <div class="col-md-6">
+                            <strong>Имя:</strong>
+                            <p>{{ user.first_name }}</p>
+                        </div>
+                        {% endif %}
+                        {% if user.last_name %}
+                        <div class="col-md-6">
+                            <strong>Фамилия:</strong>
+                            <p>{{ user.last_name }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    {% if user.phone %}
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <strong>Телефон:</strong>
+                            <p>{{ user.phone }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="alert alert-info">
+                        <strong>Роль:</strong> {{ user.get_role_display }}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <div class="btn-group">
+                            <a class="btn btn-outline-primary" href="{% url 'users:edit_profile' %}">
+                                <i class="fas fa-edit"></i> Редактировать профиль
+                            </a>
+                            <a class="btn btn-outline-warning" href="{% url 'users:change_password' %}">
+                                <i class="fas fa-key"></i> Изменить пароль
+                            </a>
+                        </div>
+                        <a class="btn btn-primary" href="{% url 'timetable:home' %}">
+                            <i class="fas fa-home"></i> На главную
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-
 </div>
 {% endblock %}

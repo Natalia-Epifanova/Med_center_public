@@ -1,39 +1,44 @@
 from datetime import datetime, timedelta
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import HttpResponseRedirect, JsonResponse
-from django.urls import reverse_lazy, reverse
+from django.shortcuts import redirect
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import (
-    TemplateView,
-    UpdateView,
     DeleteView,
     DetailView,
-    ListView,
     FormView,
+    ListView,
+    TemplateView,
+    UpdateView,
 )
-from django.shortcuts import redirect
-from django.contrib import messages
 
+from appointments.models import Appointment
 from timetable.forms import (
+    CopyScheduleForm,
+    DayCommentForm,
     TimeSlotForm,
     TimeSlotUpdateForm,
-    DayCommentForm,
-    CopyScheduleForm,
 )
-from timetable.models import TimeSlot, Cabinet, Doctor, DayComment
-from appointments.models import Appointment
-from timetable.services import TimeSlotService, CopyScheduleService
+from timetable.models import Cabinet, DayComment, Doctor, TimeSlot
+from timetable.services import CopyScheduleService, TimeSlotService
+from users.permissions.decorators import admin_required
+from users.permissions.mixins import (
+    AdminRequiredMixin,
+    MedicalAdminOrAdminRequiredMixin,
+)
 
 
 class HomeView(TemplateView):
     template_name = "timetable/home.html"
 
 
-class TimeSlotCreateView(LoginRequiredMixin, FormView):
+class TimeSlotCreateView(AdminRequiredMixin, FormView):
     form_class = TimeSlotForm
     template_name = "timetable/schedule_create.html"
     success_url = reverse_lazy("timetable:schedule_create")
@@ -76,7 +81,8 @@ class TimeSlotCreateView(LoginRequiredMixin, FormView):
 
         return HttpResponseRedirect(self.get_success_url())
 
-    def _create_single_slot(self, form, date, cabinet, doctor):
+    @staticmethod
+    def _create_single_slot(form, date, cabinet, doctor):
         """Создание одиночного слота"""
         start_time = form.cleaned_data.get("single_start_time")
         end_time = form.cleaned_data.get("single_end_time")
@@ -97,7 +103,8 @@ class TimeSlotCreateView(LoginRequiredMixin, FormView):
             ]
         return []
 
-    def _create_multiple_slots(self, form, date, cabinet, doctor):
+    @staticmethod
+    def _create_multiple_slots(form, date, cabinet, doctor):
         """Создание нескольких слотов"""
         start_time = form.cleaned_data.get("multiple_start_time")
         end_time = form.cleaned_data.get("multiple_end_time")
@@ -110,7 +117,7 @@ class TimeSlotCreateView(LoginRequiredMixin, FormView):
         return []
 
 
-class TimeSlotUpdateView(LoginRequiredMixin, UpdateView):
+class TimeSlotUpdateView(AdminRequiredMixin, UpdateView):
     model = TimeSlot
     form_class = TimeSlotUpdateForm
     template_name = "timetable/timeslot_form.html"
@@ -123,13 +130,13 @@ class TimeSlotUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
 
-class TimeSlotDetailView(LoginRequiredMixin, DetailView):
+class TimeSlotDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
     model = TimeSlot
     template_name = "timetable/timeslot_detail.html"
     context_object_name = "slot"
 
 
-class TimeSlotDeleteView(LoginRequiredMixin, DeleteView):
+class TimeSlotDeleteView(AdminRequiredMixin, DeleteView):
     model = TimeSlot
     template_name = "timetable/timeslot_confirm_delete.html"
 
@@ -191,7 +198,11 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
             )
 
             # Проверяем права пользователя
-        context["user_can_edit_comments"] = self.request.user.is_staff
+        context["user_can_edit_comments"] = (
+            self.request.user.groups.filter(name="Admin").exists()
+            if self.request.user.is_authenticated
+            else False
+        )
 
         # Получаем слоты на выбранную дату
         slots = TimeSlot.objects.filter(date=selected_date).select_related(
@@ -245,7 +256,7 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class EmergencySlotCreateView(LoginRequiredMixin, View):
+class EmergencySlotCreateView(MedicalAdminOrAdminRequiredMixin, View):
     """Создание экстренного слота"""
 
     def post(self, request):
@@ -324,7 +335,7 @@ class EmergencySlotCreateView(LoginRequiredMixin, View):
         )
 
 
-class RescheduleRequestsView(LoginRequiredMixin, ListView):
+class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, ListView):
     """Список запросов на перезапись"""
 
     model = Appointment
@@ -345,11 +356,9 @@ class RescheduleRequestsView(LoginRequiredMixin, ListView):
 
 @login_required
 @require_POST
+@admin_required
 def save_day_comment(request):
     """Сохранение комментария дня (только для администраторов)"""
-    if not request.user.is_staff:
-        return JsonResponse({"error": "Недостаточно прав"}, status=403)
-
     date_str = request.POST.get("date")
     comment_text = request.POST.get("comment", "").strip()
 
@@ -372,19 +381,7 @@ def save_day_comment(request):
         return JsonResponse({"error": str(e)}, status=400)
 
 
-def get_status_badge_class(status):
-    """Получить CSS класс для бейджа статуса"""
-    status_classes = {
-        "scheduled": "bg-primary",
-        "confirmed": "bg-info",
-        "completed": "bg-success",
-        "cancelled": "bg-warning",
-        "no_show": "bg-danger",
-    }
-    return status_classes.get(status, "bg-secondary")
-
-
-class DoctorReportView(TemplateView):
+class DoctorReportView(AdminRequiredMixin, TemplateView):
     template_name = "timetable/doctor_report.html"
 
     def get_context_data(self, **kwargs):
@@ -431,7 +428,7 @@ class DoctorReportView(TemplateView):
         return context
 
 
-class CopyScheduleView(LoginRequiredMixin, FormView):
+class CopyScheduleView(AdminRequiredMixin, FormView):
     """Копирование расписания с одного дня на другой"""
 
     form_class = CopyScheduleForm
@@ -504,7 +501,7 @@ class CopyScheduleView(LoginRequiredMixin, FormView):
         return self.success_url
 
 
-class CopyWeeklyScheduleView(LoginRequiredMixin, TemplateView):
+class CopyWeeklyScheduleView(AdminRequiredMixin, TemplateView):
     """Копирование расписания по недельному шаблону"""
 
     template_name = "timetable/copy_weekly_schedule.html"

@@ -1,7 +1,9 @@
 from datetime import datetime, timedelta
-from django.db import transaction
+
 from django import forms
-from .models import TimeSlot, MedicalService, MedicalServiceCategory
+from django.db import transaction
+
+from .models import MedicalService, MedicalServiceCategory, TimeSlot
 
 
 def is_doctor_pishchelev(doctor):
@@ -96,3 +98,15 @@ def get_doctor_services(doctor, include_current_service=None):
         )
 
     return services_queryset
+
+
+def get_status_badge_class(status):
+    """Получить CSS класс для бейджа статуса"""
+    status_classes = {
+        "scheduled": "bg-primary",
+        "confirmed": "bg-info",
+        "completed": "bg-success",
+        "cancelled": "bg-warning",
+        "no_show": "bg-danger",
+    }
+    return status_classes.get(status, "bg-secondary")

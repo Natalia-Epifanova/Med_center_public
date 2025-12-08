@@ -8,54 +8,24 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import (
-    ListView,
     CreateView,
-    UpdateView,
-    DetailView,
     DeleteView,
+    DetailView,
+    ListView,
+    UpdateView,
 )
 from docxtpl import DocxTemplate
 
 from appointments.models import Appointment
-from patients.models import Patient
+from patients.constants import DOCUMENT_TYPES
 from patients.forms import PatientForm, PatientFullForm
-from patients.utils import number_to_words, get_russian_month_name
-
-DOCUMENT_TYPES = {
-    "consent_hyaluronic": (
-        "informed_consent_hyaluronic_template",
-        "Согласие_на_блокаду_(Гиалуроновая_кислота)",
-    ),
-    "consent_GKSP": (
-        "informed_consent_GKSP_template",
-        "Согласие_на_блокаду_(ГКСП)",
-    ),
-    "consent_plasma": (
-        "informed_consent_plasma_template",
-        "Согласие_на_блокаду_(Плазма)",
-    ),
-    "consent_xray": (
-        "informed_consent_xray_template",
-        "Согласие_на_рентген",
-    ),
-    "consent_physio": (
-        "informed_consent_physio_template",
-        "Согласие_на_физио",
-    ),
-    "contract_revmamed": ("contract_revmamed_template", "Договор_Ревмамед"),
-    "contract_IP": ("contract_IP_template", "Договор_ИП"),
-    "contract_for_psych_support": (
-        "contract_for_psych_support_template",
-        "Договор_по_псих_сопровождению",
-    ),
-    "card_OMS": ("card_OMS_template", "Карта_ОМС"),
-    "card_IP": ("card_IP_template", "Карта_ИП"),
-    "card_paid": ("card_paid_template", "Карта_платно"),
-    "card_xray": ("card_xray_template", "Карта_рентген"),
-}
+from patients.models import Patient
+from patients.utils import get_russian_month_name, number_to_words
+from users.permissions.decorators import medical_admin_or_admin_required
+from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
 
 
-class PatientListView(LoginRequiredMixin, ListView):
+class PatientListView(ListView):
     model = Patient
     template_name = "patients/patient_list.html"
     context_object_name = "patients"
@@ -74,14 +44,14 @@ class PatientListView(LoginRequiredMixin, ListView):
         return queryset.order_by("card_number", "surname", "first_name")
 
 
-class PatientCreateView(LoginRequiredMixin, CreateView):
+class PatientCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     model = Patient
     form_class = PatientForm  # Минимальная форма для создания
     template_name = "patients/patient_form.html"
     success_url = reverse_lazy("patients:patient_list")
 
 
-class PatientUpdateView(LoginRequiredMixin, UpdateView):
+class PatientUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     model = Patient
     form_class = PatientFullForm
     template_name = "patients/patient_form.html"
@@ -110,7 +80,7 @@ class PatientDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class PatientDeleteView(LoginRequiredMixin, DeleteView):
+class PatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
     model = Patient
     template_name = "patients/patient_confirm_delete.html"
     success_url = reverse_lazy("patients:patient_list")
@@ -339,6 +309,7 @@ class DocumentGenerator:
         return filepath, filename
 
 
+@medical_admin_or_admin_required
 def generate_document(request, pk, doc_type):
     """View для генерации документов"""
     patient = get_object_or_404(Patient, pk=pk)

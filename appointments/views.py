@@ -5,12 +5,12 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, UpdateView, DeleteView
+from django.views.generic import CreateView, DeleteView, UpdateView
 
 from appointments.forms import (
     AppointmentForm,
@@ -19,12 +19,14 @@ from appointments.forms import (
     ProceduralAppointmentUpdateForm,
 )
 from appointments.models import Appointment
-from timetable.models import TimeSlot, Cabinet, Doctor
-from timetable.views import get_status_badge_class
+from timetable.models import Cabinet, Doctor, TimeSlot
+from timetable.utils import get_status_badge_class
+from users.permissions.decorators import medical_admin_or_admin_required
+from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
 
 
 # Create your views here.
-class AppointmentCreateView(CreateView):
+class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     model = Appointment
     form_class = AppointmentForm
     template_name = "appointments/appointment_form.html"
@@ -65,7 +67,7 @@ class AppointmentCreateView(CreateView):
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
 
 
-class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
+class AppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     """Полное редактирование записи на прием"""
 
     model = Appointment
@@ -130,7 +132,7 @@ class AppointmentUpdateView(LoginRequiredMixin, UpdateView):
         return response
 
 
-class AppointmentDeleteView(LoginRequiredMixin, DeleteView):
+class AppointmentDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
     """Удаление записи на прием"""
 
     model = Appointment
@@ -168,7 +170,7 @@ class AppointmentDeleteView(LoginRequiredMixin, DeleteView):
         return result
 
 
-class ProceduralAppointmentCreateView(LoginRequiredMixin, CreateView):
+class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     """Создание записи в процедурный кабинет без привязки к слоту"""
 
     model = Appointment
@@ -226,7 +228,7 @@ class ProceduralAppointmentCreateView(LoginRequiredMixin, CreateView):
         return reverse("timetable:schedule_day") + f"?date={self.selected_date}"
 
 
-class ProceduralAppointmentUpdateView(LoginRequiredMixin, UpdateView):
+class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     """Редактирование записи в процедурный кабинет"""
 
     model = Appointment
@@ -312,6 +314,7 @@ class ProceduralAppointmentUpdateView(LoginRequiredMixin, UpdateView):
 
 @require_POST
 @csrf_exempt
+@medical_admin_or_admin_required
 def update_appointment_status(request, pk):
     """AJAX view для обновления статуса записи"""
     try:
