@@ -1,0 +1,39 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">{% if object %}Редактирование пациента{% else %}Добавление пациента{% endif %}</h1>
+    <p class="lead">{% if object %}Изменение данных пациента{% else %}Введите данные нового пациента{% endif %}</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card timetable-form-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user{% if object %}-edit{% else %}-plus{% endif %}"></i>
+                        {% if object %}Редактирование пациента{% else %}Добавление пациента{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        {{ form.as_p }}
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn timetable-btn-success">
+                                {% if object %}<i class="fas fa-save"></i> Сохранить{% else %}<i class="fas fa-plus"></i> Создать{% endif %}
+                            </button>
+                            <a href="{% url 'patients:patient_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

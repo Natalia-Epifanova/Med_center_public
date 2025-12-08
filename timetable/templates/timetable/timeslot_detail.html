@@ -1,0 +1,80 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Детали слота расписания</h1>
+    <p class="lead">Полная информация о временном слоте</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-alt"></i> Слот на {{ slot.date|date:"d.m.Y" }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Время:</strong>
+                            <p>{{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Кабинет:</strong>
+                            <p>№ {{ slot.cabinet.number }}{% if slot.cabinet.name_of_cabinet %} - {{ slot.cabinet.name_of_cabinet }}{% endif %}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Врач:</strong>
+                            <p>{{ slot.doctor.surname }} {{ slot.doctor.first_name }} {{ slot.doctor.last_name }}</p>
+                            <p><small class="text-muted">{{ slot.doctor.get_specialization_display }}</small></p>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Тип слота:</strong>
+                            <p>
+                                {% if slot.slot_type == 'break' %}
+                                <span class="badge bg-warning text-dark">Перерыв</span>
+                                {% else %}
+                                <span class="badge bg-success">Рабочий слот</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <strong>Описание:</strong>
+                            <p>{{ slot.description|default:"Нет описания" }}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'timetable:timeslot_update' slot.pk %}" 
+                                   class="btn btn-outline-primary">
+                                    <i class="fas fa-edit"></i> Редактировать
+                                </a>
+                                <a href="{% url 'timetable:timeslot_delete' slot.pk %}" 
+                                   class="btn btn-outline-danger">
+                                    <i class="fas fa-trash"></i> Удалить слот
+                                </a>
+                                <a href="{% url 'timetable:schedule_day' %}?date={{ slot.date|date:'Y-m-d' }}" 
+                                   class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left"></i> Назад к расписанию
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

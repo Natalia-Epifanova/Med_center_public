@@ -1,0 +1,62 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Отчет по врачам</h1>
+    <p class="lead">За {{ report_date|date:"d.m.Y" }}</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar"></i> Статистика услуг по врачам
+                    </h5>
+                    <div>
+                        <button class="btn btn-light btn-sm" onclick="window.print()">
+                            <i class="fas fa-print"></i> Печать
+                        </button>
+                        <a href="{% url 'timetable:schedule_day' %}?date={{ report_date|date:'Y-m-d' }}"
+                           class="btn btn-light btn-sm">
+                            <i class="fas fa-arrow-left"></i> Назад к расписанию
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if report_data %}
+                        {% for doctor, services in report_data.items %}
+                        <div class="doctor-report mb-4 p-3 border rounded">
+                            <h5 class="text-primary mb-3">
+                                <strong>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</strong>
+                                <small class="text-muted">({{ doctor.get_specialization_display }})</small>
+                            </h5>
+
+                            <div class="services-list">
+                                {% for service_name, count in services.items %}
+                                <div class="service-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                    <span>{{ service_name }}</span>
+                                    <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+
+
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Нет данных для отчета</h5>
+                            <p class="text-muted">На выбранную дату нет записей на прием</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
