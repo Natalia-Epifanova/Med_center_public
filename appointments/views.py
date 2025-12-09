@@ -25,7 +25,6 @@ from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
 
 
-# Create your views here.
 class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     model = Appointment
     form_class = AppointmentForm

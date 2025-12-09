@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
+from phonenumber_field.modelfields import PhoneNumberField
 
 
 # Create your models here.
@@ -32,17 +33,11 @@ class Patient(models.Model):
         null=True,
         verbose_name="Номер карты пациента (ОМС)",
     )
-    phone_number = models.CharField(
-        max_length=12,
+    phone_number = PhoneNumberField(
+        region="RU",
         blank=True,
         null=True,
         verbose_name="Телефон пациента",
-        validators=[
-            RegexValidator(
-                regex=r"^\+7\d{10}$",
-                message="Номер телефона должен начинаться с +7 и содержать 12 символов",
-            )
-        ],
     )
     date_of_birth = models.DateField(
         blank=True,
