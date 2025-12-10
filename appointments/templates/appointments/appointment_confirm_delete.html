@@ -25,7 +25,7 @@
                     <div class="card mb-3">
                         <div class="card-body">
                             <h6>Информация о записи:</h6>
-                            <p><strong>Пациент:</strong> {{ object.patient.get_full_name }}</p>
+                            <p><strong>Пациент:</strong> {{ object.patient.full_name }}</p>
                             <p><strong>Врач:</strong> {{ object.doctor.surname }} {{ object.doctor.first_name.0 }}. {{ object.doctor.last_name.0 }}.</p>
                             <p><strong>Дата и время:</strong> {{ object.date|date:"d.m.Y" }} {{ object.start_time|time:"H:i" }}-{{ object.end_time|time:"H:i" }}</p>
                             <p><strong>Услуга:</strong> {{ object.service.name }}</p>

@@ -1,184 +1,177 @@
-from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from django.db import models
-from phonenumber_field.modelfields import PhoneNumberField
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
-# Create your models here.
 class Patient(models.Model):
-    first_name = models.CharField(
-        max_length=20,
-        verbose_name="Имя пациента",
-    )
-    last_name = models.CharField(
-        max_length=30,
-        verbose_name="Отчество пациента",
-    )
+    """Модель пациента медицинской системы"""
+
+    GENDER_CHOICES = [
+        ("male", "Мужской"),
+        ("female", "Женский"),
+    ]
+
+    # === ОБЯЗАТЕЛЬНЫЕ ПОЛЯ ===
     surname = models.CharField(
         max_length=50,
-        verbose_name="Фамилия пациента",
+        verbose_name="Фамилия",
+        help_text="Обязательное поле",
     )
-    card_number = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        verbose_name="Номер карты пациента",
+    first_name = models.CharField(
+        max_length=20,
+        verbose_name="Имя",
+        help_text="Обязательное поле",
     )
-    card_number_IP = models.PositiveIntegerField(
+
+    # === ОСНОВНЫЕ ДАННЫЕ ===
+    last_name = models.CharField(
+        max_length=30,
         blank=True,
-        null=True,
-        verbose_name="Номер карты пациента (ИП)",
-    )
-    card_number_OMS = models.PositiveIntegerField(
-        blank=True,
-        null=True,
-        verbose_name="Номер карты пациента (ОМС)",
-    )
-    phone_number = PhoneNumberField(
-        region="RU",
-        blank=True,
-        null=True,
-        verbose_name="Телефон пациента",
+        default="",
+        verbose_name="Отчество",
     )
     date_of_birth = models.DateField(
         blank=True,
         null=True,
-        verbose_name="Дата рождения пациента",
+        verbose_name="Дата рождения",
     )
     gender = models.CharField(
         max_length=10,
+        choices=GENDER_CHOICES,
         blank=True,
-        null=True,
+        default="",
         verbose_name="Пол",
-        choices=[("male", "Мужской"), ("female", "Женский")],
     )
-    area = models.CharField(
-        max_length=100,
+
+    # === КОНТАКТНЫЕ ДАННЫЕ ===
+    phone_number = models.CharField(
+        max_length=12,
         blank=True,
         null=True,
-        verbose_name="Субъект РФ",
+        verbose_name="Телефон пациента",
+        validators=[
+            RegexValidator(
+                regex=r"^\+7\d{10}$",
+                message="Номер телефона должен начинаться с +7 и содержать 12 символов",
+            )
+        ],
+    )
+
+    # === НОМЕРА КАРТ ===
+    card_number = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name="Номер карты",
+    )
+    card_number_IP = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name="Номер карты (ИП)",
+    )
+    card_number_OMS = models.PositiveIntegerField(
+        blank=True,
+        null=True,
+        unique=True,
+        verbose_name="Номер карты (ОМС)",
+    )
+
+    # === АДРЕС ===
+    area = models.CharField(
+        max_length=100, blank=True, default="", verbose_name="Субъект РФ"
     )
     locality = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Населенный пункт",
+        max_length=100, blank=True, default="", verbose_name="Населенный пункт"
     )
     city = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Город",
+        max_length=100, blank=True, default="", verbose_name="Город"
     )
     district = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Район",
+        max_length=100, blank=True, default="", verbose_name="Район"
     )
     street = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Улица",
+        max_length=100, blank=True, default="", verbose_name="Улица"
     )
-    home = models.CharField(
-        max_length=4,
-        blank=True,
-        null=True,
-        verbose_name="Дом",
-    )
+    home = models.CharField(max_length=4, blank=True, default="", verbose_name="Дом")
     building = models.CharField(
-        max_length=4,
-        blank=True,
-        null=True,
-        verbose_name="Строение/корпус",
+        max_length=4, blank=True, default="", verbose_name="Корпус/строение"
     )
     apartment = models.CharField(
-        max_length=5,
-        blank=True,
-        null=True,
-        verbose_name="Квартира",
+        max_length=5, blank=True, default="", verbose_name="Квартира"
     )
+
+    # === ПАСПОРТНЫЕ ДАННЫЕ ===
     passport_series = models.CharField(
-        max_length=4,
-        blank=True,
-        null=True,
-        verbose_name="Паспорт серия",
+        max_length=4, blank=True, default="", verbose_name="Серия паспорта"
     )
     passport_number = models.CharField(
-        max_length=6,
-        blank=True,
-        null=True,
-        verbose_name="Паспорт номер",
+        max_length=6, blank=True, default="", verbose_name="Номер паспорта"
     )
     passport_issue_date = models.DateField(
-        blank=True,
-        null=True,
-        verbose_name="Дата выдачи паспорта",
+        blank=True, null=True, verbose_name="Дата выдачи"
     )
     who_issued_the_passport = models.CharField(
-        max_length=100,
-        blank=True,
-        null=True,
-        verbose_name="Кем выдан паспорт",
+        max_length=100, blank=True, default="", verbose_name="Кем выдан"
     )
+
+    # === СТРАХОВАНИЕ ===
     polis_oms = models.CharField(
-        max_length=20,
-        blank=True,
-        null=True,
-        verbose_name="Полис ОМС",
+        max_length=20, blank=True, default="", verbose_name="Полис ОМС"
     )
     snils = models.CharField(
-        max_length=14,
-        blank=True,
-        null=True,
-        verbose_name="СНИЛС",
+        max_length=14, blank=True, default="", verbose_name="СНИЛС"
     )
     insurance_company = models.CharField(
-        max_length=200,
-        blank=True,
-        null=True,
-        verbose_name="Страховая компания",
+        max_length=200, blank=True, default="", verbose_name="Страховая компания"
     )
 
-    def clean(self):
-        """Валидация на уровне модели"""
-        super().clean()
-        if self.phone_number:
-            # Удаляем пробелы и дефисы
-            cleaned_phone = self.phone_number.replace(" ", "").replace("-", "")
-
-            if not cleaned_phone.startswith("+7"):
-                raise ValidationError(
-                    {"phone_number": "Номер телефона должен начинаться с +7"}
-                )
-
-            if len(cleaned_phone) != 12:
-                raise ValidationError(
-                    {"phone_number": "Номер телефона должен содержать 12 символов"}
-                )
-
-            if not cleaned_phone[1:].isdigit():
-                raise ValidationError(
-                    {"phone_number": "После +7 должны быть только цифры"}
-                )
-
-            self.phone_number = cleaned_phone
-
-    def save(self, *args, **kwargs):
-        """Переопределяем save для автоматической очистки телефона"""
-        self.clean()
-        super().save(*args, **kwargs)
-
-    def get_full_name(self):
-        """Возвращает полное ФИО пациента"""
+    # === СВОЙСТВА (PROPERTIES) ===
+    @property
+    def full_name(self):
+        """Полное ФИО пациента"""
         parts = [self.surname, self.first_name]
         if self.last_name:
             parts.append(self.last_name)
         return " ".join(parts)
 
+    @property
+    def full_address(self):
+        """Форматированный полный адрес"""
+        parts = []
+        if self.area:
+            parts.append(self.area)
+        if self.city:
+            parts.append(f"г. {self.city}")
+        if self.street:
+            parts.append(f"ул. {self.street}")
+        if self.home:
+            house_part = f"д. {self.home}"
+            if self.building:
+                house_part += f" корп. {self.building}"
+            parts.append(house_part)
+        if self.apartment:
+            parts.append(f"кв. {self.apartment}")
+        return ", ".join(parts)
+
+    @property
+    def age(self):
+        """Возраст пациента в годах"""
+        if not self.date_of_birth:
+            return None
+        today = timezone.now().date()
+        return (
+            today.year
+            - self.date_of_birth.year
+            - (
+                (today.month, today.day)
+                < (self.date_of_birth.month, self.date_of_birth.day)
+            )
+        )
+
     def get_last_appointment(self):
-        """Получить последнюю запись пациента"""
+        """Для обратной совместимости"""
         from appointments.models import Appointment
 
         return (
@@ -188,15 +181,9 @@ class Patient(models.Model):
             .first()
         )
 
-    def get_appointment_history(self):
-        """Получить историю записей пациента"""
-        from appointments.models import Appointment
-
-        return (
-            Appointment.objects.filter(patient=self)
-            .select_related("time_slot__doctor", "service", "time_slot__cabinet")
-            .order_by("-time_slot__date", "-time_slot__start_time")
-        )
+    def get_full_name(self):
+        """Метод для обратной совместимости со старым кодом"""
+        return self.full_name
 
     def get_appointments_for_documents(self):
         """Получить все записи пациента для выбора в документах"""
@@ -208,17 +195,62 @@ class Patient(models.Model):
             .order_by("-time_slot__date", "-time_slot__start_time")
         )
 
-    def __str__(self):
-        card_info = f" (карта {self.card_number})" if self.card_number else ""
-        return f"{self.get_full_name()}{card_info}"
+    def get_appointment_history(self):
+        """Получить историю записей пациента (для обратной совместимости)"""
+        from appointments.models import Appointment
 
+        return (
+            Appointment.objects.filter(patient=self)
+            .select_related("time_slot__doctor", "time_slot__cabinet", "service")
+            .prefetch_related("selected_blood_tests")
+            .order_by("-time_slot__date", "-time_slot__start_time")
+        )
+
+    # === ВАЛИДАЦИЯ ===
+    def clean(self):
+        """Валидация модели"""
+        errors = {}
+
+        # Проверка уникальности по ФИО и дате рождения
+        if self.surname and self.first_name and self.date_of_birth:
+            query = Patient.objects.filter(
+                surname__iexact=self.surname,
+                first_name__iexact=self.first_name,
+                date_of_birth=self.date_of_birth,
+            )
+            if self.pk:
+                query = query.exclude(pk=self.pk)
+
+            if query.exists():
+                errors.setdefault("__all__", []).append(
+                    "Пациент с такими ФИО и датой рождения уже существует"
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        """Сохранение с предварительной очисткой"""
+        self.clean()
+        super().save(*args, **kwargs)
+
+    # === МЕТА-ИНФОРМАЦИЯ ===
     class Meta:
         verbose_name = "Пациент"
         verbose_name_plural = "Пациенты"
+        ordering = ["surname", "first_name", "last_name"]
+        indexes = [
+            models.Index(fields=["surname", "first_name"]),
+            models.Index(fields=["phone_number"]),
+            models.Index(fields=["card_number"]),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=["surname", "first_name", "last_name", "date_of_birth"],
-                name="unique_patient_full_info_patients",
-                violation_error_message="Пациент с такими ФИО и датой рождения уже существует в базе.",
-            )
+                name="unique_patient_full_info",
+                violation_error_message="Пациент с такими ФИО и датой рождения уже существует",
+            ),
         ]
+
+    def __str__(self):
+        return f"{self.full_name} ({self.card_number or 'без карты'})"
