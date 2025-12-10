@@ -81,7 +81,7 @@
                                 {% for patient in patients %}
                                 <tr>
                                     <td>
-                                        <strong>{{ patient.get_full_name }}</strong>
+                                        <strong>{{ patient.full_name }}</strong>
                                     </td>
                                     <td>{{ patient.phone_number|default:"-" }}</td>
                                     <td>{{ patient.card_number|default:"-" }}</td>

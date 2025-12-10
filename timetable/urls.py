@@ -17,11 +17,11 @@ from timetable.views import (
     save_day_comment,
 )
 from timetable.views_api import (
-    check_patient_api,
     check_procedural_availability,
     get_available_slots,
     get_blood_tests,
 )
+from patients.views_api import check_patient_api
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -49,11 +49,6 @@ urlpatterns = [
         "reschedule-requests/",
         RescheduleRequestsView.as_view(),
         name="reschedule_requests",
-    ),
-    path(
-        "api/check-patient/",
-        check_patient_api,
-        name="api_check_patient",
     ),
     path(
         "api/get-available-slots/",

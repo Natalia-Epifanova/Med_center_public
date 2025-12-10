@@ -1,47 +1,105 @@
-from django.db import transaction
+from typing import Tuple, Dict, Any, Optional
+from django.db import transaction, models
+from django.core.exceptions import ValidationError
+from phonenumber_field.phonenumber import PhoneNumber
 
 from patients.models import Patient
-from patients.validators import PatientValidator
 
 
 class PatientService:
-    """Сервис для работы с пациентами"""
+    """Сервис для работы с пациентами с поддержкой PhoneNumberField"""
 
     @staticmethod
     @transaction.atomic
-    def get_or_create_patient(patient_data):
+    def get_or_create_patient(patient_data: Dict[str, Any]) -> Tuple[Patient, bool]:
         """Создание или поиск пациента"""
-        surname = patient_data.get("surname")
-        first_name = patient_data.get("first_name")
-        date_of_birth = patient_data.get("date_of_birth")
+        # Очистка данных
+        cleaned_data = PatientService.clean_patient_data(patient_data)
+
+        surname = cleaned_data.get("surname")
+        first_name = cleaned_data.get("first_name")
+        date_of_birth = cleaned_data.get("date_of_birth")
+        last_name = cleaned_data.get("last_name", "")
 
         # Валидация обязательных полей
-        PatientValidator.validate_patient_required_fields(surname, first_name)
+        if not surname or not first_name:
+            raise ValidationError("Фамилия и имя обязательны")
 
         # Поиск существующего пациента
-        if surname and first_name and date_of_birth:
-            existing_patient = Patient.objects.filter(
-                surname__iexact=surname,
-                first_name__iexact=first_name,
-                date_of_birth=date_of_birth,
-            ).first()
+        query = Patient.objects.filter(
+            surname__iexact=surname,
+            first_name__iexact=first_name,
+        )
 
-            if existing_patient:
-                return existing_patient, False
+        if last_name:
+            query = query.filter(last_name__iexact=last_name)
+        else:
+            query = query.filter(
+                models.Q(last_name="") | models.Q(last_name__isnull=True)
+            )
+
+        if date_of_birth:
+            query = query.filter(date_of_birth=date_of_birth)
+
+        existing_patient = query.first()
+
+        if existing_patient:
+            return existing_patient, False
 
         # Создание нового пациента
-        patient = Patient.objects.create(**patient_data)
+        patient = Patient.objects.create(**cleaned_data)
         return patient, True
 
     @staticmethod
-    def clean_patient_data(patient_data):
-        """Очистка и валидация данных пациента"""
+    def clean_patient_data(patient_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Очистка данных пациента для новой модели"""
         cleaned_data = patient_data.copy()
 
-        # Валидация телефона
-        if cleaned_data.get("phone_number"):
-            cleaned_data["phone_number"] = PatientValidator.validate_phone_number(
-                cleaned_data["phone_number"]
-            )
+        # Обработка телефона (поддержка PhoneNumberField)
+        phone = cleaned_data.get("phone_number")
+        if phone:
+            if isinstance(phone, str):
+                # Очистка строки телефона
+                phone_clean = "".join(c for c in phone if c.isdigit() or c == "+")
+                if phone_clean and not phone_clean.startswith("+"):
+                    if phone_clean.startswith("8"):
+                        phone_clean = "+7" + phone_clean[1:]
+                    elif phone_clean.startswith("7"):
+                        phone_clean = "+" + phone_clean
+                    else:
+                        phone_clean = "+7" + phone_clean
+                cleaned_data["phone_number"] = phone_clean
+
+        # Конвертация пустых строк в None для числовых полей
+        numeric_fields = ["card_number", "card_number_IP", "card_number_OMS"]
+        for field in numeric_fields:
+            if field in cleaned_data and cleaned_data[field] == "":
+                cleaned_data[field] = None
+
+        # Конвертация пустых строк в пустые строки (не None) для текстовых полей
+        text_fields = [
+            "last_name",
+            "area",
+            "locality",
+            "city",
+            "district",
+            "street",
+            "home",
+            "building",
+            "apartment",
+            "passport_series",
+            "passport_number",
+            "who_issued_the_passport",
+            "polis_oms",
+            "snils",
+            "insurance_company",
+        ]
+
+        for field in text_fields:
+            if field in cleaned_data:
+                if cleaned_data[field] is None:
+                    cleaned_data[field] = ""
+                else:
+                    cleaned_data[field] = str(cleaned_data[field]).strip()
 
         return cleaned_data
