@@ -303,7 +303,7 @@
 
 {% block extra_js %}
 <script>
-    const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
+    const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
 </script>
 <script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>

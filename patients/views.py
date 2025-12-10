@@ -1,11 +1,12 @@
 import os
 from datetime import datetime
+from typing import Optional, List
 
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import models
-from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
+from django.http import HttpResponse, HttpRequest
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
 from django.views.generic import (
     CreateView,
@@ -18,57 +19,89 @@ from docxtpl import DocxTemplate
 
 from appointments.models import Appointment
 from patients.constants import DOCUMENT_TYPES
-from patients.forms import PatientForm, PatientFullForm
+from patients.forms import PatientForm, PatientFullForm, PatientSearchForm
 from patients.models import Patient
 from patients.utils import get_russian_month_name, number_to_words
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
 
 
-class PatientListView(ListView):
+class PatientListView(LoginRequiredMixin, ListView):
+    """Список пациентов с поиском и пагинацией"""
+
     model = Patient
     template_name = "patients/patient_list.html"
     context_object_name = "patients"
     paginate_by = 20
 
     def get_queryset(self):
+        """Получение и фильтрация queryset"""
         queryset = super().get_queryset()
-        search = self.request.GET.get("search", "")
+        search = self.request.GET.get("search", "").strip()
+
         if search:
+            # Поиск по нескольким полям
             queryset = queryset.filter(
                 models.Q(surname__icontains=search)
                 | models.Q(first_name__icontains=search)
+                | models.Q(last_name__icontains=search)
                 | models.Q(phone_number__icontains=search)
                 | models.Q(card_number__icontains=search)
+                | models.Q(card_number_IP__icontains=search)
+                | models.Q(card_number_OMS__icontains=search)
             )
-        return queryset.order_by("card_number", "surname", "first_name")
+
+        # Используем ordering из Meta
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        """Добавляем форму поиска в контекст"""
+        context = super().get_context_data(**kwargs)
+        context["search_form"] = PatientSearchForm(
+            initial={"search": self.request.GET.get("search", "")}
+        )
+        return context
 
 
 class PatientCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
+    """Создание нового пациента"""
+
     model = Patient
-    form_class = PatientForm  # Минимальная форма для создания
+    form_class = PatientForm
     template_name = "patients/patient_form.html"
     success_url = reverse_lazy("patients:patient_list")
 
+    def form_valid(self, form):
+        """Дополнительная обработка при успешном создании"""
+        response = super().form_valid(form)
+        # Можно добавить сообщение об успехе
+        return response
+
 
 class PatientUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
+    """Редактирование существующего пациента"""
+
     model = Patient
     form_class = PatientFullForm
     template_name = "patients/patient_form.html"
 
     def get_success_url(self):
+        """Перенаправление после успешного редактирования"""
         return reverse_lazy("patients:patient_detail", kwargs={"pk": self.object.pk})
 
 
 class PatientDetailView(LoginRequiredMixin, DetailView):
+    """Детальная информация о пациенте"""
+
     model = Patient
     template_name = "patients/patient_detail.html"
 
     def get_context_data(self, **kwargs):
+        """Добавление истории записей в контекст"""
         context = super().get_context_data(**kwargs)
         patient = self.object
 
-        # Получаем историю с предзагрузкой связанных данных
+        # Получаем историю записей с оптимизацией запросов
         appointment_history = (
             Appointment.objects.filter(patient=patient)
             .select_related("time_slot__doctor", "time_slot__cabinet", "service")
@@ -81,6 +114,8 @@ class PatientDetailView(LoginRequiredMixin, DetailView):
 
 
 class PatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+    """Удаление пациента"""
+
     model = Patient
     template_name = "patients/patient_confirm_delete.html"
     success_url = reverse_lazy("patients:patient_list")
@@ -191,19 +226,71 @@ class DocumentGenerator:
             except ValueError:
                 service_price = 0
 
+        # ПРАВИЛЬНО ФОРМИРУЕМ АДРЕС
+        address_parts = []
+
+        # Добавляем субъект РФ (область, край и т.д.)
+        if patient.area:
+            address_parts.append(patient.area)
+
+        # Добавляем район если есть
+        if patient.district:
+            address_parts.append(f"{patient.district} р-н")
+
+        # Населенный пункт
+        if patient.locality:
+            address_parts.append(patient.locality)
+
+        # Город
+        if patient.city:
+            address_parts.append(f"г. {patient.city}")
+
+        # Улица
+        if patient.street:
+            address_parts.append(f"ул. {patient.street}")
+
+        # Дом
+        if patient.home:
+            house_part = f"д. {patient.home}"
+            if patient.building:
+                house_part += f" корп. {patient.building}"
+            address_parts.append(house_part)
+
+        # Квартира
+        if patient.apartment:
+            address_parts.append(f"кв. {patient.apartment}")
+
+        # Формируем итоговый адрес
+        formatted_address = ", ".join(filter(None, address_parts))
+
         context = {
             # Данные пациента
             "surname": patient.surname,
             "first_name": patient.first_name,
             "last_name": patient.last_name or "",
-            "date_of_birth": patient.date_of_birth.strftime("%d.%m.%Y"),
-            "b_day": patient.date_of_birth.strftime("%d"),
-            "birth_month": patient.date_of_birth.strftime("%m"),
-            "b_month_name": get_russian_month_name(patient.date_of_birth.month),
-            "b_year": patient.date_of_birth.strftime("%Y"),
+            "date_of_birth": (
+                patient.date_of_birth.strftime("%d.%m.%Y")
+                if patient.date_of_birth
+                else ""
+            ),
+            "b_day": (
+                patient.date_of_birth.strftime("%d") if patient.date_of_birth else ""
+            ),
+            "birth_month": (
+                patient.date_of_birth.strftime("%m") if patient.date_of_birth else ""
+            ),
+            "b_month_name": (
+                get_russian_month_name(patient.date_of_birth.month)
+                if patient.date_of_birth
+                else ""
+            ),
+            "b_year": (
+                patient.date_of_birth.strftime("%Y") if patient.date_of_birth else ""
+            ),
             "phone_number": patient.phone_number or "",
             "card_number": patient.card_number or "",
             "card_number_IP": patient.card_number_IP or "",
+            "card_number_OMS": patient.card_number_OMS or "",
             "gender": patient.get_gender_display() if patient.gender else "",
             "area": patient.area or "",
             "locality": patient.locality or "",
@@ -213,18 +300,9 @@ class DocumentGenerator:
             "home": patient.home or "",
             "building": patient.building or "",
             "apartment": patient.apartment or "",
-            "address": (
-                f"{patient.area or ''} "
-                f"{patient.district + ' р-н' if patient.district else ''} "
-                f"{patient.locality or ''} "
-                f"{patient.city or ''} "
-                f"{patient.street or ''} "
-                f"д. {patient.home or ''} "
-                f"{'к.' + patient.building if patient.building else ''} "
-                f"{'кв. ' + patient.apartment if patient.apartment else ''}"
-            )
-            .strip()
-            .replace("  ", " "),
+            # АДРЕС - ИСПРАВЛЕННЫЙ ВАРИАНТ
+            "address": formatted_address,
+            # ПАСПОРТ - ИСПРАВЛЕННЫЙ ВАРИАНТ
             "passport": "паспорт" if patient.passport_series else "",
             "p_series": patient.passport_series or "",
             "p_number": patient.passport_number or "",
@@ -237,9 +315,11 @@ class DocumentGenerator:
             "polis_oms": patient.polis_oms or "",
             "snils": patient.snils or "",
             "insurance_company": patient.insurance_company or "",
-            # Данные о записи (для обратной совместимости)
+            # Данные о записи
             "appointment_date": (
-                appointment.time_slot.date.strftime("%d.%m.%Y") if appointment else None
+                appointment.time_slot.date.strftime("%d.%m.%Y")
+                if appointment and appointment.time_slot
+                else ""
             ),
             "doctor_name": (
                 DocumentGenerator.get_doctor_short_name(appointment.doctor)
