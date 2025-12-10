@@ -259,7 +259,7 @@
 {% block extra_js %}
 <!-- Данные для JS (оставляем только переменные) -->
 <script>
-    const checkPatientUrl = "{% url 'timetable:api_check_patient' %}";
+    const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
     const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
     const initialTestIds = {% if initial_test_ids %}{{ initial_test_ids|safe }}{% else %}[]{% endif %};
