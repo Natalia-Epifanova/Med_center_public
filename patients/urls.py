@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .views_api import check_patient_api
 
 app_name = "patients"
 
@@ -14,5 +15,10 @@ urlpatterns = [
         "<int:pk>/generate-doc/<str:doc_type>/",
         views.generate_document,
         name="generate_document",
+    ),
+    path(
+        "api/check-patient/",
+        check_patient_api,
+        name="api_check_patient",
     ),
 ]
