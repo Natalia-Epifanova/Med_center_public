@@ -456,7 +456,7 @@ class AppointmentUpdateForm(AppointmentBaseForm):
     def _update_procedural_appointment(self, main_appointment, procedural_appointment):
         """Обновляет существующую процедурную запись на новое время"""
         try:
-            from .models import Cabinet, Doctor, TimeSlot
+            from timetable.models import Cabinet, Doctor, TimeSlot
 
             # Находим процедурный кабинет №6
             procedural_cabinet = Cabinet.objects.get(number=6)
