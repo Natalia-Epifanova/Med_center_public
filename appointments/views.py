@@ -40,11 +40,15 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+
+        # Получаем следующий слот для отображения в форме
+        next_slot = time_slot.get_next_consecutive_slot()
+
         context.update(
             {
                 "time_slot": time_slot,
                 "doctor": time_slot.doctor,
-                "next_slot": time_slot.get_next_consecutive_slot(),
+                "next_slot": next_slot,
             }
         )
         return context
