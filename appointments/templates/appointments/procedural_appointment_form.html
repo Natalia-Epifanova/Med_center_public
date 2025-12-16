@@ -261,15 +261,13 @@
 {% endblock %}
 
 {% block extra_js %}
-<!-- Определяем переменные для JS -->
 <script>
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
     const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
     const initialTestIds = {% if initial_test_ids %}{{ initial_test_ids|safe }}{% else %}[]{% endif %};
 </script>
-
-<!-- Подключаем внешние JS файлы -->
-<script src="/static/js/blood_test_selection.js?v={% now 'U' %}"></script>
+<!-- Подключаем общие утилиты ПЕРВЫМИ -->
+<script src="/static/js/utils.js?v={% now 'U' %}"></script>
 <script src="/static/js/procedural_appointment_create.js?v={% now 'U' %}"></script>
 {% endblock %}

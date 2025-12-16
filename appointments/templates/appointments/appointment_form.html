@@ -28,7 +28,7 @@
                         Кабинет: {{ time_slot.cabinet.number }}{% if time_slot.cabinet.name_of_cabinet %} ({{time_slot.cabinet.name_of_cabinet }}){% endif %}
                     </div>
 
-                    <!-- ОШИБКИ ФОРМЫ - ДОБАВЬТЕ ЭТОТ БЛОК -->
+                    <!-- ОШИБКИ ФОРМЫ -->
                     {% if form.errors %}
                     <div class="alert alert-danger">
                         <h6 class="alert-heading">
@@ -62,6 +62,7 @@
                         <strong>Особенности записи:</strong>
                         <span id="pishchelevWarningText"></span>
                     </div>
+
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
                         <input type="hidden" name="total_sum" id="id_total_sum" value="">
@@ -306,43 +307,7 @@
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
     const csrfToken = "{{ csrf_token }}";
 </script>
+<!-- Подключаем общие утилиты ПЕРВЫМИ -->
+<script src="/static/js/utils.js?v={% now 'U' %}"></script>
 <script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>
-
-<!-- ДОБАВЬТЕ ЭТОТ СКРИПТ -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const serviceSelect = document.getElementById('id_service');
-    const totalField = document.getElementById('id_total_sum');
-
-    if (!serviceSelect || !totalField) return;
-
-    // Функция для обновления суммы
-    function updateTotalSum() {
-        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-        if (selectedOption && selectedOption.dataset.price) {
-            totalField.value = parseFloat(selectedOption.dataset.price).toFixed(2);
-        } else if (selectedOption) {
-            // Пытаемся извлечь цену из текста опции
-            const priceMatch = selectedOption.text.match(/\((\d+(?:\.\d{2})?) руб\.\)/);
-            if (priceMatch && priceMatch[1]) {
-                totalField.value = parseFloat(priceMatch[1]).toFixed(2);
-            }
-        }
-    }
-
-    // Обновляем при изменении услуги
-    serviceSelect.addEventListener('change', updateTotalSum);
-
-    // Инициализируем при загрузке
-    updateTotalSum();
-
-    // Обновляем перед отправкой формы
-    const form = document.getElementById('appointmentForm');
-    if (form) {
-        form.addEventListener('submit', function() {
-            updateTotalSum();
-        });
-    }
-});
-</script>
 {% endblock %}
