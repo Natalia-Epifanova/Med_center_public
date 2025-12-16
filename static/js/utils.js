@@ -464,6 +464,251 @@
                     timeSlotSelect.disabled = false;
                 });
             }
+        },
+
+        // ==================== КОМПОНЕНТ ВЫБОРА ВРЕМЕНИ ====================
+        TimeSlotSelector: {
+            create: function(options) {
+                const selector = {
+                    containerId: options.containerId,
+                    apiUrl: options.apiUrl,
+                    csrfToken: options.csrfToken,
+                    doctorId: options.doctorId,
+                    currentSlotId: options.currentSlotId || null,
+                    currentAppointmentId: options.currentAppointmentId || null,
+                    onSlotSelect: options.onSlotSelect || function() {},
+
+                    container: null,
+                    selectedSlotId: null,
+                    selectedSlotDisplay: '',
+
+                    initialize: function() {
+                        this.container = document.getElementById(this.containerId);
+                        if (!this.container) {
+                            console.error(`Container #${this.containerId} not found`);
+                            return;
+                        }
+
+                        this.render();
+                        this.bindEvents();
+
+                        // Устанавливаем начальную дату если есть
+                        if (options.initialDate) {
+                            this.setDate(options.initialDate);
+                        }
+                    },
+
+                    render: function() {
+                        this.container.innerHTML = `
+                            <div class="timeslot-selector">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Выбор времени приема</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <label for="timeslot-date-${this.containerId}" class="form-label">
+                                                    Дата приема *
+                                                </label>
+                                                <input type="date"
+                                                       id="timeslot-date-${this.containerId}"
+                                                       class="form-control"
+                                                       required>
+                                                <div class="form-text">
+                                                    Выберите дату приема
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label for="timeslot-select-${this.containerId}" class="form-label">
+                                                    Временной слот *
+                                                </label>
+                                                <select id="timeslot-select-${this.containerId}" class="form-select" disabled>
+                                                    <option value="">Сначала выберите дату</option>
+                                                </select>
+                                                <div class="form-text">
+                                                    Доступные слоты врача
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Информация о выбранном слоте -->
+                                        <div id="timeslot-info-${this.containerId}" class="alert alert-info" style="display: none;">
+                                            <i class="fas fa-check-circle"></i>
+                                            <strong>Выбран:</strong>
+                                            <span id="timeslot-display-${this.containerId}"></span>
+                                            <input type="hidden" id="selected-slot-id-${this.containerId}">
+                                        </div>
+
+                                        <!-- Сообщения об ошибках -->
+                                        <div id="timeslot-error-${this.containerId}" class="alert alert-danger" style="display: none;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    },
+
+                    bindEvents: function() {
+                        const dateInput = document.getElementById(`timeslot-date-${this.containerId}`);
+                        const slotSelect = document.getElementById(`timeslot-select-${this.containerId}`);
+
+                        if (dateInput) {
+                            // Устанавливаем минимальную дату - сегодня
+                            const today = new Date().toISOString().split('T')[0];
+                            dateInput.min = today;
+
+                            dateInput.addEventListener('change', (e) => {
+                                this.loadSlots(e.target.value);
+                            });
+                        }
+
+                        if (slotSelect) {
+                            slotSelect.addEventListener('change', (e) => {
+                                this.handleSlotSelection(e.target.value);
+                            });
+                        }
+                    },
+
+                    loadSlots: async function(date) {
+                        const slotSelect = document.getElementById(`timeslot-select-${this.containerId}`);
+                        const errorDiv = document.getElementById(`timeslot-error-${this.containerId}`);
+
+                        if (!slotSelect) return;
+
+                        // Показываем загрузку
+                        slotSelect.innerHTML = '<option value="">Загрузка...</option>';
+                        slotSelect.disabled = true;
+                        errorDiv.style.display = 'none';
+
+                        try {
+                            const response = await fetch(this.apiUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': this.csrfToken
+                                },
+                                body: JSON.stringify({
+                                    doctor_id: this.doctorId,
+                                    date: date,
+                                    current_slot_id: this.currentSlotId,
+                                    current_appointment_id: this.currentAppointmentId
+                                })
+                            });
+
+                            const data = await response.json();
+
+                            if (!response.ok) {
+                                throw new Error(data.error || 'Ошибка загрузки слотов');
+                            }
+
+                            this.renderSlots(data.slots || []);
+
+                        } catch (error) {
+                            console.error('Error loading slots:', error);
+                            this.showError(`Ошибка при загрузке слотов: ${error.message}`);
+                        }
+                    },
+
+                    renderSlots: function(slots) {
+                        const slotSelect = document.getElementById(`timeslot-select-${this.containerId}`);
+                        if (!slotSelect) return;
+
+                        slotSelect.innerHTML = '<option value="">Выберите временной слот</option>';
+
+                        if (slots.length === 0) {
+                            slotSelect.innerHTML = '<option value="">Нет доступных слотов на выбранную дату</option>';
+                            slotSelect.disabled = false;
+                            return;
+                        }
+
+                        slots.forEach(slot => {
+                            const option = document.createElement('option');
+                            option.value = slot.id;
+                            option.textContent = `${slot.time} (${slot.cabinet})`;
+                            if (slot.is_current) {
+                                option.textContent += ' - текущий';
+                            }
+                            slotSelect.appendChild(option);
+                        });
+
+                        slotSelect.disabled = false;
+
+                        // Автоматически выбираем текущий слот если он есть
+                        if (this.currentSlotId) {
+                            const currentSlotOption = slotSelect.querySelector(`option[value="${this.currentSlotId}"]`);
+                            if (currentSlotOption) {
+                                slotSelect.value = this.currentSlotId;
+                                this.handleSlotSelection(this.currentSlotId);
+                            }
+                        }
+                    },
+
+                    handleSlotSelection: function(slotId) {
+                        const slotSelect = document.getElementById(`timeslot-select-${this.containerId}`);
+                        const infoDiv = document.getElementById(`timeslot-info-${this.containerId}`);
+                        const displaySpan = document.getElementById(`timeslot-display-${this.containerId}`);
+
+                        if (!slotSelect || !infoDiv || !displaySpan) return;
+
+                        const selectedOption = slotSelect.options[slotSelect.selectedIndex];
+
+                        if (selectedOption && selectedOption.value) {
+                            this.selectedSlotId = slotId;
+                            this.selectedSlotDisplay = selectedOption.textContent;
+
+                            // Обновляем отображение
+                            displaySpan.textContent = selectedOption.textContent;
+                            infoDiv.style.display = 'block';
+
+                            // Вызываем коллбэк
+                            this.onSlotSelect({
+                                id: slotId,
+                                display: selectedOption.textContent,
+                                time: selectedOption.textContent.split(' (')[0],
+                                date: document.getElementById(`timeslot-date-${this.containerId}`)?.value
+                            });
+                        } else {
+                            infoDiv.style.display = 'none';
+                            this.selectedSlotId = null;
+                            this.selectedSlotDisplay = '';
+                        }
+                    },
+
+                    showError: function(message) {
+                        const errorDiv = document.getElementById(`timeslot-error-${this.containerId}`);
+                        if (errorDiv) {
+                            errorDiv.textContent = message;
+                            errorDiv.style.display = 'block';
+                        }
+                    },
+
+                    getSelectedSlot: function() {
+                        if (!this.selectedSlotId) return null;
+
+                        return {
+                            id: this.selectedSlotId,
+                            display: this.selectedSlotDisplay,
+                            date: document.getElementById(`timeslot-date-${this.containerId}`)?.value
+                        };
+                    },
+
+                    setDate: function(date) {
+                        const dateInput = document.getElementById(`timeslot-date-${this.containerId}`);
+                        if (dateInput) {
+                            dateInput.value = date;
+                            this.loadSlots(date);
+                        }
+                    },
+
+                    toggle: function(show = true) {
+                        this.container.style.display = show ? 'block' : 'none';
+                    }
+                };
+
+                selector.initialize();
+                return selector;
+            }
         }
     };
+
 })();

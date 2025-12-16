@@ -131,21 +131,65 @@ class AppointmentBaseForm(
 
 
 class AppointmentForm(AppointmentBaseForm):
-    """Форма создания записи"""
+    """Форма создания записи с возможностью изменения времени"""
+
+    # Добавляем поля для изменения времени
+    allow_time_change = forms.BooleanField(
+        required=False,
+        initial=False,
+        widget=forms.HiddenInput(attrs={"id": "id_allow_time_change"}),
+        label="Разрешить изменение времени",
+    )
+    new_time_slot_id = forms.IntegerField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_new_time_slot_id"}),
+        label="Новый временной слот",
+    )
+    new_appointment_date = forms.DateField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_new_appointment_date"}),
+        label="Новая дата приема",
+    )
 
     def __init__(self, *args, **kwargs):
         self.time_slot = kwargs.pop("time_slot", None)
+        self.doctor = kwargs.pop("doctor", None)
         super().__init__(*args, **kwargs)
+
+        # Инициализируем поля с текущими значениями
+        if self.time_slot:
+            self.fields["new_time_slot_id"].initial = self.time_slot.id
+            self.fields["new_appointment_date"].initial = self.time_slot.date
 
     def clean(self):
         cleaned_data = super().clean()
 
-        # ВАЖНО: Обновляем total_sum из POST данных если он есть
-        if "total_sum" in self.data and self.data["total_sum"]:
+        # Проверяем, разрешено ли изменение времени
+        allow_time_change = cleaned_data.get("allow_time_change")
+        new_time_slot_id = cleaned_data.get("new_time_slot_id")
+
+        if allow_time_change and new_time_slot_id:
             try:
-                cleaned_data["total_sum"] = float(self.data["total_sum"])
-            except (ValueError, TypeError):
-                pass
+                # Получаем новый слот
+                new_time_slot = TimeSlot.objects.get(id=new_time_slot_id)
+
+                # Проверяем доступность
+                if not new_time_slot.is_available():
+                    raise forms.ValidationError(
+                        "Выбранный временной слот уже занят. Пожалуйста, выберите другой слот."
+                    )
+
+                # Проверяем, что слот принадлежит тому же врачу
+                if self.doctor and new_time_slot.doctor != self.doctor:
+                    raise forms.ValidationError(
+                        "Выбранный слот не принадлежит текущему врачу."
+                    )
+
+                # Сохраняем объект слота для использования в save()
+                cleaned_data["new_time_slot"] = new_time_slot
+
+            except TimeSlot.DoesNotExist:
+                raise forms.ValidationError("Выбранный временной слот не существует")
 
         return cleaned_data
 
@@ -156,8 +200,24 @@ class AppointmentForm(AppointmentBaseForm):
 
         # Создание записи
         appointment = super().save(commit=False)
-        appointment.time_slot = self.time_slot
         appointment.patient = patient
+
+        # Определяем, какой слот использовать
+        allow_time_change = self.cleaned_data.get("allow_time_change", False)
+        new_time_slot = self.cleaned_data.get("new_time_slot")
+
+        if allow_time_change and new_time_slot:
+            # Используем новый слот
+            appointment.time_slot = new_time_slot
+            print(
+                f"DEBUG: Using NEW time slot: {new_time_slot.id} - {new_time_slot.date} {new_time_slot.start_time}"
+            )
+        else:
+            # Используем оригинальный слот
+            appointment.time_slot = self.time_slot
+            print(
+                f"DEBUG: Using ORIGINAL time slot: {self.time_slot.id} - {self.time_slot.date} {self.time_slot.start_time}"
+            )
 
         # Проверка процедурной записи
         if self.cleaned_data.get("needs_procedural"):
@@ -166,12 +226,11 @@ class AppointmentForm(AppointmentBaseForm):
                     "Невозможно создать запись: выбранное время в процедурном кабинете уже занято."
                 )
 
-        # ВАЖНО: Сохраняем цену услуги ДО сохранения записи
+        # Сохраняем цену услуги
         if appointment.service and not appointment.price_at_appointment:
             appointment.price_at_appointment = appointment.service.price
 
-        # ДЛЯ ВСЕХ ЗАПИСЕЙ: Сохраняем общую сумму
-        # Сначала проверяем hidden поле total_sum, потом используем цену услуги
+        # Сохраняем общую сумму
         total_sum = self.cleaned_data.get("total_sum")
         if total_sum:
             appointment.total_with_blood_tests = total_sum
@@ -187,7 +246,6 @@ class AppointmentForm(AppointmentBaseForm):
                     procedural_appointment = (
                         AppointmentService.create_procedural_appointment(appointment)
                     )
-                    # Для процедурной записи тоже сохраняем сумму
                     if procedural_appointment:
                         if not procedural_appointment.price_at_appointment:
                             procedural_appointment.price_at_appointment = (
@@ -202,63 +260,20 @@ class AppointmentForm(AppointmentBaseForm):
                 self._handle_consecutive_appointments(appointment)
 
             except Exception as e:
-                # Обрабатываем ошибку уникальности слота
                 if "unique_doctor_time_slot" in str(e):
                     raise forms.ValidationError(
                         "Невозможно создать запись: выбранное время уже занято другим пациентом. "
                         "Пожалуйста, обновите страницу и выберите другое время."
                     )
-                # Обрабатываем другие ошибки базы данных
                 elif "duplicate key" in str(e).lower():
                     raise forms.ValidationError(
                         "Невозможно создать запись: произошел конфликт расписания. "
                         "Пожалуйста, обновите страницу и попробуйте снова."
                     )
                 else:
-                    # Пробрасываем оригинальную ошибку для отладки
                     raise
 
         return appointment
-
-    def _handle_consecutive_appointments(self, main_appointment):
-        """Обработка последовательных записей"""
-        appointment_type = self.cleaned_data.get("appointment_type")
-
-        if appointment_type in ["additional", "two_slots"]:
-            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
-
-            if next_slot and next_slot.is_available():
-                try:
-                    consecutive_appointment = (
-                        AppointmentService.create_consecutive_appointment(
-                            main_appointment,
-                            appointment_type,
-                            next_slot,
-                            self.cleaned_data.get("additional_service"),
-                        )
-                    )
-                    if consecutive_appointment:
-                        # ВАЖНО: Сохраняем сумму для последовательных записей
-                        if (
-                            not consecutive_appointment.price_at_appointment
-                            and consecutive_appointment.service
-                        ):
-                            consecutive_appointment.price_at_appointment = (
-                                consecutive_appointment.service.price
-                            )
-                        consecutive_appointment.total_with_blood_tests = (
-                            consecutive_appointment.price_at_appointment
-                        )
-                        consecutive_appointment.save()
-                except Exception as e:
-                    # Обрабатываем ошибки при создании последовательных записей
-                    if "unique_doctor_time_slot" in str(e):
-                        raise forms.ValidationError(
-                            "Невозможно создать дополнительную запись: следующий временной слот уже занят. "
-                            "Пожалуйста, выберите другой тип записи или другое время."
-                        )
-                    else:
-                        raise
 
 
 class AppointmentUpdateForm(AppointmentBaseForm):

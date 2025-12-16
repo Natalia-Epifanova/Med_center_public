@@ -4,7 +4,9 @@
 {% block header %}
 <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
     <h1 class="display-6">Запись пациента на прием</h1>
-    <p class="lead">Запись на {{ time_slot.date }} {{ time_slot.start_time|time:"H:i" }}-{{time_slot.end_time|time:"H:i" }}</p>
+    <p class="lead">
+        Запись к врачу: {{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.
+    </p>
 </div>
 {% endblock %}
 
@@ -16,17 +18,32 @@
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-calendar-plus"></i>
-                        Запись к врачу: {{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}. {{time_slot.doctor.last_name.0 }}.
+                        Новая запись на прием
                     </h5>
                 </div>
                 <div class="card-body">
-                    <!-- Информация о слоте -->
-                    <div class="alert alert-info">
-                        <strong>Информация о приеме:</strong><br>
-                        Дата: {{ time_slot.date|date:"d.m.Y" }}<br>
-                        Время: {{ time_slot.start_time|time:"H:i" }}-{{ time_slot.end_time|time:"H:i" }}<br>
-                        Кабинет: {{ time_slot.cabinet.number }}{% if time_slot.cabinet.name_of_cabinet %} ({{time_slot.cabinet.name_of_cabinet }}){% endif %}
+                    <!-- Информация о выбранном времени -->
+                    <div class="alert alert-info" id="original-slot-info">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Выбранное время приема:</strong><br>
+                                Дата: <span id="original-date">{{ time_slot.date|date:"d.m.Y" }}</span><br>
+                                Время: <span id="original-time">{{ time_slot.start_time|time:"H:i" }}-{{ time_slot.end_time|time:"H:i" }}</span><br>
+                                Кабинет: <span id="original-cabinet">{{ time_slot.cabinet.number }}{% if time_slot.cabinet.name_of_cabinet %} ({{time_slot.cabinet.name_of_cabinet }}){% endif %}</span><br>
+                                Врач: {{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.
+                            </div>
+                            <div>
+                                <button type="button"
+                                        class="btn btn-outline-warning btn-sm"
+                                        id="change-time-btn">
+                                    <i class="fas fa-clock"></i> Изменить время
+                                </button>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Панель выбора нового времени (изначально скрыта) -->
+                    <div id="timeslot-selector-container" style="display: none;" class="mb-4"></div>
 
                     <!-- ОШИБКИ ФОРМЫ -->
                     {% if form.errors %}
@@ -66,6 +83,10 @@
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
                         <input type="hidden" name="total_sum" id="id_total_sum" value="">
+                        <!-- Hidden поля для изменения времени -->
+                        {{ form.allow_time_change }}
+                        {{ form.new_time_slot_id }}
+                        {{ form.new_appointment_date }}
 
                         <!-- Блок данных пациента -->
                         <div class="card mb-4">
@@ -228,12 +249,12 @@
                                         <div class="alert alert-warning">
                                             <i class="fas fa-exclamation-triangle"></i>
                                             <strong>Будет занято два временных слота для одной услуги</strong><br>
-                                            • Текущий слот: {{ time_slot.start_time|time:"H:i" }}-{{time_slot.end_time|time:"H:i" }}<br>
+                                            • Текущий слот: <span id="current-slot-time">{{ time_slot.start_time|time:"H:i" }}-{{time_slot.end_time|time:"H:i" }}</span><br>
                                             • Следующий слот:
                                             {% if next_slot %}
-                                            {{ next_slot.start_time|time:"H:i" }}-{{ next_slot.end_time|time:"H:i" }}
+                                            <span id="next-slot-time">{{ next_slot.start_time|time:"H:i" }}-{{ next_slot.end_time|time:"H:i" }}</span>
                                             {% else %}
-                                            не доступен
+                                            <span id="next-slot-time">не доступен</span>
                                             {% endif %}
                                         </div>
                                     </div>
@@ -305,7 +326,14 @@
 {% block extra_js %}
 <script>
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
+    const availableSlotsUrl = "{% url 'timetable:api_get_available_slots' %}";
     const csrfToken = "{{ csrf_token }}";
+    const doctorId = {{ time_slot.doctor.id }};
+    const currentSlotId = {{ time_slot.id }};
+    const originalDate = "{{ time_slot.date|date:'Y-m-d' }}";
+    const originalTime = "{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}";
+    const originalCabinet = "{{ time_slot.cabinet.number }}";
+    const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
 </script>
 <!-- Подключаем общие утилиты ПЕРВЫМИ -->
 <script src="/static/js/utils.js?v={% now 'U' %}"></script>
