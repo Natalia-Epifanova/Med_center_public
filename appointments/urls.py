@@ -9,6 +9,12 @@ from appointments.views import (
     ProceduralAppointmentUpdateView,
     update_appointment_status,
 )
+from appointments.views_api import (
+    get_doctor_services_api,
+    get_available_slots_for_doctor_api,
+    validate_additional_appointment_api,
+    get_available_doctors_api,
+)
 
 app_name = AppointmentsConfig.name
 
@@ -42,5 +48,21 @@ urlpatterns = [
         "<int:pk>/update-status/",
         update_appointment_status,
         name="appointment_update_status",
+    ),
+    path("api/doctor-services/", get_doctor_services_api, name="api_doctor_services"),
+    path(
+        "api/available-slots-for-doctor/",
+        get_available_slots_for_doctor_api,
+        name="api_available_slots_for_doctor",
+    ),
+    path(
+        "api/validate-additional-appointment/",
+        validate_additional_appointment_api,
+        name="api_validate_additional_appointment",
+    ),
+    path(
+        "api/available-doctors/",
+        get_available_doctors_api,
+        name="api_available_doctors",
     ),
 ]

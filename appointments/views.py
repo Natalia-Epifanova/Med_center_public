@@ -34,7 +34,7 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
         kwargs["time_slot"] = time_slot
-        kwargs["doctor"] = time_slot.doctor
+        kwargs["doctor"] = time_slot.doctor  # Убедитесь, что передается doctor
         return kwargs
 
     def get_context_data(self, **kwargs):
@@ -47,7 +47,7 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
         context.update(
             {
                 "time_slot": time_slot,
-                "doctor": time_slot.doctor,
+                "doctor": time_slot.doctor,  # Убедитесь, что передается в шаблон
                 "next_slot": next_slot,
             }
         )

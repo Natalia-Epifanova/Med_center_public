@@ -175,20 +175,27 @@ class TimeSlot(models.Model):
         slot_type_display = "Перерыв" if self.slot_type == "break" else "Слот"
         return f"{self.date} {self.start_time}-{self.end_time} - {self.doctor.surname} ({slot_type_display})"
 
-    def is_available(self):
+    def is_available(self, exclude_slot_id=None, exclude_appointment_id=None):
         """Проверяет, доступен ли слот для записи"""
         if self.slot_type != "working":
             return False
 
-        # Импортируем здесь, чтобы избежать циклических импортов
-        try:
-            from appointments.models import Appointment
+        from appointments.models import Appointment
 
-            has_appointment = Appointment.objects.filter(time_slot=self).exists()
-            return not has_appointment
-        except ImportError:
-            # Если приложение appointments не установлено
-            return self.slot_type == "working"
+        # Базовый запрос на наличие записей
+        appointments_query = Appointment.objects.filter(time_slot=self)
+
+        # Исключаем определенную запись если нужно
+        if exclude_appointment_id:
+            appointments_query = appointments_query.exclude(id=exclude_appointment_id)
+
+        has_appointment = appointments_query.exists()
+
+        # Если проверяем этот же слот (например, при редактировании)
+        if exclude_slot_id and self.id == exclude_slot_id:
+            return not has_appointment or appointments_query.count() == 1
+
+        return not has_appointment
 
     def get_next_consecutive_slot(self):
         """Получает следующий последовательный слот"""
