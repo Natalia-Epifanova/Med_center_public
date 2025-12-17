@@ -130,7 +130,7 @@
         // ==================== ПРОВЕРКА ПАЦИЕНТА ====================
         PatientChecker: {
             create: function(options) {
-                return {
+                const checker = {
                     checkPatientUrl: options.checkPatientUrl,
                     csrfToken: options.csrfToken,
 
@@ -208,13 +208,37 @@
                             }
                         });
 
-                        // Особый случай для даты рождения
+                        // Особый случай для даты рождения - исправляем формат
                         if (patient.date_of_birth) {
                             const dobField = document.getElementById('id_date_of_birth');
                             if (dobField) {
-                                const dob = new Date(patient.date_of_birth);
-                                const formattedDob = dob.toISOString().split('T')[0];
-                                dobField.value = formattedDob;
+                                try {
+                                    // Преобразуем дату из разных форматов
+                                    let dob = patient.date_of_birth;
+
+                                    // Если дата уже в формате YYYY-MM-DD, используем как есть
+                                    if (dob.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        dobField.value = dob;
+                                    }
+                                    // Если дата в формате DD.MM.YYYY, преобразуем
+                                    else if (dob.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+                                        const parts = dob.split('.');
+                                        dobField.value = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                    }
+                                    // Если дата в другом формате, пытаемся распарсить
+                                    else {
+                                        const dateObj = new Date(dob);
+                                        if (!isNaN(dateObj.getTime())) {
+                                            const year = dateObj.getFullYear();
+                                            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+                                            const day = String(dateObj.getDate()).padStart(2, '0');
+                                            dobField.value = `${year}-${month}-${day}`;
+                                        }
+                                    }
+                                } catch (error) {
+                                    console.error('Error formatting date of birth:', error);
+                                    // Не заполняем поле если не можем корректно преобразовать
+                                }
                             }
                         }
                     },
@@ -268,6 +292,8 @@
                         });
                     }
                 };
+
+                return checker;
             }
         },
 
@@ -395,6 +421,53 @@
                         window.AppointmentUtils.TotalSumUpdater.updateTotalSum();
                     });
                 }
+            }
+        },
+
+        // ==================== ПРОЦЕДУРНЫЙ КАБИНЕТ ====================
+        ProceduralManager: {
+            // Проверяет, является ли услуга медикаментозной блокадой
+            isMedicalBlockade: function(serviceSelect) {
+                if (!serviceSelect) return false;
+
+                const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+                if (!selectedOption || selectedOption.value === '') {
+                    return false;
+                }
+
+                const serviceName = selectedOption.text.toLowerCase();
+                const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
+
+                return blockadeKeywords.some(keyword => serviceName.includes(keyword));
+            },
+
+            // Обновляет состояние кнопки процедурного кабинета
+            updateProceduralCheckbox: function(serviceSelect, proceduralCheckbox) {
+                if (!serviceSelect || !proceduralCheckbox) return;
+
+                if (window.AppointmentUtils.ProceduralManager.isMedicalBlockade(serviceSelect)) {
+                    proceduralCheckbox.checked = true;
+                    console.log('Auto-checked procedural for medical blockade');
+                }
+            },
+
+            // Инициализирует обработчики для процедурного кабинета
+            initialize: function(serviceSelectId, proceduralCheckboxId) {
+                const serviceSelect = document.getElementById(serviceSelectId);
+                const proceduralCheckbox = document.getElementById(proceduralCheckboxId);
+
+                if (!serviceSelect || !proceduralCheckbox) {
+                    console.warn('Service select or procedural checkbox not found');
+                    return;
+                }
+
+                // При изменении услуги проверяем на блокаду
+                serviceSelect.addEventListener('change', function() {
+                    window.AppointmentUtils.ProceduralManager.updateProceduralCheckbox(this, proceduralCheckbox);
+                });
+
+                // Проверяем при загрузке страницы
+                window.AppointmentUtils.ProceduralManager.updateProceduralCheckbox(serviceSelect, proceduralCheckbox);
             }
         },
 
