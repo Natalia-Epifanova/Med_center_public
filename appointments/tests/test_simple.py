@@ -1,7 +1,6 @@
 from django.test import TestCase
-from appointments.forms import AppointmentForm
+from appointments.forms.forms import AppointmentForm
 from timetable.models import Doctor, TimeSlot, MedicalService, Cabinet
-from patients.models import Patient
 from django.utils import timezone
 
 

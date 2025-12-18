@@ -78,6 +78,8 @@
                                 {% if is_medical_admin or is_admin %}
                                 <a href="{% url 'appointments:appointment_create_procedural' %}?date={{ selected_date|date:'Y-m-d' }}"
                                    class="btn btn-warning">
+                                    <i class="fas fa-plus"></i> Добавить запись в процедурный кабинет
+                                </a>
                                 {% endif %}
                                 {% if is_medical_admin or is_admin %}
                                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#emergencySlotModal">

@@ -1,7 +1,7 @@
 from django.test import TestCase
-from appointments.forms import AdditionalAppointmentForm
+from appointments.forms.forms import AdditionalAppointmentForm
 from appointments.tests.test_helpers import AppointmentTestMixin
-from timetable.models import Doctor, TimeSlot, MedicalService, Cabinet
+from timetable.models import TimeSlot, Cabinet
 from django.utils import timezone
 
 

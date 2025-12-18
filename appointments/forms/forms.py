@@ -1,191 +1,18 @@
+from django.db import transaction
+
+from appointments.forms.base import AppointmentBaseForm
 from appointments.models import Appointment, AppointmentBloodTest, AppointmentChain
-from appointments.services import AppointmentService
-from appointments.validators import AppointmentValidator
-from patients.mixins import PatientFieldsMixin
+from appointments.services import (
+    AppointmentService,
+    ProceduralAppointmentService,
+    ConsecutiveAppointmentService,
+)
 from patients.services import PatientService
-from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
 from timetable.models import BloodTest, MedicalService, TimeSlot, Doctor
-from timetable.utils import get_doctor_services, validate_pishchelev_restrictions
 import json
 from django import forms
-from django.forms import ModelForm
 from django.utils import timezone
 from django.core.exceptions import ValidationError
-
-
-class AppointmentBaseForm(
-    StyleFormMixin, PatientFieldsMixin, ServiceBasedFormMixin, ModelForm
-):
-    """Базовая форма для записи на прием"""
-
-    # РАСШИРЯЕМ существующие choices
-    APPOINTMENT_CHOICES = [
-        ("none", "Только одна услуга"),
-        ("additional", "Добавить вторую услугу к этому же врачу"),
-        ("two_slots", "Занять два окошка для одной услуги"),
-        ("another_doctor", "Добавить запись к другому врачу"),
-        ("multiple", "Несколько записей к разным врачам"),
-    ]
-
-    service = forms.ModelChoiceField(
-        queryset=MedicalService.objects.none(),
-        widget=forms.Select(attrs={"class": "form-select"}),
-        label="Услуга",
-    )
-
-    # ЗАМЕНЯЕМ appointment_type на appointment_chain_type
-    appointment_chain_type = forms.ChoiceField(
-        choices=APPOINTMENT_CHOICES,
-        initial="none",
-        widget=forms.RadioSelect(),
-        label="Тип записи",
-    )
-
-    additional_service = forms.ModelChoiceField(
-        queryset=MedicalService.objects.none(),
-        required=False,
-        widget=forms.Select(attrs={"class": "form-select"}),
-        label="Вторая услуга",
-    )
-
-    needs_procedural = forms.BooleanField(
-        required=False,
-        initial=False,
-        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
-        label="Занять окошко в процедурном кабинете",
-        help_text="Автоматически займет такое же время в процедурном кабинете",
-    )
-    procedural_appointments_data = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_procedural_appointments_data"}),
-        label="Данные процедурных записей",
-    )
-
-    total_sum = forms.DecimalField(
-        required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_total_sum"}),
-        decimal_places=2,
-        max_digits=10,
-        label="Итоговая сумма",
-    )
-
-    # НОВОЕ: Поле для хранения JSON данных дополнительных записей
-    additional_appointments_data = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_additional_appointments_data"}),
-        label="Данные дополнительных записей",
-    )
-
-    class Meta:
-        model = Appointment
-        fields = ["service", "insurance_type", "needs_reschedule", "comment"]
-        widgets = {
-            "insurance_type": forms.Select(attrs={"class": "form-select"}),
-            "needs_reschedule": forms.CheckboxInput(
-                attrs={"class": "form-check-input"}
-            ),
-            "comment": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
-        }
-        labels = {
-            "insurance_type": "Тип оплаты",
-            "needs_reschedule": "Требуется перезапись на более ранний срок",
-            "comment": "Комментарий",
-        }
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        # Если это редактирование существующей записи
-        if self.instance and self.instance.pk:
-            # Определяем тип цепочки на основе связанных записей
-            if self.instance.chain_type == Appointment.ChainType.MULTIPLE_DOCTORS:
-                self.fields["appointment_chain_type"].initial = "multiple"
-            elif self.instance.chain_type == Appointment.ChainType.SAME_DOCTOR:
-                if self.instance.occupies_two_slots:
-                    self.fields["appointment_chain_type"].initial = "two_slots"
-                else:
-                    self.fields["appointment_chain_type"].initial = "additional"
-            else:
-                self.fields["appointment_chain_type"].initial = "none"
-
-    def clean(self):
-        cleaned_data = super().clean()
-
-        # Валидация данных пациента
-        patient_data = self._get_patient_data()
-        cleaned_patient_data = PatientService.clean_patient_data(patient_data)
-
-        # Валидация дополнительной услуги для того же врача
-        appointment_chain_type = cleaned_data.get("appointment_chain_type")
-        additional_service = cleaned_data.get("additional_service")
-
-        if appointment_chain_type == "additional" and not additional_service:
-            raise ValidationError(
-                'При выборе опции "Добавить вторую услугу к этому же врачу" необходимо указать вторую услугу'
-            )
-
-        # Валидация для записи к другому врачу
-        if appointment_chain_type in ["another_doctor", "multiple"]:
-            additional_data = cleaned_data.get("additional_appointments_data")
-            if additional_data:
-                try:
-                    appointments_list = json.loads(additional_data)
-                    if not appointments_list:
-                        raise ValidationError(
-                            f'При выборе опции "{self.get_appointment_type_display(appointment_chain_type)}" необходимо добавить хотя бы одну дополнительную запись'
-                        )
-                except json.JSONDecodeError:
-                    raise ValidationError(
-                        "Неверный формат данных дополнительных записей"
-                    )
-
-        # Валидация последовательных записей
-        time_slot = getattr(self, "time_slot", None)
-        if appointment_chain_type in ["additional", "two_slots"] and time_slot:
-            current_time_slot = getattr(self, "current_time_slot", None)
-            AppointmentValidator.validate_consecutive_slot(time_slot, current_time_slot)
-
-        # ВАЛИДАЦИЯ ДЛЯ ВРАЧА ПИЩЕЛЕВА П.В.
-        self._validate_pishchelev_restrictions(cleaned_data)
-
-        return cleaned_data
-
-    def get_appointment_type_display(self, value):
-        """Получить отображаемое название типа записи"""
-        choices_dict = dict(self.APPOINTMENT_CHOICES)
-        return choices_dict.get(value, value)
-
-    def _validate_pishchelev_restrictions(self, cleaned_data):
-        """Проверка ограничений для врача Пищелева П.В."""
-        doctor = None
-
-        # Получаем врача в зависимости от контекста
-        if hasattr(self, "time_slot") and self.time_slot:
-            doctor = self.time_slot.doctor
-        elif hasattr(self, "current_appointment") and self.current_appointment:
-            doctor = self.current_appointment.doctor
-        elif hasattr(self, "doctor") and self.doctor:
-            doctor = self.doctor
-
-        service = cleaned_data.get("service")
-        time_slot = getattr(self, "time_slot", None)
-
-        # Используем утилиту для валидации
-        validate_pishchelev_restrictions(doctor, service, time_slot)
-
-    def _get_patient_data(self):
-        """Извлекает данные пациента"""
-        return {
-            field: self.cleaned_data.get(field)
-            for field in [
-                "surname",
-                "first_name",
-                "last_name",
-                "phone_number",
-                "card_number",
-                "date_of_birth",
-            ]
-        }
 
 
 class AppointmentForm(AppointmentBaseForm):
@@ -220,44 +47,28 @@ class AppointmentForm(AppointmentBaseForm):
         self.doctor = kwargs.pop("doctor", None)
         super().__init__(*args, **kwargs)
 
-        # ДЛЯ ОТЛАДКИ
-        print(f"DEBUG AppointmentForm: doctor = {self.doctor}")
-        print(
-            f"DEBUG AppointmentForm: doctor id = {self.doctor.id if self.doctor else 'None'}"
-        )
-        print(f"DEBUG AppointmentForm: time_slot = {self.time_slot}")
-        print(
-            f"DEBUG AppointmentForm: time_slot.doctor = {self.time_slot.doctor if self.time_slot else 'None'}"
-        )
+        # УСТАНАВЛИВАЕМ QUERYSET ДЛЯ УСЛУГ через сервис
+        from appointments.services import AppointmentService
 
         # Инициализируем поля с текущими значениями
         if self.time_slot:
             self.fields["new_time_slot_id"].initial = self.time_slot.id
             self.fields["new_appointment_date"].initial = self.time_slot.date
 
-        # УСТАНАВЛИВАЕМ QUERYSET ДЛЯ УСЛУГ
-        # Используем врача из time_slot если self.doctor не передан
+        # Определяем врача для использования
         doctor_to_use = self.doctor or (
             self.time_slot.doctor if self.time_slot else None
         )
+        # Используем сервис для инициализации queryset
+        AppointmentService.initialize_service_queryset(self, doctor_to_use)
 
+        # ДЛЯ ОТЛАДКИ (можно оставить или удалить)
         if doctor_to_use:
-            from timetable.utils import get_doctor_services
-
-            services = get_doctor_services(doctor_to_use)
-
-            # ДЛЯ ОТЛАДКИ
             print(
-                f"DEBUG: Found {services.count()} services for doctor {doctor_to_use}"
+                f"DEBUG: Found {self.fields['service'].queryset.count()} services for doctor {doctor_to_use}"
             )
-
-            self.fields["service"].queryset = services
-            # Также обновляем queryset для additional_service
-            self.fields["additional_service"].queryset = services
         else:
             print("DEBUG: No doctor provided to form")
-            self.fields["service"].queryset = MedicalService.objects.none()
-            self.fields["additional_service"].queryset = MedicalService.objects.none()
 
     def clean(self):
         cleaned_data = super().clean()
@@ -291,9 +102,11 @@ class AppointmentForm(AppointmentBaseForm):
 
         return cleaned_data
 
+    @transaction.atomic
     def save(self, commit=True):
+        """Сохраняет запись с транзакционной безопасностью"""
         # Создание/поиск пациента
-        patient_data = self._get_patient_data()
+        patient_data = self.get_patient_data()
         patient, created = PatientService.get_or_create_patient(patient_data)
 
         # Создание записи
@@ -317,39 +130,38 @@ class AppointmentForm(AppointmentBaseForm):
         if appointment_chain_type == "additional":
             appointment.chain_type = Appointment.ChainType.SAME_DOCTOR
         elif appointment_chain_type == "two_slots":
-            appointment.chain_type = Appointment.ChainType.SAME_DOCTOR
+            appointment.chain_type = Appointment.ChainType.SAME_DОCTOR
             appointment.occupies_two_slots = True
         elif appointment_chain_type in ["another_doctor", "multiple"]:
             appointment.chain_type = Appointment.ChainType.MULTIPLE_DOCTORS
         else:
             appointment.chain_type = Appointment.ChainType.SINGLE
 
-        # Сохраняем цену услуги
-        if appointment.service and not appointment.price_at_appointment:
-            appointment.price_at_appointment = appointment.service.price
+        self._set_appointment_price(appointment)
 
-        # Сохраняем общую сумму
+        # Сохраняем общую сумму из формы (если есть)
         total_sum = self.cleaned_data.get("total_sum")
         if total_sum:
             appointment.total_with_blood_tests = total_sum
-        else:
-            appointment.total_with_blood_tests = appointment.price_at_appointment
 
         if commit:
             try:
                 # ВАЖНО: Сначала сохраняем основную запись
                 appointment.save()
+                print(f"DEBUG: Основная запись создана, ID={appointment.id}")
 
                 # Проверка процедурной записи для ОСНОВНОЙ записи
                 if self.cleaned_data.get("needs_procedural"):
-                    if not AppointmentService.can_create_procedural_appointment(
+                    if not ProceduralAppointmentService.can_create_procedural_appointment(
                         appointment
                     ):
                         raise forms.ValidationError(
                             "Невозможно создать запись: выбранное время в процедурном кабинете уже занято."
                         )
                     procedural_appointment = (
-                        AppointmentService.create_procedural_appointment(appointment)
+                        ProceduralAppointmentService.create_procedural_appointment(
+                            appointment
+                        )
                     )
                     if procedural_appointment:
                         if not procedural_appointment.price_at_appointment:
@@ -360,23 +172,34 @@ class AppointmentForm(AppointmentBaseForm):
                             procedural_appointment.price_at_appointment
                         )
                         procedural_appointment.save()
+                        print(
+                            f"DEBUG: Процедурная запись для основной создана, ID={procedural_appointment.id}"
+                        )
 
                 # Обработка последовательных записей к тому же врачу
                 appointment_chain_type = self.cleaned_data.get("appointment_chain_type")
                 if appointment_chain_type in ["additional", "two_slots"]:
+                    # ПЕРЕДАЕМ needs_procedural_additional В СЕРВИС
                     needs_procedural_additional = self.cleaned_data.get(
                         "needs_procedural_additional", False
                     )
+                    print(
+                        f"DEBUG: Создание последовательной записи с needs_procedural_additional={needs_procedural_additional}"
+                    )
+
                     self._handle_consecutive_appointments(
                         appointment,
                         appointment_chain_type,
-                        needs_procedural_additional,
+                        needs_procedural_additional,  # ПЕРЕДАЕМ ФЛАГ
                     )
 
                 # Обработка дополнительных записей к другим врачам
                 if appointment_chain_type in ["another_doctor", "multiple"]:
                     self._handle_additional_appointments(appointment)
 
+            except forms.ValidationError:
+                # Пробрасываем ValidationError дальше
+                raise
             except Exception as e:
                 if "unique_doctor_time_slot" in str(e):
                     raise forms.ValidationError(
@@ -389,9 +212,28 @@ class AppointmentForm(AppointmentBaseForm):
                         "Пожалуйста, обновите страницу и попробуйте снова."
                     )
                 else:
-                    raise
+                    # Добавляем отладочную информацию
+                    import traceback
+
+                    print(f"DEBUG: Неожиданная ошибка при создании записи:")
+                    print(traceback.format_exc())
+                    raise forms.ValidationError(
+                        f"Неожиданная ошибка при создании записи: {str(e)}"
+                    )
 
         return appointment
+
+    def _set_appointment_price(self, appointment, service=None):
+        """Устанавливает цену услуги для записи"""
+        if not appointment.price_at_appointment:
+            if service:
+                appointment.price_at_appointment = service.price
+            elif appointment.service:
+                appointment.price_at_appointment = appointment.service.price
+
+        # Устанавливаем итоговую сумму
+        if not appointment.total_with_blood_tests:
+            appointment.total_with_blood_tests = appointment.price_at_appointment
 
     def _handle_consecutive_appointments(
         self,
@@ -401,99 +243,46 @@ class AppointmentForm(AppointmentBaseForm):
     ):
         """Обработка последовательных записей к тому же врачу"""
         if appointment_chain_type in ["additional", "two_slots"]:
-            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
+            try:
+                # Используем сервис для создания последовательной записи
+                consecutive_appointment = ConsecutiveAppointmentService.create_consecutive_appointment(
+                    main_appointment=main_appointment,
+                    appointment_chain_type=appointment_chain_type,
+                    additional_service=self.cleaned_data.get("additional_service"),
+                    needs_procedural_additional=needs_procedural_additional,  # ПЕРЕДАЕМ ФЛАГ
+                )
 
-            if next_slot and next_slot.is_available():
-                try:
-                    if appointment_chain_type == "additional":
-                        additional_service = self.cleaned_data.get("additional_service")
-                        if not additional_service:
-                            raise forms.ValidationError(
-                                "Для дополнительной услуги необходимо выбрать услугу"
-                            )
+                print(
+                    f"DEBUG: Последовательная запись создана успешно, ID={consecutive_appointment.id}"
+                )
 
-                        consecutive_appointment = Appointment(
-                            time_slot=next_slot,
-                            patient=main_appointment.patient,
-                            service=additional_service,
-                            insurance_type=main_appointment.insurance_type,
-                            status=main_appointment.status,
-                            is_consecutive=True,
-                            previous_appointment=main_appointment,  # Устанавливаем связь
-                            comment=f"Последовательная запись к {main_appointment.service.name}",
-                            chain_type=Appointment.ChainType.SAME_DOCTOR,
+                # ПРОВЕРЯЕМ, СОЗДАНА ЛИ ПРОЦЕДУРНАЯ ЗАПИСЬ
+                if needs_procedural_additional:
+                    # Проверяем, есть ли связанная процедурная запись
+                    procedural_exists = AppointmentChain.objects.filter(
+                        main_appointment=consecutive_appointment,
+                        chain_type=AppointmentChain.ChainType.PROCEDURAL,
+                    ).exists()
+
+                    if procedural_exists:
+                        print(f"DEBUG: Процедурная запись создана для второй услуги")
+                    else:
+                        print(
+                            f"DEBUG: Предупреждение: процедурная запись не создана для второй услуги"
                         )
 
-                        # СОХРАНЯЕМ ПОСЛЕДОВАТЕЛЬНУЮ ЗАПИСЬ ПЕРВОЙ
-                        if not consecutive_appointment.price_at_appointment:
-                            consecutive_appointment.price_at_appointment = (
-                                consecutive_appointment.service.price
-                            )
-                        consecutive_appointment.total_with_blood_tests = (
-                            consecutive_appointment.price_at_appointment
-                        )
+            except ValidationError as e:
+                # Перехватываем ValidationError и преобразуем в forms.ValidationError
+                raise forms.ValidationError(str(e))
+            except Exception as e:
+                import traceback
 
-                        # ВАЖНО: Сохраняем до создания процедурной записи
-                        consecutive_appointment.save()
-
-                        # ТЕПЕРЬ СОЗДАЕМ ПРОЦЕДУРНУЮ ЗАПИСЬ ЕСЛИ НУЖНО
-                        if needs_procedural_additional:
-                            print(
-                                f"DEBUG: Создаем процедурную запись для второй услуги ID={consecutive_appointment.id}"
-                            )
-                            self._create_procedural_for_consecutive_appointment(
-                                consecutive_appointment
-                            )
-
-                    else:  # two_slots
-                        consecutive_appointment = Appointment(
-                            time_slot=next_slot,
-                            patient=main_appointment.patient,
-                            service=main_appointment.service,
-                            insurance_type=main_appointment.insurance_type,
-                            status=main_appointment.status,
-                            is_consecutive=True,
-                            previous_appointment=main_appointment,
-                            occupies_two_slots=True,
-                            comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
-                            chain_type=Appointment.ChainType.SAME_DOCTOR,
-                        )
-
-                        # Сохраняем цену
-                        if not consecutive_appointment.price_at_appointment:
-                            consecutive_appointment.price_at_appointment = (
-                                consecutive_appointment.service.price
-                            )
-                        consecutive_appointment.total_with_blood_tests = (
-                            consecutive_appointment.price_at_appointment
-                        )
-
-                        # Сохраняем запись
-                        consecutive_appointment.save()
-
-                    # Создаем связь в цепочке (после сохранения записи)
-                    AppointmentChain.objects.create(
-                        main_appointment=main_appointment,
-                        related_appointment=consecutive_appointment,
-                        chain_type=(
-                            AppointmentChain.ChainType.SAME_DOCTOR_ADDITIONAL
-                            if appointment_chain_type == "additional"
-                            else AppointmentChain.ChainType.SAME_DOCTOR_TWO_SLOTS
-                        ),
-                        order=1,
-                    )
-
-                except Exception as e:
-                    import traceback
-
-                    error_details = traceback.format_exc()
-                    print(
-                        f"DEBUG: Подробная ошибка при создании последовательной записи:"
-                    )
-                    print(error_details)
-                    raise forms.ValidationError(
-                        f"Ошибка при создании последовательной записи: {str(e)}"
-                    )
+                error_details = traceback.format_exc()
+                print(f"DEBUG: Подробная ошибка при создании последовательной записи:")
+                print(error_details)
+                raise forms.ValidationError(
+                    f"Ошибка при создании последовательной записи: {str(e)}"
+                )
 
     def _handle_additional_appointments(self, main_appointment):
         """Обработка дополнительных записей к другим врачам"""
@@ -531,13 +320,14 @@ class AppointmentForm(AppointmentBaseForm):
                             f"DEBUG: Проверка процедурных данных для записи #{i}: {procedural_info}"
                         )
 
-                        # Создаем процедурную запись если нужно
+                        # Создаем процедурную запись если нужно (используем сервис)
                         if procedural_info and procedural_info.get("needs_procedural"):
                             print(
                                 f"DEBUG: Создаем процедурную запись для дополнительной записи #{i}"
                             )
-                            self._create_procedural_for_additional_appointment(
-                                additional_appointment
+                            ProceduralAppointmentService.create_procedural_for_appointment(
+                                additional_appointment,
+                                main_appointment=additional_appointment,
                             )
 
                 except (json.JSONDecodeError, KeyError) as e:
@@ -586,12 +376,7 @@ class AppointmentForm(AppointmentBaseForm):
             )
 
             # Сохраняем цену
-            if not additional_appointment.price_at_appointment:
-                additional_appointment.price_at_appointment = service.price
-            additional_appointment.total_with_blood_tests = (
-                additional_appointment.price_at_appointment
-            )
-            additional_appointment.save()
+            self._set_appointment_price(additional_appointment, service)
 
             print(
                 f"DEBUG: Дополнительная запись #{order} создана успешно, ID={additional_appointment.id}"
@@ -619,110 +404,6 @@ class AppointmentForm(AppointmentBaseForm):
             raise forms.ValidationError(
                 f"Ошибка создания дополнительной записи: {str(e)}"
             )
-
-    def _create_procedural_for_consecutive_appointment(self, consecutive_appointment):
-        """Создание процедурной записи для последовательной записи"""
-        try:
-            from appointments.services import AppointmentService
-
-            print(
-                f"DEBUG: Проверяем возможность создания процедурной записи для ID={consecutive_appointment.id}"
-            )
-
-            if not AppointmentService.can_create_procedural_appointment(
-                consecutive_appointment
-            ):
-                print(f"DEBUG: Невозможно создать процедурную запись - время занято")
-                return None
-
-            print(
-                f"DEBUG: Создаем процедурную запись для последовательной записи ID={consecutive_appointment.id}"
-            )
-
-            # Создаем процедурную запись
-            procedural_appointment = AppointmentService.create_procedural_appointment(
-                consecutive_appointment
-            )
-
-            if procedural_appointment:
-                if not procedural_appointment.price_at_appointment:
-                    procedural_appointment.price_at_appointment = (
-                        procedural_appointment.service.price
-                    )
-                procedural_appointment.total_with_blood_tests = (
-                    procedural_appointment.price_at_appointment
-                )
-                procedural_appointment.save()
-
-                # Создаем связь в цепочке
-                AppointmentChain.objects.create(
-                    main_appointment=consecutive_appointment,
-                    related_appointment=procedural_appointment,
-                    chain_type=AppointmentChain.ChainType.PROCEDURAL,
-                    order=1,
-                )
-
-                print(
-                    f"DEBUG: Процедурная запись создана успешно, ID={procedural_appointment.id}"
-                )
-                return procedural_appointment
-
-        except Exception as e:
-            print(
-                f"DEBUG: Ошибка при создании процедурной записи для последовательной записи: {e}"
-            )
-            # Не прерываем создание основной записи
-            return None
-
-    def _create_procedural_for_additional_appointment(self, additional_appointment):
-        """Создание процедурной записи для дополнительной записи"""
-        try:
-            from appointments.services import AppointmentService
-
-            print(
-                f"DEBUG: Проверяем возможность создания процедурной записи для ID={additional_appointment.id}"
-            )
-
-            if not AppointmentService.can_create_procedural_appointment(
-                additional_appointment
-            ):
-                print(f"DEBUG: Невозможно создать процедурную запись - время занято")
-                return None
-
-            print(
-                f"DEBUG: Создаем процедурную запись для дополнительной записи ID={additional_appointment.id}"
-            )
-            procedural_appointment = AppointmentService.create_procedural_appointment(
-                additional_appointment
-            )
-
-            if procedural_appointment:
-                if not procedural_appointment.price_at_appointment:
-                    procedural_appointment.price_at_appointment = (
-                        procedural_appointment.service.price
-                    )
-                procedural_appointment.total_with_blood_tests = (
-                    procedural_appointment.price_at_appointment
-                )
-                procedural_appointment.save()
-
-                # Создаем связь в цепочке
-                AppointmentChain.objects.create(
-                    main_appointment=additional_appointment,
-                    related_appointment=procedural_appointment,
-                    chain_type=AppointmentChain.ChainType.PROCEDURAL,
-                    order=1,
-                )
-
-                print(
-                    f"DEBUG: Процедурная запись создана успешно, ID={procedural_appointment.id}"
-                )
-                return procedural_appointment
-
-        except Exception as e:
-            print(f"DEBUG: Ошибка при создании процедурной записи: {e}")
-            # Не прерываем создание основной записи
-            return None
 
 
 class AppointmentUpdateForm(AppointmentBaseForm):
@@ -784,23 +465,18 @@ class AppointmentUpdateForm(AppointmentBaseForm):
 
     def _set_service_queryset(self):
         """Устанавливает queryset для поля service с учетом врача"""
+        from appointments.services import AppointmentService
 
-        # Получаем врача из текущей записи
-        doctor = self.current_appointment.doctor if self.current_appointment else None
+        # Получаем врача через сервис
+        doctor = AppointmentService.get_doctor_for_form(self)
 
         # Получаем текущую услугу если есть
         current_service = None
         if self.current_appointment and self.current_appointment.service:
             current_service = self.current_appointment.service
 
-        # Используем утилиту для получения услуг врача
-        services_queryset = get_doctor_services(doctor, current_service)
-
-        self.fields["service"].queryset = services_queryset
-
-        # Также обновляем queryset для additional_service
-        if "additional_service" in self.fields:
-            self.fields["additional_service"].queryset = services_queryset
+        # Используем сервис для инициализации queryset
+        AppointmentService.initialize_service_queryset(self, doctor, current_service)
 
     def _set_initial_values(self):
         """Установка начальных значений"""
@@ -857,7 +533,7 @@ class AppointmentUpdateForm(AppointmentBaseForm):
             appointment.time_slot = time_slot
 
         # Обновление пациента
-        patient_data = self._get_patient_data()
+        patient_data = self.get_patient_data()
         patient, created = PatientService.get_or_create_patient(patient_data)
         appointment.patient = patient
 
@@ -893,15 +569,17 @@ class AppointmentUpdateForm(AppointmentBaseForm):
 
         if needs_procedural:
             if existing_procedural:
-                # Обновляем существующую процедурную запись
-                self._update_procedural_appointment(
+                # Обновляем существующую процедурную запись через сервис
+                ProceduralAppointmentService.update_procedural_appointment(
                     main_appointment, existing_procedural
-                )
+                )  # ИЗМЕНЕНИЕ
             else:
-                # Создаем новую процедурную запись
+                # Создаем новую процедурную запись через сервис
                 procedural_appointment = (
-                    AppointmentService.create_procedural_appointment(main_appointment)
-                )
+                    ProceduralAppointmentService.create_procedural_appointment(
+                        main_appointment
+                    )
+                )  # ИЗМЕНЕНИЕ
                 # ВАЖНО: Сохраняем сумму для процедурной записи
                 if procedural_appointment:
                     if not procedural_appointment.price_at_appointment:
@@ -1109,7 +787,7 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
 
     def save(self, commit=True):
         # Создание/поиск пациента
-        patient_data = self._get_patient_data()
+        patient_data = self.get_patient_data()
         patient, created = PatientService.get_or_create_patient(patient_data)
 
         # Создание записи
@@ -1179,32 +857,16 @@ class ProceduralAppointmentForm(AppointmentBaseForm):
 
     def create_procedural_slot(self, start_time, end_time):
         """Создает или находит существующий временной слот для процедурного кабинета"""
-        from timetable.models import Cabinet, Doctor, TimeSlot
-
         try:
-            procedural_cabinet = Cabinet.objects.get(number=6)
-            nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
             date = self.selected_date or timezone.now().date()
 
-            time_slot = TimeSlot.objects.filter(
+            # Используем сервис для создания/получения слота
+            time_slot = ProceduralAppointmentService.create_or_get_procedural_slot(
                 date=date,
-                cabinet=procedural_cabinet,
-                doctor=nurse_doctor,
                 start_time=start_time,
                 end_time=end_time,
-                slot_type="working",
-            ).first()
-
-            if not time_slot:
-                time_slot = TimeSlot.objects.create(
-                    date=date,
-                    cabinet=procedural_cabinet,
-                    doctor=nurse_doctor,
-                    start_time=start_time,
-                    end_time=end_time,
-                    slot_type="working",
-                    description="Процедурный кабинет - индивидуальная запись",
-                )
+                doctor=self.doctor if hasattr(self, "doctor") else None,
+            )
 
             return time_slot
         except Exception as e:
@@ -1277,7 +939,7 @@ class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
         appointment.time_slot = time_slot
 
         # Обновляем пациента
-        patient_data = self._get_patient_data()
+        patient_data = self.get_patient_data()
         patient, created = PatientService.get_or_create_patient(patient_data)
         appointment.patient = patient
 
@@ -1432,16 +1094,31 @@ class AdditionalAppointmentForm(forms.Form):
 
     def set_service_queryset(self, doctor):
         """Устанавливает queryset услуг для выбранного врача"""
-        from timetable.utils import get_doctor_services
-
         if doctor:
-            services = get_doctor_services(doctor)
-            self.fields["service"].queryset = services
+            # Используем сервис для инициализации queryset
+            from appointments.services import AppointmentService
+
+            # Создаем временный объект формы для использования сервиса
+            class TempForm:
+                def __init__(self, doctor):
+                    self.doctor = doctor
+                    self.fields = {
+                        "service": type(
+                            "Field", (), {"queryset": MedicalService.objects.none()}
+                        ),
+                        "additional_service": type(
+                            "Field", (), {"queryset": MedicalService.objects.none()}
+                        ),
+                    }
+
+            temp_form = TempForm(doctor)
+            AppointmentService.initialize_service_queryset(temp_form, doctor)
+
+            self.fields["service"].queryset = temp_form.fields["service"].queryset
             self.fields["service"].widget.attrs.pop("disabled", None)
 
     def set_time_slot_queryset(self, doctor, date):
         """Устанавливает queryset слотов для выбранного врача и даты"""
-        from appointments.services import AppointmentService
 
         if doctor and date:
             # Получаем доступные слоты

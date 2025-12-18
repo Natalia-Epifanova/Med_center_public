@@ -2,17 +2,16 @@ import json
 from datetime import datetime
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, UpdateView
 
-from appointments.forms import (
+from appointments.forms.forms import (
     AppointmentForm,
     AppointmentUpdateForm,
     ProceduralAppointmentForm,
@@ -68,6 +67,16 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     def get_success_url(self):
         # Теперь self.object будет доступен
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
+
+
+class AppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
+    model = Appointment
+    template_name = "appointments/appointment_detail.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["related_appointments"] = self.object.get_chain_appointments()
+        return context
 
 
 class AppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):

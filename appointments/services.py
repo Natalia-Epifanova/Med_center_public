@@ -217,3 +217,544 @@ class AppointmentService:
                 available_slots.append(slot)
 
         return available_slots
+
+    @staticmethod
+    def initialize_service_queryset(form, doctor, current_service=None):
+        """Инициализирует queryset услуг для формы с учетом врача"""
+        from timetable.utils import get_doctor_services
+
+        if doctor:
+            services = get_doctor_services(doctor, current_service)
+            form.fields["service"].queryset = services
+
+            # Также обновляем queryset для additional_service если есть такое поле
+            if "additional_service" in form.fields:
+                form.fields["additional_service"].queryset = services
+
+            return True
+        else:
+            form.fields["service"].queryset = MedicalService.objects.none()
+            if "additional_service" in form.fields:
+                form.fields["additional_service"].queryset = (
+                    MedicalService.objects.none()
+                )
+            return False
+
+    @staticmethod
+    def get_doctor_for_form(form_instance):
+        """Получает объект врача для формы из разных источников"""
+        # Пытаемся получить врача в порядке приоритета
+        if hasattr(form_instance, "time_slot") and form_instance.time_slot:
+            return form_instance.time_slot.doctor
+        elif hasattr(form_instance, "doctor") and form_instance.doctor:
+            return form_instance.doctor
+        elif (
+            hasattr(form_instance, "current_appointment")
+            and form_instance.current_appointment
+        ):
+            return form_instance.current_appointment.doctor
+        return None
+
+
+class ProceduralAppointmentService:
+    """Сервис для работы с процедурными записями"""
+
+    @staticmethod
+    def get_procedural_cabinet():
+        """Получает процедурный кабинет (№6)"""
+        try:
+            return Cabinet.objects.get(number=6)
+        except Cabinet.DoesNotExist:
+            raise ValidationError("Процедурный кабинет №6 не найден в системе")
+
+    @staticmethod
+    def get_nurse_doctor():
+        """Получает врача-медсестру или возвращает врача по умолчанию"""
+        nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
+        return nurse_doctor
+
+    @staticmethod
+    def create_or_get_procedural_slot(date, start_time, end_time, doctor=None):
+        """Создает или находит существующий слот в процедурном кабинете"""
+        procedural_cabinet = ProceduralAppointmentService.get_procedural_cabinet()
+        nurse_doctor = ProceduralAppointmentService.get_nurse_doctor() or doctor
+
+        time_slot = TimeSlot.objects.filter(
+            date=date,
+            cabinet=procedural_cabinet,
+            doctor=nurse_doctor,
+            start_time=start_time,
+            end_time=end_time,
+            slot_type="working",
+        ).first()
+
+        if not time_slot:
+            time_slot = TimeSlot.objects.create(
+                date=date,
+                cabinet=procedural_cabinet,
+                doctor=nurse_doctor,
+                start_time=start_time,
+                end_time=end_time,
+                slot_type="working",
+                description="Процедурный кабинет - индивидуальная запись",
+            )
+
+        return time_slot
+
+    @staticmethod
+    def create_procedural_appointment(main_appointment):
+        """Создание записи в процедурном кабинете для основной записи"""
+        from .models import Appointment
+
+        procedural_cabinet = ProceduralAppointmentService.get_procedural_cabinet()
+        nurse_doctor = (
+            ProceduralAppointmentService.get_nurse_doctor() or main_appointment.doctor
+        )
+
+        # Проверка конфликтов
+        conflicting_slots = TimeSlot.get_conflicting_slots(
+            date=main_appointment.time_slot.date,
+            start_time=main_appointment.time_slot.start_time,
+            end_time=main_appointment.time_slot.end_time,
+            cabinet=procedural_cabinet,
+        ).filter(appointments__isnull=False)
+
+        if conflicting_slots.exists():
+            raise ValidationError(
+                "Выбранное время в процедурном кабинете уже занято. "
+                "Пожалуйста, выберите другое время."
+            )
+
+        # Создание слота
+        procedural_slot = TimeSlot.objects.create(
+            date=main_appointment.time_slot.date,
+            cabinet=procedural_cabinet,
+            doctor=nurse_doctor,
+            start_time=main_appointment.time_slot.start_time,
+            end_time=main_appointment.time_slot.end_time,
+            slot_type="working",
+            description="Процедурный кабинет",
+        )
+
+        # Создание записи
+        procedural_appointment = Appointment.objects.create(
+            time_slot=procedural_slot,
+            patient=main_appointment.patient,
+            service=main_appointment.service,
+            insurance_type=main_appointment.insurance_type,
+            status=main_appointment.status,
+            comment=main_appointment.doctor.surname,
+            is_consecutive=True,
+            previous_appointment=main_appointment,
+        )
+
+        return procedural_appointment
+
+    @staticmethod
+    def can_create_procedural_appointment(main_appointment):
+        """Проверка возможности создания процедурной записи"""
+        try:
+            procedural_cabinet = ProceduralAppointmentService.get_procedural_cabinet()
+
+            occupied_conflicting_slots = TimeSlot.get_conflicting_slots(
+                date=main_appointment.time_slot.date,
+                start_time=main_appointment.time_slot.start_time,
+                end_time=main_appointment.time_slot.end_time,
+                cabinet=procedural_cabinet,
+            ).filter(appointments__isnull=False)
+
+            return not occupied_conflicting_slots.exists()
+        except Exception:
+            return False
+
+    @staticmethod
+    def update_procedural_appointment(main_appointment, existing_procedural):
+        """Обновляет существующую процедурную запись на новое время"""
+        procedural_cabinet = ProceduralAppointmentService.get_procedural_cabinet()
+        nurse_doctor = (
+            ProceduralAppointmentService.get_nurse_doctor() or main_appointment.doctor
+        )
+
+        # Проверяем, нужно ли создавать новый слот или использовать существующий
+        new_procedural_slot = TimeSlot.objects.filter(
+            date=main_appointment.time_slot.date,
+            cabinet=procedural_cabinet,
+            start_time=main_appointment.time_slot.start_time,
+            end_time=main_appointment.time_slot.end_time,
+            slot_type="working",
+        ).first()
+
+        if not new_procedural_slot:
+            # Создаем новый слот в процедурном кабинете
+            new_procedural_slot = TimeSlot.objects.create(
+                date=main_appointment.time_slot.date,
+                cabinet=procedural_cabinet,
+                doctor=nurse_doctor,
+                start_time=main_appointment.time_slot.start_time,
+                end_time=main_appointment.time_slot.end_time,
+                slot_type="working",
+                description=f"Процедурный кабинет - {main_appointment.doctor.surname}",
+            )
+
+        # Обновляем процедурную запись
+        existing_procedural.time_slot = new_procedural_slot
+        existing_procedural.service = main_appointment.service
+        existing_procedural.insurance_type = main_appointment.insurance_type
+        existing_procedural.status = main_appointment.status
+        existing_procedural.comment = main_appointment.doctor.surname
+
+        # ВАЖНО: Сохраняем сумму
+        if not existing_procedural.price_at_appointment:
+            existing_procedural.price_at_appointment = existing_procedural.service.price
+        existing_procedural.total_with_blood_tests = (
+            existing_procedural.price_at_appointment
+        )
+
+        existing_procedural.save()
+        return existing_procedural
+
+    @staticmethod
+    def create_procedural_for_appointment(appointment, main_appointment=None):
+        """Создает процедурную запись для указанной записи"""
+        from .models import AppointmentChain
+
+        if not ProceduralAppointmentService.can_create_procedural_appointment(
+            appointment
+        ):
+            return None
+
+        procedural_appointment = (
+            ProceduralAppointmentService.create_procedural_appointment(appointment)
+        )
+
+        if procedural_appointment:
+            if not procedural_appointment.price_at_appointment:
+                procedural_appointment.price_at_appointment = (
+                    procedural_appointment.service.price
+                )
+            procedural_appointment.total_with_blood_tests = (
+                procedural_appointment.price_at_appointment
+            )
+            procedural_appointment.save()
+
+            # Определяем главную запись для связи
+            chain_main = main_appointment if main_appointment else appointment
+
+            # Создаем связь в цепочке
+            AppointmentChain.objects.create(
+                main_appointment=chain_main,
+                related_appointment=procedural_appointment,
+                chain_type=AppointmentChain.ChainType.PROCEDURAL,
+                order=1,
+            )
+
+            return procedural_appointment
+
+        return None
+
+    @staticmethod
+    @transaction.atomic
+    def create_consecutive_appointment(
+        main_appointment,
+        appointment_chain_type,
+        additional_service=None,
+        needs_procedural_additional=False,
+    ):
+        """Создание последовательной записи у того же врача"""
+        from django.core.exceptions import ValidationError
+
+        next_slot = main_appointment.time_slot.get_next_consecutive_slot()
+
+        if not next_slot:
+            raise ValidationError(
+                "Нет следующего временного слота для последовательной записи"
+            )
+
+        if not next_slot.is_available():
+            raise ValidationError("Следующий временной слот уже занят")
+
+        try:
+            if appointment_chain_type == "additional":
+                if not additional_service:
+                    raise ValidationError(
+                        "Для дополнительной услуги необходимо выбрать услугу"
+                    )
+
+                # Проверяем, нужно ли создать процедурную запись и доступно ли время
+                if needs_procedural_additional:
+                    # Создаем временный объект для проверки
+                    temp_consecutive_appointment = Appointment(
+                        time_slot=next_slot,
+                        patient=main_appointment.patient,
+                        service=additional_service,
+                        insurance_type=main_appointment.insurance_type,
+                        status=main_appointment.status,
+                    )
+
+                    # Проверяем доступность процедурного кабинета
+                    if not ProceduralAppointmentService.can_create_procedural_appointment(
+                        temp_consecutive_appointment
+                    ):
+                        raise ValidationError(
+                            "Выбранное время в процедурном кабинете уже занято. "
+                            "Невозможно создать процедурную запись для второй услуги."
+                        )
+
+                consecutive_appointment = Appointment.objects.create(
+                    time_slot=next_slot,
+                    patient=main_appointment.patient,
+                    service=additional_service,
+                    insurance_type=main_appointment.insurance_type,
+                    status=main_appointment.status,
+                    is_consecutive=True,
+                    comment=f"Последовательная запись к {main_appointment.service.name}",
+                    chain_type=Appointment.ChainType.SAME_DOCTOR,
+                )
+
+            elif appointment_chain_type == "two_slots":
+                consecutive_appointment = Appointment.objects.create(
+                    time_slot=next_slot,
+                    patient=main_appointment.patient,
+                    service=main_appointment.service,
+                    insurance_type=main_appointment.insurance_type,
+                    status=main_appointment.status,
+                    is_consecutive=True,
+                    occupies_two_slots=True,
+                    comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
+                    chain_type=Appointment.ChainType.SAME_DOCTOR,
+                )
+            else:
+                raise ValidationError(
+                    f"Неизвестный тип последовательной записи: {appointment_chain_type}"
+                )
+
+            # Сохраняем цену
+            if not consecutive_appointment.price_at_appointment:
+                consecutive_appointment.price_at_appointment = (
+                    consecutive_appointment.service.price
+                )
+            consecutive_appointment.total_with_blood_tests = (
+                consecutive_appointment.price_at_appointment
+            )
+            consecutive_appointment.save()
+
+            # Создаем связь в цепочке
+            AppointmentChain.objects.create(
+                main_appointment=main_appointment,
+                related_appointment=consecutive_appointment,
+                chain_type=(
+                    AppointmentChain.ChainType.SAME_DOCTOR_ADDITIONAL
+                    if appointment_chain_type == "additional"
+                    else AppointmentChain.ChainType.SAME_DOCTOR_TWO_SLOTS
+                ),
+                order=1,
+            )
+
+            # Создаем процедурную запись если нужно (после сохранения основной)
+            if needs_procedural_additional and appointment_chain_type == "additional":
+                print(f"DEBUG: Создание процедурной записи для второй услуги...")
+                procedural_appointment = (
+                    ProceduralAppointmentService.create_procedural_for_appointment(
+                        consecutive_appointment,
+                        main_appointment=consecutive_appointment,
+                    )
+                )
+
+                if not procedural_appointment:
+                    # Если не удалось создать процедурную запись, откатываем все
+                    consecutive_appointment.delete()
+                    raise ValidationError(
+                        "Не удалось создать процедурную запись. Возможно, время уже занято."
+                    )
+
+                print(
+                    f"DEBUG: Процедурная запись создана для второй услуги, ID={procedural_appointment.id}"
+                )
+
+            return consecutive_appointment
+
+        except ValidationError:
+            # Пробрасываем ValidationError дальше
+            raise
+        except Exception as e:
+            raise ValidationError(
+                f"Ошибка при создании последовательной записи: {str(e)}"
+            )
+
+
+class ConsecutiveAppointmentService:
+    """Сервис для работы с последовательными записями у одного врача"""
+
+    @staticmethod
+    @transaction.atomic
+    def create_consecutive_appointment(
+        main_appointment,
+        appointment_chain_type,
+        additional_service=None,
+        needs_procedural_additional=False,
+    ):
+        """Создание последовательной записи у того же врача"""
+        from django.core.exceptions import ValidationError
+
+        next_slot = main_appointment.time_slot.get_next_consecutive_slot()
+
+        if not next_slot:
+            raise ValidationError(
+                "Нет следующего временного слота для последовательной записи"
+            )
+
+        if not next_slot.is_available():
+            raise ValidationError("Следующий временной слот уже занят")
+
+        try:
+            if appointment_chain_type == "additional":
+                if not additional_service:
+                    raise ValidationError(
+                        "Для дополнительной услуги необходимо выбрать услугу"
+                    )
+
+                # Проверяем, нужно ли создать процедурную запись
+                if needs_procedural_additional:
+                    print(
+                        f"DEBUG: Создание процедурной записи для дополнительной услуги. needs_procedural_additional={needs_procedural_additional}"
+                    )
+
+                    # Проверяем доступность процедурного кабинета
+                    if not ProceduralAppointmentService.can_create_procedural_appointment(
+                        main_appointment  # Проверяем для основной записи, так как время то же
+                    ):
+                        raise ValidationError(
+                            "Выбранное время в процедурном кабинете уже занято. "
+                            "Невозможно создать процедурную запись для второй услуги."
+                        )
+
+                # Создаем последовательную запись
+                consecutive_appointment = Appointment.objects.create(
+                    time_slot=next_slot,
+                    patient=main_appointment.patient,
+                    service=additional_service,
+                    insurance_type=main_appointment.insurance_type,
+                    status=main_appointment.status,
+                    is_consecutive=True,
+                    comment=f"Последовательная запись к {main_appointment.service.name}",
+                    chain_type=Appointment.ChainType.SAME_DOCTOR,
+                )
+
+                # Сохраняем цену
+                if not consecutive_appointment.price_at_appointment:
+                    consecutive_appointment.price_at_appointment = (
+                        consecutive_appointment.service.price
+                    )
+                consecutive_appointment.total_with_blood_tests = (
+                    consecutive_appointment.price_at_appointment
+                )
+                consecutive_appointment.save()
+
+                # Создаем связь в цепочке
+                AppointmentChain.objects.create(
+                    main_appointment=main_appointment,
+                    related_appointment=consecutive_appointment,
+                    chain_type=AppointmentChain.ChainType.SAME_DOCTOR_ADDITIONAL,
+                    order=1,
+                )
+
+                # СОЗДАЕМ ПРОЦЕДУРНУЮ ЗАПИСЬ ЕСЛИ НУЖНО
+                if needs_procedural_additional:
+                    print(
+                        f"DEBUG: Выполняется создание процедурной записи для дополнительной услуги"
+                    )
+
+                    # Создаем временный объект для процедурной записи
+                    temp_appointment_for_procedural = Appointment(
+                        time_slot=main_appointment.time_slot,  # Используем то же время что и основная
+                        patient=main_appointment.patient,
+                        service=additional_service,
+                        insurance_type=main_appointment.insurance_type,
+                        status=main_appointment.status,
+                    )
+
+                    # Создаем процедурную запись через сервис
+                    procedural_appointment = (
+                        ProceduralAppointmentService.create_procedural_for_appointment(
+                            consecutive_appointment,
+                            main_appointment=consecutive_appointment,
+                        )
+                    )
+
+                    if procedural_appointment:
+                        print(
+                            f"DEBUG: Процедурная запись для второй услуги создана, ID={procedural_appointment.id}"
+                        )
+
+                        # Сохраняем цену процедурной записи
+                        if not procedural_appointment.price_at_appointment:
+                            procedural_appointment.price_at_appointment = (
+                                procedural_appointment.service.price
+                            )
+                        procedural_appointment.total_with_blood_tests = (
+                            procedural_appointment.price_at_appointment
+                        )
+                        procedural_appointment.save()
+                    else:
+                        print(
+                            f"DEBUG: Не удалось создать процедурную запись для второй услуги"
+                        )
+                        # НЕ удаляем последовательную запись, так как процедурный кабинет не обязателен
+
+                print(
+                    f"DEBUG: Последовательная запись создана, ID={consecutive_appointment.id}"
+                )
+                return consecutive_appointment
+
+            elif appointment_chain_type == "two_slots":
+                consecutive_appointment = Appointment.objects.create(
+                    time_slot=next_slot,
+                    patient=main_appointment.patient,
+                    service=main_appointment.service,
+                    insurance_type=main_appointment.insurance_type,
+                    status=main_appointment.status,
+                    is_consecutive=True,
+                    occupies_two_slots=True,
+                    comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
+                    chain_type=Appointment.ChainType.SAME_DOCTOR,
+                )
+
+                # Сохраняем цену
+                if not consecutive_appointment.price_at_appointment:
+                    consecutive_appointment.price_at_appointment = (
+                        consecutive_appointment.service.price
+                    )
+                consecutive_appointment.total_with_blood_tests = (
+                    consecutive_appointment.price_at_appointment
+                )
+                consecutive_appointment.save()
+
+                # Создаем связь в цепочке
+                AppointmentChain.objects.create(
+                    main_appointment=main_appointment,
+                    related_appointment=consecutive_appointment,
+                    chain_type=AppointmentChain.ChainType.SAME_DOCTOR_TWO_SLOTS,
+                    order=1,
+                )
+
+                print(
+                    f"DEBUG: Запись на два слота создана, ID={consecutive_appointment.id}"
+                )
+                return consecutive_appointment
+
+            else:
+                raise ValidationError(
+                    f"Неизвестный тип последовательной записи: {appointment_chain_type}"
+                )
+
+        except ValidationError:
+            # Пробрасываем ValidationError дальше
+            raise
+        except Exception as e:
+            import traceback
+
+            print(f"DEBUG: Ошибка в create_consecutive_appointment:")
+            print(traceback.format_exc())
+            raise ValidationError(
+                f"Ошибка при создании последовательной записи: {str(e)}"
+            )
