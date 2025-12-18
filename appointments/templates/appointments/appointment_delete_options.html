@@ -1,0 +1,194 @@
+<!-- templates/appointments/appointment_delete_options.html -->
+{% extends "timetable/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-trash"></i> Удаление записи #{{ appointment.id }}
+            </h5>
+            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+               class="btn btn-sm btn-light">
+                <i class="fas fa-arrow-left"></i> Отмена
+            </a>
+        </div>
+
+        <div class="card-body">
+            <!-- Информация о записи -->
+            <div class="alert alert-warning mb-4">
+                <h6><i class="fas fa-exclamation-triangle"></i> Внимание!</h6>
+                Вы собираетесь удалить запись. Это действие необратимо.
+            </div>
+
+            <!-- Детали записи -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h6>Информация о записи:</h6>
+                    <div class="card">
+                        <div class="card-body">
+                            <p><strong>Пациент:</strong> {{ appointment.patient.get_full_name }}</p>
+                            <p><strong>Врач:</strong> {{ appointment.doctor.get_full_name }}</p>
+                            <p><strong>Время:</strong> {{ appointment.date|date:"d.m.Y" }} {{ appointment.start_time|time:"H:i" }}-{{ appointment.end_time|time:"H:i" }}</p>
+                            <p><strong>Услуга:</strong> {{ appointment.service.name }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Связанные записи -->
+            {% if has_related %}
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <div class="alert alert-danger">
+                        <h6><i class="fas fa-exclamation-circle"></i> Обнаружены связанные записи!</h6>
+                        <p>Эта запись связана с другими записями пациента.</p>
+                        <!-- Отладочная информация -->
+                        <small class="text-muted">
+                            ID записей для удаления:
+                            {% for app in related_appointments %}
+                                {{ app.id }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </small>
+                    </div>
+
+                    <h6>Связанные записи:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-danger">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Время</th>
+                                    <th>Врач</th>
+                                    <th>Услуга</th>
+                                    <th>Кабинет</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for app in related_appointments %}
+                                <tr class="{% if app.id == appointment.id %}table-warning{% endif %}">
+                                    <td>
+                                        {% if app.id == appointment.id %}
+                                        <strong>Основная</strong>
+                                        {% else %}
+                                        {{ forloop.counter }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ app.start_time|time:"H:i" }}</td>
+                                    <td>{{ app.doctor.surname }}</td>
+                                    <td>{{ app.service.name }}</td>
+                                    <td>Каб. {{ app.cabinet.number }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Форма выбора опций удаления -->
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <h6><i class="fas fa-cog"></i> Выберите способ удаления:</h6>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="action"
+                                   id="action_single" value="single" checked>
+                            <label class="form-check-label" for="action_single">
+                                <strong>Удалить только эту запись</strong><br>
+                                <small class="text-muted">
+                                    Будет удалена только эта запись. Связанные записи останутся в расписании.
+                                </small>
+                            </label>
+                        </div>
+
+                        {% if has_related %}
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="action"
+                                   id="action_with_related" value="with_related">
+                            <label class="form-check-label" for="action_with_related">
+                                <strong>Удалить все связанные записи ({{ related_appointments|length }})</strong><br>
+                                <small class="text-muted">
+                                    Будет удалена вся цепочка записей пациента на этот день.
+                                </small>
+                            </label>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Предупреждение -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-exclamation-triangle"></i> Важно!</h6>
+                            <ul class="mb-0">
+                                <li>Это действие нельзя отменить</li>
+                                <li>Записи будут удалены из расписания</li>
+                                <li>Связанные временные слоты станут свободными</li>
+                                {% if has_related %}
+                                <li>Всего будет удалено записей: {{ related_appointments|length }}</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопки подтверждения -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+                               class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+
+                            <div>
+                                <button type="submit" class="btn btn-danger"
+                                        onclick="return confirm('Вы уверены, что хотите удалить запись? Это действие необратимо.')">
+                                    <i class="fas fa-trash"></i> Удалить запись
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript для изменения текста подтверждения -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteBtn = document.querySelector('button[type="submit"]');
+    const singleRadio = document.getElementById('action_single');
+    const relatedRadio = document.getElementById('action_with_related');
+
+    function updateConfirmMessage() {
+        if (relatedRadio && relatedRadio.checked) {
+            deleteBtn.onclick = function() {
+                return confirm('Вы уверены, что хотите удалить ВСЕ {{ related_appointments|length }} связанных записей? Это действие необратимо.');
+            };
+        } else {
+            deleteBtn.onclick = function() {
+                return confirm('Вы уверены, что хотите удалить эту запись? Это действие необратимо.');
+            };
+        }
+    }
+
+    if (singleRadio) {
+        singleRadio.addEventListener('change', updateConfirmMessage);
+    }
+    if (relatedRadio) {
+        relatedRadio.addEventListener('change', updateConfirmMessage);
+    }
+
+    // Инициализируем
+    updateConfirmMessage();
+});
+</script>
+{% endblock %}

@@ -3,11 +3,14 @@ from django.urls import path
 from appointments.apps import AppointmentsConfig
 from appointments.views import (
     AppointmentCreateView,
-    AppointmentDeleteView,
-    AppointmentUpdateView,
+    # AppointmentDeleteView,
+    # AppointmentUpdateView,
     ProceduralAppointmentCreateView,
     ProceduralAppointmentUpdateView,
     update_appointment_status,
+    AppointmentSimpleEditView,
+    AppointmentDetailView,
+    AppointmentDeleteOptionsView,
 )
 from appointments.views_api import (
     get_doctor_services_api,
@@ -24,14 +27,25 @@ urlpatterns = [
         AppointmentCreateView.as_view(),
         name="appointment_create",
     ),
+    # path(
+    #     "update/<int:pk>/",
+    #     AppointmentUpdateView.as_view(),
+    #     name="appointment_update",
+    # ),
     path(
-        "update/<int:pk>/",
-        AppointmentUpdateView.as_view(),
-        name="appointment_update",
+        "edit/<int:pk>/",
+        AppointmentSimpleEditView.as_view(),
+        name="appointment_edit_simple",
     ),
+    path("<int:pk>/", AppointmentDetailView.as_view(), name="appointment_detail"),
+    # path(
+    #     "delete/<int:pk>/",
+    #     AppointmentDeleteView.as_view(),
+    #     name="appointment_delete",
+    # ),
     path(
         "delete/<int:pk>/",
-        AppointmentDeleteView.as_view(),
+        AppointmentDeleteOptionsView.as_view(),
         name="appointment_delete",
     ),
     path(

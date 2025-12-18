@@ -9,15 +9,15 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DeleteView, UpdateView
+from django.views.generic import CreateView, DeleteView, UpdateView, DetailView
 
 from appointments.forms.forms import (
     AppointmentForm,
-    AppointmentUpdateForm,
     ProceduralAppointmentForm,
     ProceduralAppointmentUpdateForm,
+    AppointmentSimpleEditForm,
 )
-from appointments.models import Appointment
+from appointments.models import Appointment, AppointmentChain
 from timetable.models import Cabinet, Doctor, TimeSlot
 from timetable.utils import get_status_badge_class
 from users.permissions.decorators import medical_admin_or_admin_required
@@ -70,116 +70,191 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
 
 
 class AppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
+    """Только просмотр записи - никакого редактирования"""
+
     model = Appointment
     template_name = "appointments/appointment_detail.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["related_appointments"] = self.object.get_chain_appointments()
+        appointment = self.object
+
+        # Собираем связанные записи для отображения
+        related_appointments = appointment.get_chain_appointments()
+        context["related_appointments"] = related_appointments
+        context["has_related"] = len(related_appointments) > 1
+
         return context
 
 
-class AppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
-    """Полное редактирование записи на прием"""
+class AppointmentSimpleEditView(MedicalAdminOrAdminRequiredMixin, UpdateView):
+    """Простое редактирование - только слот, услуга, тип оплаты"""
 
     model = Appointment
-    form_class = AppointmentUpdateForm
-    template_name = "appointments/appointment_update_form.html"
+    form_class = AppointmentSimpleEditForm
+    template_name = "appointments/appointment_edit_simple.html"
 
     def get_success_url(self):
-        return reverse_lazy("timetable:schedule_day") + f"?date={self.object.date}"
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["current_appointment"] = self.object
-        kwargs["doctor"] = self.object.doctor
-        return kwargs
+        messages.success(self.request, f"Запись #{self.object.id} успешно обновлена")
+        return reverse("appointments:appointment_detail", kwargs={"pk": self.object.pk})
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["time_slot"] = self.object.time_slot
-        context["doctor"] = self.object.doctor
-        context["current_appointment"] = self.object
+        context["appointment"] = self.object
+        return context
 
-        # Получаем информацию о следующем слоте для отображения
-        next_slot = self.object.time_slot.get_next_consecutive_slot()
-        context["next_slot"] = next_slot
+
+class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+    """Удаление с выбором опций"""
+
+    model = Appointment
+    template_name = "appointments/appointment_delete_options.html"
+
+    # Исправляем метод get_success_url
+    def get_success_url(self):
+        # Получаем объект записи (уже удаленный)
+        appointment = self.object
+
+        # Если объект существует и у него есть дата, возвращаем на эту дату
+        if appointment and hasattr(appointment, "date") and appointment.date:
+            return (
+                reverse_lazy("timetable:schedule_day")
+                + f"?date={appointment.date.strftime('%Y-%m-%d')}"
+            )
+
+        # Иначе возвращаем на сегодняшнюю дату
+        return (
+            reverse_lazy("timetable:schedule_day")
+            + f"?date={timezone.now().date().strftime('%Y-%m-%d')}"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        appointment = self.object
+
+        # Получаем ВСЕ связанные записи
+        all_related = self.find_all_related_appointments(appointment)
+        context["related_appointments"] = all_related
+        context["has_related"] = len(all_related) > 1
 
         return context
 
-    def get_initial(self):
-        initial = super().get_initial()
-        # Заполняем поля пациента из существующей записи
-        patient = self.object.patient
-        initial.update(
-            {
-                "surname": patient.surname,
-                "first_name": patient.first_name,
-                "last_name": patient.last_name,
-                "phone_number": patient.phone_number,
-                "card_number": patient.card_number,
-                "date_of_birth": patient.date_of_birth,
-            }
-        )
-        return initial
+    def find_all_related_appointments(self, appointment):
+        """Находит ВСЕ связанные записи рекурсивно"""
+        found = set()
 
-    def form_valid(self, form):
-        # Сохраняем информацию о старом слоте для сообщения
-        old_time_slot = self.object.time_slot
-        # ИСПРАВЛЕНИЕ: получаем новый слот из time_slot_id
-        new_time_slot = form.cleaned_data["time_slot_id"]  # Это объект TimeSlot
+        def find_recursive(app):
+            if app in found:
+                return
 
-        # Сохраняем запись
-        response = super().form_valid(form)
+            found.add(app)
 
-        # Добавляем сообщение об изменении
-        if old_time_slot != new_time_slot:
-            messages.success(
-                self.request,
-                f"Запись успешно обновлена. Время изменено с {old_time_slot.date} {old_time_slot.start_time} на {new_time_slot.date} {new_time_slot.start_time}",
-            )
-        else:
-            messages.success(self.request, "Запись успешно обновлена.")
+            # 1. Через AppointmentChain
+            # Записи, где app - основная
+            for chain in AppointmentChain.objects.filter(main_appointment=app):
+                find_recursive(chain.related_appointment)
 
-        return response
+            # Записи, где app - связанная
+            for chain in AppointmentChain.objects.filter(related_appointment=app):
+                find_recursive(chain.main_appointment)
 
+            # 2. Через previous_appointment
+            # Следующие записи
+            next_app = Appointment.objects.filter(previous_appointment=app).first()
+            if next_app:
+                find_recursive(next_app)
 
-class AppointmentDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
-    """Удаление записи на прием"""
+            # Предыдущие записи
+            if app.previous_appointment:
+                find_recursive(app.previous_appointment)
 
-    model = Appointment
-    template_name = "appointments/appointment_confirm_delete.html"
+        find_recursive(appointment)
+        return sorted(found, key=lambda x: (x.date, x.start_time))
 
-    def get_success_url(self):
-        date = self.object.date
-        return reverse_lazy("timetable:schedule_day") + f"?date={date}"
-
+    @transaction.atomic
     def delete(self, request, *args, **kwargs):
-        appointment = self.get_object()
+        """Обрабатывает DELETE запрос"""
+        self.object = self.get_object()
 
-        # Удаляем ВСЕ записи, которые ссылаются на эту запись как на предыдущую
-        # Это включает процедурные записи и любые другие связанные записи
-        related_appointments = Appointment.objects.filter(
-            previous_appointment=appointment
+        # Сохраняем дату перед удалением, чтобы использовать в redirect
+        appointment_date = self.object.date
+        appointment_id = self.object.id
+
+        # Определяем действие из POST данных или GET параметров
+        action = request.POST.get("action", request.GET.get("action", "single"))
+
+        try:
+            if action == "with_related" or action == "all":
+                # Находим все связанные записи
+                all_appointments = self.find_all_related_appointments(self.object)
+                appointment_ids = [a.id for a in all_appointments]
+
+                print(
+                    f"DEBUG: Deleting {len(appointment_ids)} appointments: {appointment_ids}"
+                )
+
+                # ВАЖНО: Удаляем в обратном порядке, чтобы избежать проблем с foreign key
+                deleted_count = 0
+                for appointment in reversed(all_appointments):
+                    try:
+                        # Сохраняем ID для логов
+                        app_id = appointment.id
+
+                        # Удаляем запись (это вызовет каскадное удаление связанных объектов)
+                        appointment.delete()
+
+                        deleted_count += 1
+                        print(f"DEBUG: Successfully deleted appointment {app_id}")
+
+                    except Exception as e:
+                        print(
+                            f"DEBUG: Error deleting appointment {appointment.id if hasattr(appointment, 'id') else 'unknown'}: {e}"
+                        )
+                        import traceback
+
+                        traceback.print_exc()
+
+                messages.success(request, f"Удалено {deleted_count} записей")
+
+            else:
+                # Удаляем только эту запись
+                appointment_id = self.object.id
+                self.object.delete()
+                messages.success(request, f"Запись #{appointment_id} удалена")
+
+        except Exception as e:
+            messages.error(request, f"Ошибка при удалении: {str(e)}")
+            import traceback
+
+            print(f"DEBUG: Full error traceback:")
+            traceback.print_exc()
+            # Возвращаем обратно на страницу удаления если ошибка
+            return self.get(request, *args, **kwargs)
+
+        # Перенаправляем на расписание НА ТУ ЖЕ ДАТУ
+        return redirect(
+            reverse("timetable:schedule_day")
+            + f"?date={appointment_date.strftime('%Y-%m-%d')}"
         )
-        related_count = related_appointments.count()
 
-        # Удаляем связанные записи
-        related_appointments.delete()
+    def post(self, request, *args, **kwargs):
+        """Обрабатывает POST запрос (делегируем delete)"""
+        return self.delete(request, *args, **kwargs)
 
-        # Удаляем основную запись
-        result = super().delete(request, *args, **kwargs)
-
-        # Сообщение пользователю
-        if related_count > 0:
-            messages.success(
-                self.request,
-                f"Запись и {related_count} связанных записей успешно удалены.",
-            )
-        else:
-            messages.success(self.request, "Запись успешно удалена.")
-
-        return result
+    def get(self, request, *args, **kwargs):
+        """Обрабатывает GET запрос для отображения формы"""
+        try:
+            return super().get(request, *args, **kwargs)
+        except Appointment.DoesNotExist:
+            # Если запись уже удалена, перенаправляем на расписание
+            messages.info(request, "Эта запись уже была удалена")
+            # Попытаемся получить дату из URL параметров
+            date_param = request.GET.get("date")
+            if date_param:
+                return redirect(
+                    reverse("timetable:schedule_day") + f"?date={date_param}"
+                )
+            return redirect("timetable:schedule_day")
 
 
 class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
