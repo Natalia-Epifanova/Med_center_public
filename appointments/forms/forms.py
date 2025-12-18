@@ -14,6 +14,8 @@ from django import forms
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
+from timetable.utils import get_doctor_services
+
 
 class AppointmentForm(AppointmentBaseForm):
     """Форма создания записи с возможностью изменения времени"""
@@ -406,278 +408,371 @@ class AppointmentForm(AppointmentBaseForm):
             )
 
 
-class AppointmentUpdateForm(AppointmentBaseForm):
-    """Форма редактирования записи"""
+class AppointmentSimpleEditForm(forms.ModelForm):
+    """Упрощенная форма редактирования записи - только основное"""
 
-    appointment_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
-        label="Дата приема",
-    )
-    time_slot_id = forms.IntegerField(
-        widget=forms.HiddenInput(),
+    new_time_slot = forms.ModelChoiceField(
+        queryset=TimeSlot.objects.none(),
         required=True,
+        label="Временной слот",
+        widget=forms.Select(attrs={"class": "form-select"}),
     )
 
-    # Поле только для отображения выбранного слота
-    time_slot_display = forms.CharField(
-        required=False,
-        widget=forms.TextInput(
-            attrs={
-                "class": "form-control",
-                "readonly": "readonly",
-                "id": "time_slot_display",
-            }
-        ),
-        label="Выбранный слот",
-    )
-
-    class Meta(AppointmentBaseForm.Meta):
-        fields = [
-            "appointment_date",
-            "service",
-            "insurance_type",
-            "needs_reschedule",
-            "comment",
-        ]
+    class Meta:
+        model = Appointment
+        fields = ["service", "insurance_type", "comment"]
+        widgets = {
+            "service": forms.Select(attrs={"class": "form-select"}),
+            "insurance_type": forms.Select(attrs={"class": "form-select"}),
+            "comment": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
 
     def __init__(self, *args, **kwargs):
-        self.current_appointment = kwargs.pop("current_appointment", None)
-        self.doctor = kwargs.pop("doctor", None)
+        self.appointment = kwargs.get("instance")
         super().__init__(*args, **kwargs)
 
-        if self.current_appointment and self.instance.pk:
-            self._set_initial_values()
+        if self.appointment:
+            # Инициализируем queryset для нового слота
+            self.fields["new_time_slot"].queryset = (
+                TimeSlot.objects.filter(
+                    doctor=self.appointment.doctor,
+                    date=self.appointment.date,
+                    slot_type="working",
+                )
+                .exclude(appointments__isnull=False)  # Только свободные слоты
+                .order_by("start_time")
+            )
 
-        # Устанавливаем queryset для услуги
-        self._set_service_queryset()
+            # Устанавливаем текущий слот как начальное значение
+            self.fields["new_time_slot"].initial = self.appointment.time_slot
 
-    def clean(self):
-        cleaned_data = super().clean()
+            # Ограничиваем услуги только для этого врача
+            self.fields["service"].queryset = get_doctor_services(
+                self.appointment.doctor
+            )
 
-        # ВАЖНО: Обновляем total_sum из POST данных если он есть
-        if "total_sum" in self.data and self.data["total_sum"]:
-            try:
-                cleaned_data["total_sum"] = float(self.data["total_sum"])
-            except (ValueError, TypeError):
-                pass
+    def clean_new_time_slot(self):
+        time_slot = self.cleaned_data["new_time_slot"]
 
-        return cleaned_data
+        # Проверяем, что слот свободен (кроме текущей записи)
+        if time_slot.appointments.exists() and time_slot != self.appointment.time_slot:
+            raise forms.ValidationError("Этот временной слот уже занят")
 
-    def _set_service_queryset(self):
-        """Устанавливает queryset для поля service с учетом врача"""
-        from appointments.services import AppointmentService
+        return time_slot
 
-        # Получаем врача через сервис
-        doctor = AppointmentService.get_doctor_for_form(self)
-
-        # Получаем текущую услугу если есть
-        current_service = None
-        if self.current_appointment and self.current_appointment.service:
-            current_service = self.current_appointment.service
-
-        # Используем сервис для инициализации queryset
-        AppointmentService.initialize_service_queryset(self, doctor, current_service)
-
-    def _set_initial_values(self):
-        """Установка начальных значений"""
-        self.current_time_slot = self.instance.time_slot
-        self.fields["appointment_date"].initial = self.instance.time_slot.date
-        self.fields["time_slot_id"].initial = self.instance.time_slot.id
-        self.fields["time_slot_display"].initial = (
-            f"{self.instance.time_slot.start_time}-{self.instance.time_slot.end_time} (Каб. {self.instance.time_slot.cabinet.number})"
-        )
-        self.fields["service"].initial = self.instance.service
-
-        # Определение типа записи
-        if self.instance.occupies_two_slots:
-            self.fields["appointment_type"].initial = "two_slots"
-        elif self.instance.is_consecutive and self.instance.previous_appointment:
-            self.fields["appointment_type"].initial = "additional"
-
-        # Установка значения для процедурного кабинета
-        has_procedural = Appointment.objects.filter(
-            previous_appointment=self.instance, time_slot__cabinet__number=6
-        ).exists()
-        self.fields["needs_procedural"].initial = has_procedural
-
-    def clean_time_slot_id(self):
-        """Валидация временного слота через ID"""
-        time_slot_id = self.cleaned_data.get("time_slot_id")
-        if not time_slot_id:
-            raise forms.ValidationError("Временной слот обязателен для заполнения")
-
-        try:
-            time_slot = TimeSlot.objects.get(id=time_slot_id)
-        except TimeSlot.DoesNotExist:
-            raise forms.ValidationError("Выбранный временной слот не существует")
-
-        # Проверка принадлежности врачу
-        if self.doctor and time_slot.doctor != self.doctor:
-            raise forms.ValidationError("Выбранный слот не принадлежит текущему врачу")
-
-        # Проверка доступности слота (кроме текущей записи)
-        current_time_slot = getattr(self.current_appointment, "time_slot", None)
-        if time_slot != current_time_slot:
-            # Проверяем, доступен ли слот
-            if not time_slot.is_available():
-                raise forms.ValidationError("Выбранный временной слот уже занят")
-
-        return time_slot  # Возвращаем объект TimeSlot
-
+    @transaction.atomic
     def save(self, commit=True):
         appointment = super().save(commit=False)
 
-        # Обновление временного слота из cleaned_data
-        time_slot = self.cleaned_data.get("time_slot_id")  # Это объект TimeSlot
-        if time_slot:
-            appointment.time_slot = time_slot
+        # Обновляем временной слот
+        new_time_slot = self.cleaned_data["new_time_slot"]
 
-        # Обновление пациента
-        patient_data = self.get_patient_data()
-        patient, created = PatientService.get_or_create_patient(patient_data)
-        appointment.patient = patient
+        # Сохраняем старый слот для сообщения
+        old_time_slot = appointment.time_slot
 
-        # ВАЖНО: Сохраняем цену услуги при обновлении
-        if appointment.service and not appointment.price_at_appointment:
-            appointment.price_at_appointment = appointment.service.price
-
-        # ДЛЯ ВСЕХ ЗАПИСЕЙ: Обновляем общую сумму
-        # Сначала проверяем hidden поле total_sum, потом используем цену услуги
-        total_sum = self.cleaned_data.get("total_sum")
-        if total_sum:
-            appointment.total_with_blood_tests = total_sum
-        else:
-            appointment.total_with_blood_tests = appointment.price_at_appointment
+        # Обновляем слот
+        appointment.time_slot = new_time_slot
 
         if commit:
             appointment.save()
 
-            # Обработка процедурного кабинета
-            needs_procedural = self.cleaned_data.get("needs_procedural", False)
-            self._handle_procedural_appointment(appointment, needs_procedural)
-
-            self._handle_consecutive_appointments(appointment)
+            # Переносим процедурную запись если она есть
+            self._move_procedural_appointment(appointment, old_time_slot, new_time_slot)
 
         return appointment
 
-    def _handle_procedural_appointment(self, main_appointment, needs_procedural):
-        """Обрабатывает создание/удаление/перемещение записи в процедурном кабинете"""
-        # Находим существующую процедурную запись
-        existing_procedural = Appointment.objects.filter(
-            previous_appointment=main_appointment, time_slot__cabinet__number=6
+    def _move_procedural_appointment(self, appointment, old_time_slot, new_time_slot):
+        """Переносит связанную процедурную запись на новое время"""
+        from appointments.models import AppointmentChain
+
+        # Находим процедурную запись
+        procedural_chain = AppointmentChain.objects.filter(
+            main_appointment=appointment,
+            chain_type=AppointmentChain.ChainType.PROCEDURAL,
         ).first()
 
-        if needs_procedural:
-            if existing_procedural:
-                # Обновляем существующую процедурную запись через сервис
-                ProceduralAppointmentService.update_procedural_appointment(
-                    main_appointment, existing_procedural
-                )  # ИЗМЕНЕНИЕ
-            else:
-                # Создаем новую процедурную запись через сервис
-                procedural_appointment = (
-                    ProceduralAppointmentService.create_procedural_appointment(
-                        main_appointment
-                    )
-                )  # ИЗМЕНЕНИЕ
-                # ВАЖНО: Сохраняем сумму для процедурной записи
-                if procedural_appointment:
-                    if not procedural_appointment.price_at_appointment:
-                        procedural_appointment.price_at_appointment = (
-                            procedural_appointment.service.price
-                        )
-                    procedural_appointment.total_with_blood_tests = (
-                        procedural_appointment.price_at_appointment
-                    )
-                    procedural_appointment.save()
-        else:
-            # Удаляем процедурную запись если она существует
-            if existing_procedural:
-                existing_procedural.delete()
+        if procedural_chain:
+            procedural_appointment = procedural_chain.related_appointment
 
-    def _update_procedural_appointment(self, main_appointment, procedural_appointment):
-        """Обновляет существующую процедурную запись на новое время"""
-        try:
-            from timetable.models import Cabinet, Doctor, TimeSlot
+            # Обновляем слот процедурной записи
+            procedural_appointment.time_slot.date = new_time_slot.date
+            procedural_appointment.time_slot.start_time = new_time_slot.start_time
+            procedural_appointment.time_slot.end_time = new_time_slot.end_time
+            procedural_appointment.time_slot.save()
 
-            # Находим процедурный кабинет №6
-            procedural_cabinet = Cabinet.objects.get(number=6)
 
-            # Ищем врача-медсестру
-            nurse_doctor = (
-                Doctor.objects.filter(specialization="nurse").first()
-                or main_appointment.doctor
-            )
-
-            # Проверяем, нужно ли создавать новый слот или использовать существующий
-            new_procedural_slot = TimeSlot.objects.filter(
-                date=main_appointment.time_slot.date,
-                cabinet=procedural_cabinet,
-                start_time=main_appointment.time_slot.start_time,
-                end_time=main_appointment.time_slot.end_time,
-                slot_type="working",
-            ).first()
-
-            if not new_procedural_slot:
-                # Создаем новый слот в процедурном кабинете
-                new_procedural_slot = TimeSlot.objects.create(
-                    date=main_appointment.time_slot.date,
-                    cabinet=procedural_cabinet,
-                    doctor=nurse_doctor,
-                    start_time=main_appointment.time_slot.start_time,
-                    end_time=main_appointment.time_slot.end_time,
-                    slot_type="working",
-                    description=f"Процедурный кабинет - {main_appointment.doctor.surname}",
-                )
-
-            # Обновляем процедурную запись
-            procedural_appointment.time_slot = new_procedural_slot
-            procedural_appointment.service = main_appointment.service
-            procedural_appointment.insurance_type = main_appointment.insurance_type
-            procedural_appointment.status = main_appointment.status
-            procedural_appointment.comment = main_appointment.doctor.surname
-
-            # ВАЖНО: Сохраняем сумму
-            if not procedural_appointment.price_at_appointment:
-                procedural_appointment.price_at_appointment = (
-                    procedural_appointment.service.price
-                )
-            procedural_appointment.total_with_blood_tests = (
-                procedural_appointment.price_at_appointment
-            )
-
-            procedural_appointment.save()
-
-        except Exception as e:
-            raise forms.ValidationError(
-                f"Ошибка при обновлении записи в процедурном кабинете: {str(e)}"
-            )
-
-    def _handle_consecutive_appointments(self, main_appointment):
-        """Обработка последовательных записей"""
-        appointment_type = self.cleaned_data.get("appointment_type")
-
-        if appointment_type in ["additional", "two_slots"]:
-            next_slot = main_appointment.time_slot.get_next_consecutive_slot()
-
-            if next_slot and next_slot.is_available():
-                consecutive_appointment = (
-                    AppointmentService.create_consecutive_appointment(
-                        main_appointment,
-                        appointment_type,
-                        next_slot,
-                        self.cleaned_data.get("additional_service"),
-                    )
-                )
-                if consecutive_appointment:
-                    if not consecutive_appointment.price_at_appointment:
-                        consecutive_appointment.price_at_appointment = (
-                            consecutive_appointment.service.price
-                        )
-                    consecutive_appointment.total_with_blood_tests = (
-                        consecutive_appointment.price_at_appointment
-                    )
-                    consecutive_appointment.save()
+# class AppointmentUpdateForm(AppointmentBaseForm):
+#     """Форма редактирования записи"""
+#
+#     appointment_date = forms.DateField(
+#         widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+#         label="Дата приема",
+#     )
+#     time_slot_id = forms.IntegerField(
+#         widget=forms.HiddenInput(),
+#         required=True,
+#     )
+#
+#     # Поле только для отображения выбранного слота
+#     time_slot_display = forms.CharField(
+#         required=False,
+#         widget=forms.TextInput(
+#             attrs={
+#                 "class": "form-control",
+#                 "readonly": "readonly",
+#                 "id": "time_slot_display",
+#             }
+#         ),
+#         label="Выбранный слот",
+#     )
+#
+#     class Meta(AppointmentBaseForm.Meta):
+#         fields = [
+#             "appointment_date",
+#             "service",
+#             "insurance_type",
+#             "needs_reschedule",
+#             "comment",
+#         ]
+#
+#     def __init__(self, *args, **kwargs):
+#         self.current_appointment = kwargs.pop("current_appointment", None)
+#         self.doctor = kwargs.pop("doctor", None)
+#         super().__init__(*args, **kwargs)
+#
+#         if self.current_appointment and self.instance.pk:
+#             self._set_initial_values()
+#
+#         # Устанавливаем queryset для услуги
+#         self._set_service_queryset()
+#
+#     def clean(self):
+#         cleaned_data = super().clean()
+#
+#         # ВАЖНО: Обновляем total_sum из POST данных если он есть
+#         if "total_sum" in self.data and self.data["total_sum"]:
+#             try:
+#                 cleaned_data["total_sum"] = float(self.data["total_sum"])
+#             except (ValueError, TypeError):
+#                 pass
+#
+#         return cleaned_data
+#
+#     def _set_service_queryset(self):
+#         """Устанавливает queryset для поля service с учетом врача"""
+#         from appointments.services import AppointmentService
+#
+#         # Получаем врача через сервис
+#         doctor = AppointmentService.get_doctor_for_form(self)
+#
+#         # Получаем текущую услугу если есть
+#         current_service = None
+#         if self.current_appointment and self.current_appointment.service:
+#             current_service = self.current_appointment.service
+#
+#         # Используем сервис для инициализации queryset
+#         AppointmentService.initialize_service_queryset(self, doctor, current_service)
+#
+#     def _set_initial_values(self):
+#         """Установка начальных значений"""
+#         self.current_time_slot = self.instance.time_slot
+#         self.fields["appointment_date"].initial = self.instance.time_slot.date
+#         self.fields["time_slot_id"].initial = self.instance.time_slot.id
+#         self.fields["time_slot_display"].initial = (
+#             f"{self.instance.time_slot.start_time}-{self.instance.time_slot.end_time} (Каб. {self.instance.time_slot.cabinet.number})"
+#         )
+#         self.fields["service"].initial = self.instance.service
+#
+#         # Определение типа записи
+#         if self.instance.occupies_two_slots:
+#             self.fields["appointment_type"].initial = "two_slots"
+#         elif self.instance.is_consecutive and self.instance.previous_appointment:
+#             self.fields["appointment_type"].initial = "additional"
+#
+#         # Установка значения для процедурного кабинета
+#         has_procedural = Appointment.objects.filter(
+#             previous_appointment=self.instance, time_slot__cabinet__number=6
+#         ).exists()
+#         self.fields["needs_procedural"].initial = has_procedural
+#
+#     def clean_time_slot_id(self):
+#         """Валидация временного слота через ID"""
+#         time_slot_id = self.cleaned_data.get("time_slot_id")
+#         if not time_slot_id:
+#             raise forms.ValidationError("Временной слот обязателен для заполнения")
+#
+#         try:
+#             time_slot = TimeSlot.objects.get(id=time_slot_id)
+#         except TimeSlot.DoesNotExist:
+#             raise forms.ValidationError("Выбранный временной слот не существует")
+#
+#         # Проверка принадлежности врачу
+#         if self.doctor and time_slot.doctor != self.doctor:
+#             raise forms.ValidationError("Выбранный слот не принадлежит текущему врачу")
+#
+#         # Проверка доступности слота (кроме текущей записи)
+#         current_time_slot = getattr(self.current_appointment, "time_slot", None)
+#         if time_slot != current_time_slot:
+#             # Проверяем, доступен ли слот
+#             if not time_slot.is_available():
+#                 raise forms.ValidationError("Выбранный временной слот уже занят")
+#
+#         return time_slot  # Возвращаем объект TimeSlot
+#
+#     def save(self, commit=True):
+#         appointment = super().save(commit=False)
+#
+#         # Обновление временного слота из cleaned_data
+#         time_slot = self.cleaned_data.get("time_slot_id")  # Это объект TimeSlot
+#         if time_slot:
+#             appointment.time_slot = time_slot
+#
+#         # Обновление пациента
+#         patient_data = self.get_patient_data()
+#         patient, created = PatientService.get_or_create_patient(patient_data)
+#         appointment.patient = patient
+#
+#         # ВАЖНО: Сохраняем цену услуги при обновлении
+#         if appointment.service and not appointment.price_at_appointment:
+#             appointment.price_at_appointment = appointment.service.price
+#
+#         # ДЛЯ ВСЕХ ЗАПИСЕЙ: Обновляем общую сумму
+#         # Сначала проверяем hidden поле total_sum, потом используем цену услуги
+#         total_sum = self.cleaned_data.get("total_sum")
+#         if total_sum:
+#             appointment.total_with_blood_tests = total_sum
+#         else:
+#             appointment.total_with_blood_tests = appointment.price_at_appointment
+#
+#         if commit:
+#             appointment.save()
+#
+#             # Обработка процедурного кабинета
+#             needs_procedural = self.cleaned_data.get("needs_procedural", False)
+#             self._handle_procedural_appointment(appointment, needs_procedural)
+#
+#             self._handle_consecutive_appointments(appointment)
+#
+#         return appointment
+#
+#     def _handle_procedural_appointment(self, main_appointment, needs_procedural):
+#         """Обрабатывает создание/удаление/перемещение записи в процедурном кабинете"""
+#         # Находим существующую процедурную запись
+#         existing_procedural = Appointment.objects.filter(
+#             previous_appointment=main_appointment, time_slot__cabinet__number=6
+#         ).first()
+#
+#         if needs_procedural:
+#             if existing_procedural:
+#                 # Обновляем существующую процедурную запись через сервис
+#                 ProceduralAppointmentService.update_procedural_appointment(
+#                     main_appointment, existing_procedural
+#                 )  # ИЗМЕНЕНИЕ
+#             else:
+#                 # Создаем новую процедурную запись через сервис
+#                 procedural_appointment = (
+#                     ProceduralAppointmentService.create_procedural_appointment(
+#                         main_appointment
+#                     )
+#                 )  # ИЗМЕНЕНИЕ
+#                 # ВАЖНО: Сохраняем сумму для процедурной записи
+#                 if procedural_appointment:
+#                     if not procedural_appointment.price_at_appointment:
+#                         procedural_appointment.price_at_appointment = (
+#                             procedural_appointment.service.price
+#                         )
+#                     procedural_appointment.total_with_blood_tests = (
+#                         procedural_appointment.price_at_appointment
+#                     )
+#                     procedural_appointment.save()
+#         else:
+#             # Удаляем процедурную запись если она существует
+#             if existing_procedural:
+#                 existing_procedural.delete()
+#
+#     def _update_procedural_appointment(self, main_appointment, procedural_appointment):
+#         """Обновляет существующую процедурную запись на новое время"""
+#         try:
+#             from timetable.models import Cabinet, Doctor, TimeSlot
+#
+#             # Находим процедурный кабинет №6
+#             procedural_cabinet = Cabinet.objects.get(number=6)
+#
+#             # Ищем врача-медсестру
+#             nurse_doctor = (
+#                 Doctor.objects.filter(specialization="nurse").first()
+#                 or main_appointment.doctor
+#             )
+#
+#             # Проверяем, нужно ли создавать новый слот или использовать существующий
+#             new_procedural_slot = TimeSlot.objects.filter(
+#                 date=main_appointment.time_slot.date,
+#                 cabinet=procedural_cabinet,
+#                 start_time=main_appointment.time_slot.start_time,
+#                 end_time=main_appointment.time_slot.end_time,
+#                 slot_type="working",
+#             ).first()
+#
+#             if not new_procedural_slot:
+#                 # Создаем новый слот в процедурном кабинете
+#                 new_procedural_slot = TimeSlot.objects.create(
+#                     date=main_appointment.time_slot.date,
+#                     cabinet=procedural_cabinet,
+#                     doctor=nurse_doctor,
+#                     start_time=main_appointment.time_slot.start_time,
+#                     end_time=main_appointment.time_slot.end_time,
+#                     slot_type="working",
+#                     description=f"Процедурный кабинет - {main_appointment.doctor.surname}",
+#                 )
+#
+#             # Обновляем процедурную запись
+#             procedural_appointment.time_slot = new_procedural_slot
+#             procedural_appointment.service = main_appointment.service
+#             procedural_appointment.insurance_type = main_appointment.insurance_type
+#             procedural_appointment.status = main_appointment.status
+#             procedural_appointment.comment = main_appointment.doctor.surname
+#
+#             # ВАЖНО: Сохраняем сумму
+#             if not procedural_appointment.price_at_appointment:
+#                 procedural_appointment.price_at_appointment = (
+#                     procedural_appointment.service.price
+#                 )
+#             procedural_appointment.total_with_blood_tests = (
+#                 procedural_appointment.price_at_appointment
+#             )
+#
+#             procedural_appointment.save()
+#
+#         except Exception as e:
+#             raise forms.ValidationError(
+#                 f"Ошибка при обновлении записи в процедурном кабинете: {str(e)}"
+#             )
+#
+#     def _handle_consecutive_appointments(self, main_appointment):
+#         """Обработка последовательных записей"""
+#         appointment_type = self.cleaned_data.get("appointment_type")
+#
+#         if appointment_type in ["additional", "two_slots"]:
+#             next_slot = main_appointment.time_slot.get_next_consecutive_slot()
+#
+#             if next_slot and next_slot.is_available():
+#                 consecutive_appointment = (
+#                     AppointmentService.create_consecutive_appointment(
+#                         main_appointment,
+#                         appointment_type,
+#                         next_slot,
+#                         self.cleaned_data.get("additional_service"),
+#                     )
+#                 )
+#                 if consecutive_appointment:
+#                     if not consecutive_appointment.price_at_appointment:
+#                         consecutive_appointment.price_at_appointment = (
+#                             consecutive_appointment.service.price
+#                         )
+#                     consecutive_appointment.total_with_blood_tests = (
+#                         consecutive_appointment.price_at_appointment
+#                     )
+#                     consecutive_appointment.save()
 
 
 class ProceduralAppointmentForm(AppointmentBaseForm):

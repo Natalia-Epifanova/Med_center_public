@@ -1,0 +1,140 @@
+<!-- templates/appointments/appointment_edit_simple.html -->
+{% extends "timetable/base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-edit"></i> Изменение записи #{{ appointment.id }}
+            </h5>
+            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+               class="btn btn-sm btn-outline-dark">
+                <i class="fas fa-times"></i> Отмена
+            </a>
+        </div>
+
+        <div class="card-body">
+            <!-- Информация о текущей записи -->
+            <div class="alert alert-info mb-4">
+                <strong>Текущая информация:</strong><br>
+                Пациент: {{ appointment.patient.get_full_name }}<br>
+                Врач: {{ appointment.doctor.surname }} {{ appointment.doctor.first_name.0 }}.{{ appointment.doctor.last_name.0 }}.<br>
+                Дата: {{ appointment.date|date:"d.m.Y" }}
+            </div>
+
+            {% if messages %}
+            <div class="messages mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" id="appointmentEditForm">
+                {% csrf_token %}
+
+                <!-- Временной слот -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.new_time_slot.id_for_label }}" class="form-label">
+                            <i class="fas fa-clock"></i> {{ form.new_time_slot.label }}
+                        </label>
+                        {{ form.new_time_slot }}
+                        {% if form.new_time_slot.errors %}
+                        <div class="text-danger small">{{ form.new_time_slot.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            Текущий слот: {{ appointment.start_time|time:"H:i" }}-{{ appointment.end_time|time:"H:i" }} (Каб. {{ appointment.cabinet.number }})
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Услуга -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.service.id_for_label }}" class="form-label">
+                            <i class="fas fa-stethoscope"></i> {{ form.service.label }}
+                        </label>
+                        {{ form.service }}
+                        {% if form.service.errors %}
+                        <div class="text-danger small">{{ form.service.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            Текущая услуга: {{ appointment.service.name }} ({{ appointment.actual_price }} руб.)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Тип оплаты -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.insurance_type.id_for_label }}" class="form-label">
+                            <i class="fas fa-money-bill"></i> {{ form.insurance_type.label }}
+                        </label>
+                        {{ form.insurance_type }}
+                        {% if form.insurance_type.errors %}
+                        <div class="text-danger small">{{ form.insurance_type.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Комментарий -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.comment.id_for_label }}" class="form-label">
+                            <i class="fas fa-comment"></i> {{ form.comment.label }}
+                        </label>
+                        {{ form.comment }}
+                        {% if form.comment.errors %}
+                        <div class="text-danger small">{{ form.comment.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Кнопки -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Назад к просмотру
+                            </a>
+
+                            <div>
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-save"></i> Сохранить изменения
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript для динамического обновления информации о слоте -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const timeSlotSelect = document.getElementById('{{ form.new_time_slot.id_for_label }}');
+    const infoText = document.querySelector('.form-text');
+
+    if (timeSlotSelect) {
+        timeSlotSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption && selectedOption.text) {
+                // Обновляем текст информации о текущем слоте
+                const infoDiv = document.querySelector('.form-text');
+                if (infoDiv) {
+                    infoDiv.innerHTML = `Текущий слот: ${selectedOption.text}`;
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -345,9 +345,9 @@
                                             <div class="btn-group btn-group-sm mt-1" role="group">
                                                 <!-- Кнопка редактирования записи -->
                                                 {% if is_medical_admin or is_admin %}
-                                                <a href="{% url 'appointments:appointment_update' appointment.pk %}"
-                                                   class="btn btn-outline-warning" title="Редактировать запись">
-                                                    <i class="fas fa-edit"></i>
+                                                <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+                                                   class="btn btn-outline-info" title="Просмотр записи">
+                                                   <i class="fas fa-eye"></i>
                                                 </a>
                                                 {% endif %}
                                                 <!-- Индикатор перезаписи -->
