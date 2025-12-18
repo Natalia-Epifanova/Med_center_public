@@ -239,14 +239,16 @@
                                         </div>
                                     </div>
 
-                                    <!-- ДОБАВЬТЕ ЭТОТ БЛОК ПРОЦЕДУРНОГО КАБИНЕТА ДЛЯ ВТОРОЙ УСЛУГИ -->
+                                    <!-- ИСПРАВЛЕННЫЙ БЛОК: Используем чекбокс с name -->
                                     <div class="row mb-3" id="additionalServiceProceduralSection" style="display: none;">
                                         <div class="col-12">
                                             <div class="form-check">
+                                                <!-- ИСПРАВЛЕНО: Добавляем name и value -->
                                                 <input type="checkbox" class="form-check-input"
-                                                       id="id_needs_procedural_additional"
-                                                       name="needs_procedural_additional">
-                                                <label for="id_needs_procedural_additional" class="form-check-label">
+                                                       id="needs_procedural_additional_checkbox"
+                                                       name="needs_procedural_additional_checkbox"
+                                                       value="true">
+                                                <label for="needs_procedural_additional_checkbox" class="form-check-label">
                                                     <i class="fas fa-syringe"></i> Занять окошко в процедурном кабинете для второй услуги
                                                 </label>
                                                 <div class="form-text">
@@ -400,9 +402,6 @@
     const originalCabinet = "{{ time_slot.cabinet.number }}";
     const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
 </script>
-
-<!-- ДОБАВЬТЕ ЭТО СКРЫТОЕ ПОЛЕ ДЛЯ ПРОЦЕДУРНЫХ ДАННЫХ ВТОРОЙ УСЛУГИ -->
-<input type="hidden" id="id_needs_procedural_additional" name="needs_procedural_additional" value="">
 
 <!-- Подключаем общие утилиты -->
 <script src="/static/js/utils.js?v={% now 'U' %}"></script>
