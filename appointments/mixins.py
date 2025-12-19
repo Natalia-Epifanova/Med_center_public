@@ -110,8 +110,9 @@ class AppointmentFormMixin:
         service = cleaned_data.get("service")
         time_slot = getattr(self, "time_slot", None)
 
-        from timetable.utils import validate_pishchelev_restrictions
         from django.core.exceptions import ValidationError
+
+        from timetable.utils import validate_pishchelev_restrictions
 
         try:
             validate_pishchelev_restrictions(doctor, service, time_slot)
@@ -138,8 +139,9 @@ class AppointmentFormMixin:
             if additional_service and time_slot:
                 next_slot = time_slot.get_next_consecutive_slot()
                 if next_slot:
-                    from timetable.utils import validate_pishchelev_restrictions
                     from django.core.exceptions import ValidationError
+
+                    from timetable.utils import validate_pishchelev_restrictions
 
                     try:
                         validate_pishchelev_restrictions(

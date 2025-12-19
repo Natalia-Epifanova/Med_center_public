@@ -4,11 +4,11 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.forms import ModelForm
 
-from appointments.mixins import PatientFieldsMixin, AppointmentFormMixin
+from appointments.mixins import AppointmentFormMixin, PatientFieldsMixin
 from appointments.models import Appointment
 from appointments.validators import AppointmentValidator
 from patients.services import PatientService
-from timetable.mixins import StyleFormMixin, ServiceBasedFormMixin
+from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
 from timetable.models import MedicalService
 
 
@@ -106,6 +106,9 @@ class AppointmentBaseForm(
     def clean(self):
         cleaned_data = super().clean()
 
+        # ВАЛИДАЦИЯ ДЛЯ ВРАЧА ПИЩЕЛЕВА П.В. (добавляем в самое начало)
+        self._validate_pishchelev_for_main_appointment(cleaned_data)
+
         # Валидация данных пациента
         patient_data = self.get_patient_data()
         cleaned_patient_data = PatientService.clean_patient_data(patient_data)
@@ -146,10 +149,85 @@ class AppointmentBaseForm(
             current_time_slot = getattr(self, "current_time_slot", None)
             AppointmentValidator.validate_consecutive_slot(time_slot, current_time_slot)
 
-        # ВАЛИДАЦИЯ ДЛЯ ВРАЧА ПИЩЕЛЕВА П.В. (теперь проверяем все)
+        # Дополнительная валидация Пищелева для всех случаев
         self._validate_pishchelev_all_restrictions(cleaned_data)
 
         return cleaned_data
+
+    def _validate_pishchelev_for_main_appointment(self, cleaned_data):
+        """Валидация ограничений для врача Пищелева П.В. (основная запись)"""
+        # Пытаемся получить врача разными способами
+        doctor = None
+
+        if hasattr(self, "time_slot") and self.time_slot:
+            doctor = self.time_slot.doctor
+        elif hasattr(self, "doctor") and self.doctor:
+            doctor = self.doctor
+        elif (
+            hasattr(self, "instance")
+            and self.instance
+            and hasattr(self.instance, "time_slot")
+            and self.instance.time_slot
+        ):
+            doctor = self.instance.time_slot.doctor
+
+        if not doctor:
+            return
+
+        # Проверяем, является ли врач Пищелевым
+        is_pishchelev = "пищелев" in doctor.surname.lower()
+        if not is_pishchelev:
+            return
+
+        # Получаем выбранную услугу
+        service = cleaned_data.get("service")
+        if not service:
+            return
+
+        # Получаем время слота
+        time_slot = None
+        if hasattr(self, "time_slot") and self.time_slot:
+            time_slot = self.time_slot
+        elif (
+            hasattr(self, "instance")
+            and self.instance
+            and hasattr(self.instance, "time_slot")
+        ):
+            time_slot = self.instance.time_slot
+
+        if not time_slot:
+            return
+
+        # Получаем длительность слота
+        slot_duration_minutes = self._get_slot_duration_minutes(time_slot)
+        if not slot_duration_minutes:
+            return
+
+        # Проверяем ограничение: 20-минутные слоты только для стелек
+        is_insoles_service = self._is_insoles_service(service)
+
+        if slot_duration_minutes == 20 and not is_insoles_service:
+            raise forms.ValidationError(
+                "❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек!\n\n"
+                'Выберите услугу "Изготовление стелек" или выберите 30-минутный интервал.'
+            )
+
+    def _get_slot_duration_minutes(self, time_slot):
+        """Вычисляет длительность слота в минутах"""
+        if not time_slot.start_time or not time_slot.end_time:
+            return None
+
+        # Конвертируем время в минуты
+        start_minutes = time_slot.start_time.hour * 60 + time_slot.start_time.minute
+        end_minutes = time_slot.end_time.hour * 60 + time_slot.end_time.minute
+
+        return end_minutes - start_minutes
+
+    def _is_insoles_service(self, service):
+        """Проверяет, является ли услуга изготовлением стелек"""
+        service_name_lower = service.name.lower()
+        insoles_keywords = ["стель", "стелек", "manufacture_of_insoles", "изготовление"]
+        return any(keyword in service_name_lower for keyword in insoles_keywords)
 
     def _validate_additional_appointments_for_pishchelev(self, appointments_list):
         """Проверяет дополнительные записи на ограничения Пищелева"""
@@ -173,8 +251,9 @@ class AppointmentBaseForm(
                 service = MedicalService.objects.get(id=service_id)
                 time_slot = TimeSlot.objects.get(id=time_slot_id)
 
-                from timetable.utils import validate_pishchelev_restrictions
                 from django.core.exceptions import ValidationError
+
+                from timetable.utils import validate_pishchelev_restrictions
 
                 try:
                     validate_pishchelev_restrictions(doctor, service, time_slot)
@@ -208,8 +287,9 @@ class AppointmentBaseForm(
             time_slot = getattr(self, "time_slot", None)
 
             if service and time_slot:
-                from timetable.utils import validate_pishchelev_restrictions
                 from django.core.exceptions import ValidationError
+
+                from timetable.utils import validate_pishchelev_restrictions
 
                 try:
                     validate_pishchelev_restrictions(doctor, service, time_slot)
@@ -230,8 +310,9 @@ class AppointmentBaseForm(
                 if additional_service and time_slot:
                     next_slot = time_slot.get_next_consecutive_slot()
                     if next_slot:
-                        from timetable.utils import validate_pishchelev_restrictions
                         from django.core.exceptions import ValidationError
+
+                        from timetable.utils import validate_pishchelev_restrictions
 
                         try:
                             validate_pishchelev_restrictions(

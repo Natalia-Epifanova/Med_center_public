@@ -1,25 +1,22 @@
 import json
 from datetime import datetime
 
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist
+from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ObjectDoesNotExist
 
 from appointments.services import AppointmentChainService, AppointmentService
-from timetable.models import Doctor, MedicalService, TimeSlot
-from timetable.utils import get_doctor_services
-
-from timetable.models import Doctor, MedicalService, TimeSlot
-
-# Если есть сервисы, импортируем их
-try:
-    from appointments.services import AppointmentChainService, AppointmentService
-except ImportError:
-    AppointmentChainService = None
-    AppointmentService = None
-
+from timetable.models import (
+    BloodTest,
+    BloodTestCategory,
+    Cabinet,
+    Doctor,
+    MedicalService,
+    TimeSlot,
+)
 from timetable.utils import get_doctor_services
 
 
@@ -83,12 +80,6 @@ def get_available_slots_for_doctor_api(request):
         main_appointment_time = data.get("main_appointment_time")
         main_appointment_date = data.get("main_appointment_date")
 
-        print(f"DEBUG API CALL: doctor_id={doctor_id}, date={date}")
-        print(
-            f"DEBUG: main_appointment_date={main_appointment_date}, main_appointment_time={main_appointment_time}"
-        )
-        print(f"DEBUG: window.originalDate (should be) = 2025-12-20")
-
         if not doctor_id or not date:
             return JsonResponse({"error": "Не указаны doctor_id или date"}, status=400)
 
@@ -132,12 +123,9 @@ def get_available_slots_for_doctor_api(request):
                         if slot.start_time == main_start and slot.end_time == main_end:
                             is_intersecting = True
 
-                        print(
-                            f"Slot {slot.start_time}-{slot.end_time} vs Main {main_start}-{main_end}: intersecting={is_intersecting}"
-                        )
-
                     except ValueError:
-                        print(f"Error parsing time: {main_start_str} or {main_end_str}")
+                        # Если ошибка парсинга времени, игнорируем проверку
+                        pass
 
             # Слот доступен если:
             # 1. Доступен И не забронирован И не пересекается с основной записью (если та же дата)
@@ -165,8 +153,9 @@ def get_available_slots_for_doctor_api(request):
             }
         )
 
+    except Doctor.DoesNotExist:
+        return JsonResponse({"error": "Врач не найден"}, status=404)
     except Exception as e:
-        print(f"Error in get_available_slots_for_doctor_api: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
@@ -249,6 +238,7 @@ def get_available_doctors_api(request):
 
 @csrf_exempt
 @require_POST
+@login_required
 def api_get_next_slot(request):
     """API для получения следующего временного слота"""
     try:
@@ -296,9 +286,147 @@ def api_get_next_slot(request):
             return JsonResponse({"success": True, "next_slot": None})
 
     except Exception as e:
-        import traceback
 
         return JsonResponse(
-            {"success": False, "error": str(e), "traceback": traceback.format_exc()},
+            {"success": False, "error": str(e)},
             status=500,
         )
+
+
+@csrf_exempt
+@login_required
+def check_procedural_availability(request):
+    """API для проверки доступности процедурного кабинета"""
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            date = data.get("date")
+            time_slot_id = data.get("time_slot_id")
+            current_appointment_id = data.get("current_appointment_id")
+
+            if not date or not time_slot_id:
+                return JsonResponse(
+                    {"error": "Не указаны date или time_slot_id"}, status=400
+                )
+
+            try:
+                # Получаем слот по ID
+                time_slot = TimeSlot.objects.get(id=time_slot_id)
+                appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
+
+                # Проверяем, что дата слота совпадает
+                if time_slot.date != appointment_date:
+                    return JsonResponse(
+                        {
+                            "is_available": False,
+                            "error": "Дата слота не совпадает с указанной датой",
+                        }
+                    )
+
+                start_time = time_slot.start_time
+                end_time = time_slot.end_time
+
+                # Находим процедурный кабинет (кабинет №6)
+                try:
+                    procedural_cabinet = Cabinet.objects.get(number=6)
+                except Cabinet.DoesNotExist:
+                    return JsonResponse(
+                        {"error": "Процедурный кабинет (кабинет №6) не найден"},
+                        status=404,
+                    )
+
+                # Ищем занятые слоты в процедурном кабинете в это время
+                occupied_conflicting_slots = (
+                    TimeSlot.objects.filter(
+                        date=appointment_date,
+                        cabinet=procedural_cabinet,
+                        appointments__isnull=False,  # Только занятые слоты
+                    )
+                    .filter(
+                        # Проверяем пересечение времени
+                        start_time__lt=end_time,  # начало слота < конец нашего времени
+                        end_time__gt=start_time,  # конец слота > начало нашего времени
+                    )
+                    .distinct()
+                )
+
+                # Если есть текущая запись, исключаем ее из проверки
+                if current_appointment_id:
+                    occupied_conflicting_slots = occupied_conflicting_slots.exclude(
+                        appointments__id=current_appointment_id
+                    )
+
+                is_available = not occupied_conflicting_slots.exists()
+
+                return JsonResponse(
+                    {
+                        "is_available": is_available,
+                        "occupied_slots": (
+                            [
+                                {
+                                    "id": slot.id,
+                                    "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
+                                    "patient": (
+                                        slot.appointments.first().patient.full_name()
+                                        if slot.appointments.exists()
+                                        else "Неизвестно"
+                                    ),
+                                }
+                                for slot in occupied_conflicting_slots
+                            ]
+                            if not is_available
+                            else []
+                        ),
+                    }
+                )
+
+            except TimeSlot.DoesNotExist:
+                return JsonResponse({"error": "Слот не найден"}, status=404)
+            except ValueError as e:
+                return JsonResponse(
+                    {"error": f"Неверный формат даты: {str(e)}"}, status=400
+                )
+            except Exception as e:
+                return JsonResponse(
+                    {"error": f"Внутренняя ошибка: {str(e)}"}, status=500
+                )
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат JSON"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
+
+    return JsonResponse({"error": "Метод не разрешен"}, status=405)
+
+
+def get_blood_tests(request):
+    """API для получения анализов крови с категориями"""
+    categories = (
+        BloodTestCategory.objects.filter(is_active=True)
+        .prefetch_related(Prefetch("tests", queryset=BloodTest.objects.all()))
+        .order_by("order")
+    )
+
+    categories_data = []
+    for category in categories:
+        tests_data = []
+        for test in category.tests.all():
+            tests_data.append(
+                {
+                    "id": test.id,
+                    "code": test.code,
+                    "name": test.name,
+                    "biomaterial": test.biomaterial,
+                    "biomaterial_display": test.get_biomaterial_display(),
+                    "price": float(test.price),
+                    "execution_time": test.execution_time,
+                    "category_id": category.id,  # ДОБАВЛЯЕМ ЭТО ПОЛЕ
+                    "category_name": category.name,  # И ЭТО ТОЖЕ
+                }
+            )
+
+        categories_data.append(
+            {"id": category.id, "name": category.name, "tests": tests_data}
+        )
+
+    return JsonResponse({"categories": categories_data})

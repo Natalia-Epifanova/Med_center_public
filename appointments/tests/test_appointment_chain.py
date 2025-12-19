@@ -1,10 +1,10 @@
-from appointments.models import Appointment, AppointmentChain
+from datetime import date, time
 
 from django.test import TestCase
+
 from appointments.models import Appointment, AppointmentChain
-from timetable.models import TimeSlot, Doctor, MedicalService, Cabinet
 from patients.models import Patient
-from datetime import date, time
+from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
 class AppointmentChainTestCase(TestCase):

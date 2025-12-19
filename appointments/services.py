@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from appointments.models import Appointment, AppointmentChain
-from timetable.models import Cabinet, Doctor, TimeSlot, MedicalService
+from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
 class AppointmentChainService:
@@ -452,135 +452,6 @@ class ProceduralAppointmentService:
 
         return None
 
-    @staticmethod
-    @transaction.atomic
-    def create_consecutive_appointment(
-        main_appointment,
-        appointment_chain_type,
-        additional_service=None,
-        needs_procedural_additional=False,
-    ):
-        """Создание последовательной записи у того же врача"""
-        from django.core.exceptions import ValidationError
-
-        next_slot = main_appointment.time_slot.get_next_consecutive_slot()
-
-        if not next_slot:
-            raise ValidationError(
-                "Нет следующего временного слота для последовательной записи"
-            )
-
-        if not next_slot.is_available():
-            raise ValidationError("Следующий временной слот уже занят")
-
-        try:
-            if appointment_chain_type == "additional":
-                if not additional_service:
-                    raise ValidationError(
-                        "Для дополнительной услуги необходимо выбрать услугу"
-                    )
-
-                # Проверяем, нужно ли создать процедурную запись и доступно ли время
-                if needs_procedural_additional:
-                    # Создаем временный объект для проверки
-                    temp_consecutive_appointment = Appointment(
-                        time_slot=next_slot,
-                        patient=main_appointment.patient,
-                        service=additional_service,
-                        insurance_type=main_appointment.insurance_type,
-                        status=main_appointment.status,
-                    )
-
-                    # Проверяем доступность процедурного кабинета
-                    if not ProceduralAppointmentService.can_create_procedural_appointment(
-                        temp_consecutive_appointment
-                    ):
-                        raise ValidationError(
-                            "Выбранное время в процедурном кабинете уже занято. "
-                            "Невозможно создать процедурную запись для второй услуги."
-                        )
-
-                consecutive_appointment = Appointment.objects.create(
-                    time_slot=next_slot,
-                    patient=main_appointment.patient,
-                    service=additional_service,
-                    insurance_type=main_appointment.insurance_type,
-                    status=main_appointment.status,
-                    is_consecutive=True,
-                    comment=f"Последовательная запись к {main_appointment.service.name}",
-                    chain_type=Appointment.ChainType.SAME_DOCTOR,
-                )
-
-            elif appointment_chain_type == "two_slots":
-                consecutive_appointment = Appointment.objects.create(
-                    time_slot=next_slot,
-                    patient=main_appointment.patient,
-                    service=main_appointment.service,
-                    insurance_type=main_appointment.insurance_type,
-                    status=main_appointment.status,
-                    is_consecutive=True,
-                    occupies_two_slots=True,
-                    comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
-                    chain_type=Appointment.ChainType.SAME_DOCTOR,
-                )
-            else:
-                raise ValidationError(
-                    f"Неизвестный тип последовательной записи: {appointment_chain_type}"
-                )
-
-            # Сохраняем цену
-            if not consecutive_appointment.price_at_appointment:
-                consecutive_appointment.price_at_appointment = (
-                    consecutive_appointment.service.price
-                )
-            consecutive_appointment.total_with_blood_tests = (
-                consecutive_appointment.price_at_appointment
-            )
-            consecutive_appointment.save()
-
-            # Создаем связь в цепочке
-            AppointmentChain.objects.create(
-                main_appointment=main_appointment,
-                related_appointment=consecutive_appointment,
-                chain_type=(
-                    AppointmentChain.ChainType.SAME_DOCTOR_ADDITIONAL
-                    if appointment_chain_type == "additional"
-                    else AppointmentChain.ChainType.SAME_DOCTOR_TWO_SLOTS
-                ),
-                order=1,
-            )
-
-            # Создаем процедурную запись если нужно (после сохранения основной)
-            if needs_procedural_additional and appointment_chain_type == "additional":
-                print(f"DEBUG: Создание процедурной записи для второй услуги...")
-                procedural_appointment = (
-                    ProceduralAppointmentService.create_procedural_for_appointment(
-                        consecutive_appointment,
-                        main_appointment=consecutive_appointment,
-                    )
-                )
-
-                if not procedural_appointment:
-                    # Если не удалось создать процедурную запись, откатываем все
-                    consecutive_appointment.delete()
-                    raise ValidationError(
-                        "Не удалось создать процедурную запись. Возможно, время уже занято."
-                    )
-
-                print(
-                    f"DEBUG: Процедурная запись создана для второй услуги, ID={procedural_appointment.id}"
-                )
-
-            return consecutive_appointment
-
-        except ValidationError:
-            # Пробрасываем ValidationError дальше
-            raise
-        except Exception as e:
-            raise ValidationError(
-                f"Ошибка при создании последовательной записи: {str(e)}"
-            )
-
 
 class ConsecutiveAppointmentService:
     """Сервис для работы с последовательными записями у одного врача"""
@@ -615,10 +486,6 @@ class ConsecutiveAppointmentService:
 
                 # Проверяем, нужно ли создать процедурную запись
                 if needs_procedural_additional:
-                    print(
-                        f"DEBUG: Создание процедурной записи для дополнительной услуги. needs_procedural_additional={needs_procedural_additional}"
-                    )
-
                     # Проверяем доступность процедурного кабинета
                     if not ProceduralAppointmentService.can_create_procedural_appointment(
                         main_appointment  # Проверяем для основной записи, так как время то же
@@ -640,15 +507,10 @@ class ConsecutiveAppointmentService:
                     chain_type=Appointment.ChainType.SAME_DOCTOR,
                 )
 
-                # Сохраняем цену
-                if not consecutive_appointment.price_at_appointment:
-                    consecutive_appointment.price_at_appointment = (
-                        consecutive_appointment.service.price
-                    )
-                consecutive_appointment.total_with_blood_tests = (
-                    consecutive_appointment.price_at_appointment
+                # Сохраняем цену (используем общий метод)
+                ConsecutiveAppointmentService._save_appointment_price(
+                    consecutive_appointment
                 )
-                consecutive_appointment.save()
 
                 # Создаем связь в цепочке
                 AppointmentChain.objects.create(
@@ -660,10 +522,6 @@ class ConsecutiveAppointmentService:
 
                 # СОЗДАЕМ ПРОЦЕДУРНУЮ ЗАПИСЬ ЕСЛИ НУЖНО
                 if needs_procedural_additional:
-                    print(
-                        f"DEBUG: Выполняется создание процедурной записи для дополнительной услуги"
-                    )
-
                     # Создаем временный объект для процедурной записи
                     temp_appointment_for_procedural = Appointment(
                         time_slot=main_appointment.time_slot,  # Используем то же время что и основная
@@ -682,28 +540,11 @@ class ConsecutiveAppointmentService:
                     )
 
                     if procedural_appointment:
-                        print(
-                            f"DEBUG: Процедурная запись для второй услуги создана, ID={procedural_appointment.id}"
+                        # Сохраняем цену процедурной записи (используем общий метод)
+                        ConsecutiveAppointmentService._save_appointment_price(
+                            procedural_appointment
                         )
 
-                        # Сохраняем цену процедурной записи
-                        if not procedural_appointment.price_at_appointment:
-                            procedural_appointment.price_at_appointment = (
-                                procedural_appointment.service.price
-                            )
-                        procedural_appointment.total_with_blood_tests = (
-                            procedural_appointment.price_at_appointment
-                        )
-                        procedural_appointment.save()
-                    else:
-                        print(
-                            f"DEBUG: Не удалось создать процедурную запись для второй услуги"
-                        )
-                        # НЕ удаляем последовательную запись, так как процедурный кабинет не обязателен
-
-                print(
-                    f"DEBUG: Последовательная запись создана, ID={consecutive_appointment.id}"
-                )
                 return consecutive_appointment
 
             elif appointment_chain_type == "two_slots":
@@ -719,15 +560,10 @@ class ConsecutiveAppointmentService:
                     chain_type=Appointment.ChainType.SAME_DOCTOR,
                 )
 
-                # Сохраняем цену
-                if not consecutive_appointment.price_at_appointment:
-                    consecutive_appointment.price_at_appointment = (
-                        consecutive_appointment.service.price
-                    )
-                consecutive_appointment.total_with_blood_tests = (
-                    consecutive_appointment.price_at_appointment
+                # Сохраняем цену (используем общий метод)
+                ConsecutiveAppointmentService._save_appointment_price(
+                    consecutive_appointment
                 )
-                consecutive_appointment.save()
 
                 # Создаем связь в цепочке
                 AppointmentChain.objects.create(
@@ -737,9 +573,6 @@ class ConsecutiveAppointmentService:
                     order=1,
                 )
 
-                print(
-                    f"DEBUG: Запись на два слота создана, ID={consecutive_appointment.id}"
-                )
                 return consecutive_appointment
 
             else:
@@ -751,10 +584,24 @@ class ConsecutiveAppointmentService:
             # Пробрасываем ValidationError дальше
             raise
         except Exception as e:
-            import traceback
-
-            print(f"DEBUG: Ошибка в create_consecutive_appointment:")
-            print(traceback.format_exc())
             raise ValidationError(
                 f"Ошибка при создании последовательной записи: {str(e)}"
             )
+
+    @staticmethod
+    def _save_appointment_price(appointment):
+        """
+        Сохраняет цену для записи на прием.
+
+        Args:
+            appointment (Appointment): Объект записи на прием
+        """
+        # Сохраняем цену услуги на момент записи, если еще не сохранена
+        if not appointment.price_at_appointment:
+            appointment.price_at_appointment = appointment.service.price
+
+        # Устанавливаем общую сумму (пока без анализов крови)
+        appointment.total_with_blood_tests = appointment.price_at_appointment
+
+        # Сохраняем изменения
+        appointment.save()

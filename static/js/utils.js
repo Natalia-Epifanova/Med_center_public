@@ -806,15 +806,35 @@ AppointmentUtils.PishchelevValidator = {
     },
 
     getSlotDuration: function(timeText) {
-        const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
-        if (timeMatch) {
-            const startHours = parseInt(timeMatch[1]);
-            const startMinutes = parseInt(timeMatch[2]);
-            const endHours = parseInt(timeMatch[3]);
-            const endMinutes = parseInt(timeMatch[4]);
-
-            return (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+        if (!timeText) {
+            console.warn('timeText is empty');
+            return null;
         }
+
+        // Разные варианты форматов времени
+        const timePatterns = [
+            /(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/, // 10:00-10:30
+            /(\d{1,2})\.(\d{2})-(\d{1,2})\.(\d{2})/, // 10.00-10.30
+            /(\d{1,2}):(\d{2})\s*до\s*(\d{1,2}):(\d{2})/, // 10:00 до 10:30
+        ];
+
+        let startHours, startMinutes, endHours, endMinutes;
+
+        for (const pattern of timePatterns) {
+            const match = timeText.match(pattern);
+            if (match) {
+                startHours = parseInt(match[1]);
+                startMinutes = parseInt(match[2]);
+                endHours = parseInt(match[3]);
+                endMinutes = parseInt(match[4]);
+
+                const duration = (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+                console.log(`Parsed time: ${startHours}:${startMinutes}-${endHours}:${endMinutes}, duration: ${duration}min`);
+                return duration;
+            }
+        }
+
+        console.warn(`Could not parse time from: ${timeText}`);
         return null;
     },
 
@@ -870,26 +890,53 @@ AppointmentUtils.PishchelevValidator = {
     warningShown: false,
 
     validateServiceForPishchelev: function(serviceSelect, doctorName, timeText = null) {
+        console.log('=== Starting Pishchelev validation ===');
+        console.log('Doctor name received:', doctorName);
+        console.log('Service select:', serviceSelect);
+
+        if (!doctorName || doctorName.trim() === '') {
+            console.error('Empty doctor name provided');
+            this.hideWarning();
+            return { valid: true };
+        }
+
         const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
         if (!selectedOption || selectedOption.value === '') {
+            console.log('No service selected');
             this.hideWarning();
             return { valid: true };
         }
 
         const serviceName = selectedOption.textContent;
+        console.log('Service name:', serviceName);
+
+        // Проверяем, это Пищелев ли вообще
+        const isPishchelev = this.isPishchelevDoctor(doctorName);
+        console.log('Is Pishchelev doctor?', isPishchelev);
+
+        if (!isPishchelev) {
+            console.log('Not Pishchelev doctor, skipping validation');
+            this.hideWarning();
+            return { valid: true };
+        }
 
         // Если время не передано, пытаемся получить из страницы
         if (!timeText) {
             timeText = document.querySelector('.alert-info')?.textContent || '';
+            console.log('Time text from page:', timeText);
         }
 
         const slotDuration = this.getSlotDuration(timeText);
+        console.log('Slot duration:', slotDuration);
 
         if (slotDuration !== null) {
             const validation = this.validateSlotForPishchelev(slotDuration, serviceName, doctorName);
+            console.log('Validation result:', validation);
+
             if (!validation.valid) {
+                console.log('Validation failed, showing warning');
                 this.showWarning(validation.message);
-                // Также показываем alert для надежности
+
                 if (!this.warningShown) {
                     setTimeout(() => {
                         alert(validation.message);
@@ -897,12 +944,14 @@ AppointmentUtils.PishchelevValidator = {
                     }, 500);
                 }
             } else {
+                console.log('Validation passed');
                 this.hideWarning();
                 this.warningShown = false;
             }
             return validation;
         }
 
+        console.log('Could not determine slot duration');
         this.hideWarning();
         return { valid: true };
     },

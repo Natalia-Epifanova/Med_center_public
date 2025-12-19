@@ -518,7 +518,7 @@ class AppointmentChainManager {
 
     async checkProceduralAvailability(date, timeSlotId) {
         try {
-            const response = await fetch('/timetable/api/check-procedural-availability/', {
+            const response = await fetch('/appointments/api/check-procedural-availability/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -1082,10 +1082,15 @@ AppointmentChainManager.prototype.onServiceSelect = function(index, serviceId) {
 
             serviceSelect.parentNode.appendChild(errorDiv);
             serviceSelect.classList.add('is-invalid');
-            slotSelect.classList.add('is-invalid');
+            if (slotSelect) slotSelect.classList.add('is-invalid');
 
-            // Показываем alert
+            // Показываем alert и сбрасываем выбор
             alert(validation.message);
+            serviceSelect.value = '';
+            if (slotSelect) slotSelect.value = '';
+
+            // Отменяем сохранение формы
+            return;
         } else {
             // Убираем ошибку если есть
             const error = formElement.querySelector('.pishchelev-service-error');
