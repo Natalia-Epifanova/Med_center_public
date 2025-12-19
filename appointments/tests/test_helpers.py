@@ -1,7 +1,8 @@
 # В отдельном файле test_helpers.py или в начале test_forms.py
 from django.test import TestCase
-from timetable.models import Doctor, MedicalService, Cabinet, TimeSlot
 from django.utils import timezone
+
+from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
 class AppointmentTestMixin:

@@ -10,13 +10,13 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DeleteView, UpdateView, DetailView
+from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from appointments.forms.forms import (
     AppointmentForm,
+    AppointmentSimpleEditForm,
     ProceduralAppointmentForm,
     ProceduralAppointmentUpdateForm,
-    AppointmentSimpleEditForm,
 )
 from appointments.models import Appointment, AppointmentChain
 from timetable.models import Cabinet, Doctor, TimeSlot
@@ -56,11 +56,23 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     @transaction.atomic
     def form_valid(self, form):
         try:
+            # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем форму еще раз перед сохранением
+            if not form.is_valid():
+                # Если есть ошибки, показываем их пользователю
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(self.request, f"Ошибка в поле {field}: {error}")
+                return self.form_invalid(form)
+
             # Сохраняем результат form.save() в self.object
             self.object = form.save()
             messages.success(self.request, "Запись успешно создана!")
             return HttpResponseRedirect(self.get_success_url())
 
+        except ValidationError as e:
+            # Ловим ValidationError из формы
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
         except Exception as e:
             messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
             return self.form_invalid(form)
@@ -217,10 +229,6 @@ class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView)
                 all_appointments = self.find_all_related_appointments(self.object)
                 appointment_ids = [a.id for a in all_appointments]
 
-                print(
-                    f"DEBUG: Deleting {len(appointment_ids)} appointments: {appointment_ids}"
-                )
-
                 # ВАЖНО: Удаляем в обратном порядке, чтобы избежать проблем с foreign key
                 deleted_count = 0
                 for appointment in reversed(all_appointments):
@@ -232,15 +240,9 @@ class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView)
                         appointment.delete()
 
                         deleted_count += 1
-                        print(f"DEBUG: Successfully deleted appointment {app_id}")
 
                     except Exception as e:
-                        print(
-                            f"DEBUG: Error deleting appointment {appointment.id if hasattr(appointment, 'id') else 'unknown'}: {e}"
-                        )
-                        import traceback
-
-                        traceback.print_exc()
+                        messages.error(request, f"Ошибка при удалении: {str(e)}")
 
                 messages.success(request, f"Удалено {deleted_count} записей")
 
@@ -252,10 +254,6 @@ class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView)
 
         except Exception as e:
             messages.error(request, f"Ошибка при удалении: {str(e)}")
-            import traceback
-
-            print(f"DEBUG: Full error traceback:")
-            traceback.print_exc()
             # Возвращаем обратно на страницу удаления если ошибка
             return self.get(request, *args, **kwargs)
 

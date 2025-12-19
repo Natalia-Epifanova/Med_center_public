@@ -209,11 +209,7 @@ class Appointment(models.Model):
 
         # Определяем тип цепочки для новых записей с предыдущей записью
         if not self.pk and self.previous_appointment:
-            if self.occupies_two_slots:
-                self.chain_type = self.ChainType.SAME_DOCTOR
-            else:
-                self.chain_type = self.ChainType.SAME_DOCTOR
-
+            self.chain_type = self.ChainType.SAME_DOCTOR
         super().save(*args, **kwargs)
 
     def get_consecutive_appointments(self):
@@ -354,12 +350,6 @@ class Appointment(models.Model):
             if not self.get_related_appointments().exists():
                 self.chain_type = self.ChainType.SINGLE
                 self.save()
-
-    def can_add_another_doctor(self):
-        """Проверяет, можно ли добавить запись к другому врачу"""
-        # Максимум 5 связанных записей
-        related_count = AppointmentChain.objects.filter(main_appointment=self).count()
-        return related_count < 5
 
     @property
     def has_related_appointments(self):

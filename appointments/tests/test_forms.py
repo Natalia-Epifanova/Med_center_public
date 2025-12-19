@@ -1,8 +1,9 @@
 from django.test import TestCase
+from django.utils import timezone
+
 from appointments.forms.forms import AdditionalAppointmentForm
 from appointments.tests.test_helpers import AppointmentTestMixin
-from timetable.models import TimeSlot, Cabinet
-from django.utils import timezone
+from timetable.models import Cabinet, TimeSlot
 
 
 class AppointmentChainFormsTestCase(TestCase, AppointmentTestMixin):

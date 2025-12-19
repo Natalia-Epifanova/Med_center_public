@@ -6,8 +6,8 @@ from users.views import (
     CustomLoginView,
     UserCreateView,
     UserDetailView,
-    UserUpdateView,
     UserPasswordChangeView,
+    UserUpdateView,
 )
 
 app_name = UsersConfig.name

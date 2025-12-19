@@ -33,31 +33,43 @@ document.addEventListener('DOMContentLoaded', function() {
     // 9. Настройка чекбокса процедурного кабинета для второй услуги
     setupAdditionalProceduralCheckbox();
 
-    // 10. Настройка обработки ошибок сервера
-    setupFormErrorHandling();
-    const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
-    if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
-    // Инициализируем валидацию для основной услуги
-    const mainServiceSelect = document.getElementById('id_service');
-        if (mainServiceSelect) {
-            mainServiceSelect.addEventListener('change', function() {
-                const selectedOption = this.options[this.selectedIndex];
-                if (selectedOption) {
-                    window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
-                        this, doctorName
-                    );
-                }
-            });
+    // 10. Инициализация валидации для Пищелева для ОСНОВНОЙ услуги
+    initializePishchelevValidationForMainService();
 
-            // Проверяем сразу, если услуга уже выбрана
-            if (mainServiceSelect.value) {
-                window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
-                    mainServiceSelect, doctorName
-                );
-            }
+    // 11. Настройка валидации формы перед отправкой
+    setupFormValidation();
+});
+
+// НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ВРАЧА
+function getDoctorName() {
+    // Пробуем разные способы
+    if (typeof doctorName !== 'undefined' && doctorName) {
+        console.log('Got doctorName from template variable:', doctorName);
+        return doctorName;
+    }
+
+    // Из заголовка
+    const header = document.querySelector('.card-title');
+    if (header) {
+        const text = header.textContent.trim();
+        console.log('Got doctorName from header:', text);
+        return text;
+    }
+
+    // Из информационного блока
+    const infoBlock = document.querySelector('.alert-info');
+    if (infoBlock) {
+        const text = infoBlock.textContent;
+        const doctorMatch = text.match(/Врач:\s*([^\n]+)/);
+        if (doctorMatch && doctorMatch[1]) {
+            console.log('Got doctorName from info block:', doctorMatch[1].trim());
+            return doctorMatch[1].trim();
         }
     }
-});
+
+    console.error('Could not determine doctor name');
+    return '';
+}
 
 function setupFormErrorHandling() {
     const appointmentForm = document.getElementById('appointmentForm');
@@ -352,6 +364,42 @@ function initializeChainManager() {
 
     window.chainManager = chainManager;
 }
+function initializePishchelevValidationForMainService() {
+    console.log('=== Initializing Pishchelev validation ===');
+
+    if (!window.AppointmentUtils || !window.AppointmentUtils.PishchelevValidator) {
+        console.error('PishchelevValidator not found');
+        return;
+    }
+
+    const mainServiceSelect = document.getElementById('id_service');
+    if (!mainServiceSelect) {
+        console.error('Main service select not found');
+        return;
+    }
+
+    // Используем новую функцию для получения имени врача
+    const doctorName = getDoctorName();
+
+    if (!doctorName) {
+        console.warn('Не удалось определить имя врача для валидации Пищелева');
+        return;
+    }
+
+    console.log('Pishchelev validation initialized for doctor:', doctorName);
+
+    // Инициализируем валидатор для основной услуги
+    window.AppointmentUtils.PishchelevValidator.initializeForForm('id_service', doctorName);
+
+    // Также проверяем сразу при загрузке, если услуга уже выбрана
+    if (mainServiceSelect.value) {
+        setTimeout(() => {
+            window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                mainServiceSelect, doctorName
+            );
+        }, 100);
+    }
+}
 
 function initializeProceduralManagerForAdditionalService() {
     if (!window.AppointmentUtils || !window.AppointmentUtils.ProceduralManager) return;
@@ -420,6 +468,61 @@ function initializeProceduralManagerForAdditionalService() {
             }
         }
     }
+}
+
+function setupFormValidation() {
+    const appointmentForm = document.getElementById('appointmentForm');
+    if (!appointmentForm) return;
+
+    appointmentForm.addEventListener('submit', function(e) {
+        // Проверяем валидацию Пищелева перед отправкой
+        if (!validatePishchelevBeforeSubmit()) {
+            e.preventDefault();
+            return false;
+        }
+
+        return true;
+    });
+}
+
+function validatePishchelevBeforeSubmit() {
+    const mainServiceSelect = document.getElementById('id_service');
+    if (!mainServiceSelect) return true;
+
+    // Получаем имя врача
+    const doctorName = getDoctorName();
+    if (!doctorName) return true;
+
+    // Получаем выбранную услугу
+    const selectedOption = mainServiceSelect.options[mainServiceSelect.selectedIndex];
+    if (!selectedOption || !selectedOption.value) return true;
+
+    const serviceName = selectedOption.textContent;
+
+    // Получаем время из страницы
+    const timeText = document.querySelector('.alert-info')?.textContent || '';
+    const timeTextFromHidden = document.getElementById('js-original-time')?.value || '';
+    const actualTimeText = timeText || timeTextFromHidden;
+
+    // Проверяем через валидатор
+    if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
+        const slotDuration = window.AppointmentUtils.PishchelevValidator.getSlotDuration(actualTimeText);
+
+        if (slotDuration !== null) {
+            const validation = window.AppointmentUtils.PishchelevValidator.validateSlotForPishchelev(
+                slotDuration, serviceName, doctorName
+            );
+
+            if (!validation.valid) {
+                // Показываем ошибку и блокируем отправку
+                alert('❌ Ошибка!\n\n' + validation.message +
+                      '\n\nИсправьте выбор услуги или времени перед сохранением.');
+                return false;
+            }
+        }
+    }
+
+    return true;
 }
 
 function initializeTimeSlotSelector() {

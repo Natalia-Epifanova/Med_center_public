@@ -1,7 +1,8 @@
 from django.test import TestCase
-from appointments.forms.forms import AppointmentForm
-from timetable.models import Doctor, TimeSlot, MedicalService, Cabinet
 from django.utils import timezone
+
+from appointments.forms.forms import AppointmentForm
+from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
 class SimpleFormTest(TestCase):

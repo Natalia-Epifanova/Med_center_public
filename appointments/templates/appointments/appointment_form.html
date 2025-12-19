@@ -30,7 +30,7 @@
                                 Дата: <span id="original-date">{{ time_slot.date|date:"d.m.Y" }}</span><br>
                                 Время: <span id="original-time">{{ time_slot.start_time|time:"H:i" }}-{{ time_slot.end_time|time:"H:i" }}</span><br>
                                 Кабинет: <span id="original-cabinet">{{ time_slot.cabinet.number }}{% if time_slot.cabinet.name_of_cabinet %} ({{time_slot.cabinet.name_of_cabinet }}){% endif %}</span><br>
-                                Врач: {{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.
+                                Врач: <span id="doctor-full-name">{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.</span>
                             </div>
                             <div>
                                 <button type="button"
@@ -40,11 +40,12 @@
                                 </button>
                             </div>
                         </div>
-                        <!-- ДОБАВЬТЕ ЭТИ СКРЫТЫЕ ПОЛЯ ДЛЯ НАДЕЖНОСТИ -->
+                        <!-- Скрытые поля -->
                         <input type="hidden" id="js-original-date" value="{{ time_slot.date|date:'Y-m-d' }}">
                         <input type="hidden" id="js-original-time" value="{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}">
                         <input type="hidden" id="js-current-slot-id" value="{{ time_slot.id }}">
                         <input type="hidden" id="js-doctor-id" value="{{ time_slot.doctor.id }}">
+                        <input type="hidden" id="js-doctor-name" value="{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.">
                     </div>
 
                     <!-- КНОПКИ ПОДТВЕРЖДЕНИЯ/ОТМЕНЫ (изначально скрыты) -->
@@ -106,6 +107,7 @@
 
                     <form method="post" id="appointmentForm">
                         {% csrf_token %}
+
                         <input type="hidden" name="total_sum" id="id_total_sum" value="">
                         <!-- Hidden поля для изменения времени -->
                         {{ form.allow_time_change }}
@@ -413,7 +415,7 @@
 {% block extra_js %}
 <script>
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
-    const availableSlotsUrl = "{% url 'timetable:api_get_available_slots' %}";
+    const availableSlotsUrl = "{% url 'appointments:api_available_slots_for_doctor' %}";
     const csrfToken = "{{ csrf_token }}";
     const doctorId = {{ time_slot.doctor.id }};
     const currentSlotId = {{ time_slot.id }};
@@ -421,6 +423,7 @@
     const originalTime = "{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}";
     const originalCabinet = "{{ time_slot.cabinet.number }}";
     const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
+    // ВАЖНО: Используем |escapejs фильтр
     const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
 </script>
 
@@ -431,39 +434,5 @@
 <!-- Подключаем основной скрипт создания записи -->
 <script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>
 
-<script>
-    // ДОБАВЬТЕ ЭТОТ КОД ПОСЛЕ ВСЕХ СКРИПТОВ
 
-    // Функция для проверки состояния
-    function debugAppointmentChainManager() {
-        console.log('=== DEBUG APPOINTMENT CHAIN MANAGER ===');
-        console.log('1. Window variables:', {
-            originalDate: window.originalDate,
-            originalTime: window.originalTime,
-            currentSlotId: window.currentSlotId,
-            doctorId: window.doctorId
-        });
-
-        console.log('2. Chain Manager exists?', !!window.chainManager);
-        if (window.chainManager) {
-            console.log('3. Main appointment slot:', window.chainManager.mainAppointmentSlot);
-            console.log('4. Main appointment time:', window.chainManager.getMainAppointmentTime());
-            console.log('5. Booked slots:', Array.from(window.chainManager.bookedSlots));
-        }
-
-        console.log('6. All global vars starting with "original":',
-            Object.keys(window).filter(key => key.includes('original') || key.includes('Date') || key.includes('Time'))
-        );
-    }
-
-    // Выполнить проверку через 2 секунды после загрузки
-    setTimeout(debugAppointmentChainManager, 2000);
-
-    // И при клике на любую кнопку
-    document.addEventListener('click', function(e) {
-        if (e.target.matches('button, input[type="radio"], select')) {
-            setTimeout(debugAppointmentChainManager, 100);
-        }
-    });
-</script>
 {% endblock %}
