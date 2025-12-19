@@ -76,13 +76,13 @@
                 return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
             },
 
-            getSlotDurationFromText: function(timeText) {
+            getSlotDuration: function(timeText) {
                 const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
                 if (timeMatch) {
                     const startHours = parseInt(timeMatch[1]);
                     const startMinutes = parseInt(timeMatch[2]);
-                    const endHours = parseInt(timeMatch[3]);
-                    const endMinutes = parseInt(timeMatch[4]);
+                    const endHours = parseInt(timeMatch[3]);  // <-- Исправьте на timeMatch
+                    const endMinutes = parseInt(timeMatch[4]); // <-- Исправьте на timeMatch
 
                     return (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
                 }
@@ -787,3 +787,187 @@
     };
 
 })();
+
+AppointmentUtils.PishchelevValidator = {
+    isPishchelevDoctor: function(doctorName) {
+        if (!doctorName) return false;
+        const doctorNameLower = doctorName.toLowerCase();
+        // Добавьте разные варианты написания
+        return doctorNameLower.includes('пищелев') ||
+               doctorNameLower.includes('пищелёв') ||
+               doctorNameLower.includes('пищелев');
+    },
+
+    isInsolesService: function(serviceName) {
+        if (!serviceName) return false;
+        const serviceNameLower = serviceName.toLowerCase();
+        const insolesKeywords = ["стель", "стелек", "manufacture_of_insoles", "изготовление"];
+        return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
+    },
+
+    getSlotDuration: function(timeText) {
+        const timeMatch = timeText.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+            const startHours = parseInt(timeMatch[1]);
+            const startMinutes = parseInt(timeMatch[2]);
+            const endHours = parseInt(timeMatch[3]);
+            const endMinutes = parseInt(timeMatch[4]);
+
+            return (endHours * 60 + endMinutes) - (startHours * 60 + startMinutes);
+        }
+        return null;
+    },
+
+    validateSlotForPishchelev: function(slotDuration, serviceName, doctorName) {
+        const isPishchelev = this.isPishchelevDoctor(doctorName);
+        const isInsolesService = this.isInsolesService(serviceName);
+
+        console.log(`DEBUG Pishchelev check: doctor=${doctorName}, service=${serviceName}, duration=${slotDuration}, isPishchelev=${isPishchelev}, isInsoles=${isInsolesService}`);
+
+        if (isPishchelev && slotDuration === 20 && !isInsolesService) {
+            return {
+                valid: false,
+                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек!\n\nВыберите услугу "Изготовление стелек" или выберите 30-минутный интервал.'
+            };
+        }
+
+        return { valid: true };
+    },
+
+    showWarning: function(message) {
+        let warningDiv = document.getElementById('pishchelev-warning');
+        if (!warningDiv) {
+            warningDiv = document.createElement('div');
+            warningDiv.id = 'pishchelev-warning';
+            warningDiv.className = 'alert alert-warning mt-3';
+
+            const serviceSelect = document.getElementById('id_service');
+            if (serviceSelect && serviceSelect.parentNode) {
+                serviceSelect.parentNode.appendChild(warningDiv);
+            }
+        }
+
+        warningDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Обратите внимание:</strong> ${message}
+        `;
+        warningDiv.style.display = 'block';
+
+        setTimeout(() => {
+            if (warningDiv && warningDiv.style.display !== 'none') {
+                warningDiv.style.display = 'none';
+            }
+        }, 10000);
+    },
+
+    hideWarning: function() {
+        const warningDiv = document.getElementById('pishchelev-warning');
+        if (warningDiv) {
+            warningDiv.style.display = 'none';
+        }
+    },
+
+    warningShown: false,
+
+    validateServiceForPishchelev: function(serviceSelect, doctorName, timeText = null) {
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        if (!selectedOption || selectedOption.value === '') {
+            this.hideWarning();
+            return { valid: true };
+        }
+
+        const serviceName = selectedOption.textContent;
+
+        // Если время не передано, пытаемся получить из страницы
+        if (!timeText) {
+            timeText = document.querySelector('.alert-info')?.textContent || '';
+        }
+
+        const slotDuration = this.getSlotDuration(timeText);
+
+        if (slotDuration !== null) {
+            const validation = this.validateSlotForPishchelev(slotDuration, serviceName, doctorName);
+            if (!validation.valid) {
+                this.showWarning(validation.message);
+                // Также показываем alert для надежности
+                if (!this.warningShown) {
+                    setTimeout(() => {
+                        alert(validation.message);
+                        this.warningShown = true;
+                    }, 500);
+                }
+            } else {
+                this.hideWarning();
+                this.warningShown = false;
+            }
+            return validation;
+        }
+
+        this.hideWarning();
+        return { valid: true };
+    },
+
+    // Добавляем метод для проверки в цепочке
+    validateChainForPishchelev: function(formElement, index) {
+        const doctorSelect = formElement.querySelector('.doctor-select');
+        const serviceSelect = formElement.querySelector('.service-select');
+        const slotSelect = formElement.querySelector('.slot-select');
+
+        if (!doctorSelect || !serviceSelect || !slotSelect) return { valid: true };
+
+        const doctorName = doctorSelect.options[doctorSelect.selectedIndex]?.textContent || '';
+        const serviceName = serviceSelect.options[serviceSelect.selectedIndex]?.textContent || '';
+        const slotText = slotSelect.options[slotSelect.selectedIndex]?.dataset.time || '';
+
+        if (!this.isPishchelevDoctor(doctorName) || !serviceName || !slotText) {
+            return { valid: true };
+        }
+
+        const slotDuration = this.getSlotDuration(slotText);
+        if (slotDuration !== null) {
+            return this.validateSlotForPishchelev(slotDuration, serviceName, doctorName);
+        }
+
+        return { valid: true };
+    },
+
+    initializeForForm: function(serviceSelectId, doctorName) {
+        const serviceSelect = document.getElementById(serviceSelectId);
+        if (!serviceSelect || !doctorName) return;
+
+        serviceSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption) {
+                window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                    this, doctorName
+                );
+            }
+        });
+
+        // Проверяем сразу, если услуга уже выбрана
+        if (serviceSelect.value) {
+            window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                serviceSelect, doctorName
+            );
+        }
+
+        console.log('PishchelevValidator initialized for form');
+    },
+
+    initializeForChain: function(serviceSelect, doctorName) {
+        if (!serviceSelect || !doctorName) return;
+
+        serviceSelect.addEventListener('change', function() {
+            window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                this, doctorName
+            );
+        });
+
+        // Проверяем сразу
+        if (serviceSelect.value) {
+            window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                serviceSelect, doctorName
+            );
+        }
+    }
+};

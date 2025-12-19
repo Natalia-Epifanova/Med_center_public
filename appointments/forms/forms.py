@@ -377,6 +377,18 @@ class AppointmentForm(AppointmentBaseForm):
             service = MedicalService.objects.get(id=service_id)
             time_slot = TimeSlot.objects.get(id=time_slot_id)
 
+            # ВАЖНОЕ ДОБАВЛЕНИЕ: Проверка ограничений Пищелева
+            if "пищелев" in doctor.surname.lower():
+                from timetable.utils import validate_pishchelev_restrictions
+                from django.core.exceptions import ValidationError
+
+                try:
+                    validate_pishchelev_restrictions(doctor, service, time_slot)
+                except ValidationError as e:
+                    raise forms.ValidationError(
+                        f"Ошибка в дополнительной записи #{order} (к врачу {doctor.surname}): {str(e)}"
+                    )
+
             # Проверяем, что дата дополнительной записи НЕ пересекается по времени с основной
             if time_slot.date == main_appointment.date:
                 # Получаем время начала и окончания слотов

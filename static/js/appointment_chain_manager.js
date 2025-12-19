@@ -714,6 +714,14 @@ AppointmentChainManager.prototype.bindFormEvents = function(index) {
     const commentInput = formElement.querySelector('.comment-input');
     commentInput.addEventListener('input', (e) => this.onCommentChange(index, e.target.value));
 
+    const serviceSelect = formElement.querySelector('.service-select');
+        if (serviceSelect) {
+            serviceSelect.addEventListener('change', (e) => {
+                this.onServiceSelect(index, e.target.value);
+                this.saveFormData(index);
+            });
+        }
+
     const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
     if (proceduralCheckbox) {
         proceduralCheckbox.addEventListener('change', (e) => {
@@ -898,6 +906,36 @@ AppointmentChainManager.prototype.onSlotSelect = function(index, slotId) {
     const selectedOption = slotSelect.options[slotSelect.selectedIndex];
     if (!selectedOption) return;
 
+    // ПРОВЕРКА ДЛЯ ПИЩЕЛЕВА ПРИ ВЫБОРЕ ВРЕМЕНИ
+    if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
+        const doctorSelect = formElement.querySelector('.doctor-select');
+        const serviceSelect = formElement.querySelector('.service-select');
+
+        if (doctorSelect && serviceSelect) {
+            const doctorName = doctorSelect.options[doctorSelect.selectedIndex]?.textContent || '';
+            const serviceName = serviceSelect.options[serviceSelect.selectedIndex]?.textContent || '';
+
+            if (window.AppointmentUtils.PishchelevValidator.isPishchelevDoctor(doctorName) && serviceName) {
+                const timeText = selectedOption.dataset.time || '';
+                const slotDuration = window.AppointmentUtils.PishchelevValidator.getSlotDuration(timeText);
+
+                if (slotDuration !== null) {
+                    const validation = window.AppointmentUtils.PishchelevValidator.validateSlotForPishchelev(
+                        slotDuration, serviceName, doctorName
+                    );
+
+                    if (!validation.valid) {
+                        this.showPishchelevTimeError(formElement, validation.message, selectedOption);
+                        slotSelect.value = '';
+                        if (timeSpan) timeSpan.textContent = 'не выбрано';
+                        slotSelect.classList.add('is-invalid');
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
     if (this.shouldCheckTimeOverlap()) {
         const dateInput = formElement.querySelector('.date-select');
         const slotDate = dateInput ? dateInput.value : null;
@@ -928,6 +966,29 @@ AppointmentChainManager.prototype.onSlotSelect = function(index, slotId) {
     if (noSlotsMessage) noSlotsMessage.remove();
 
     this.saveFormData(index);
+};
+
+AppointmentChainManager.prototype.showPishchelevTimeError = function(formElement, message, slotOption) {
+    const slotSelect = formElement.querySelector('.slot-select');
+
+    const oldError = formElement.querySelector('.pishchelev-time-error');
+    if (oldError) oldError.remove();
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'pishchelev-time-error invalid-feedback d-block';
+    errorDiv.innerHTML = `
+        <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Ошибка записи к врачу Пищелеву!</strong><br>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+
+    slotSelect.parentNode.appendChild(errorDiv);
+
+    // Показываем alert с подробным объяснением
+    alert(message + '\n\nВыбранное время: ' + slotOption.dataset.time);
 };
 
 AppointmentChainManager.prototype.clearTimeOverlapError = function(index) {
@@ -977,6 +1038,64 @@ AppointmentChainManager.prototype.showTimeOverlapWarning = function(index, slotO
         'Выбранное время: ' + slotOption.dataset.time + '\n\n' +
         'Пожалуйста, выберите другое время, которое не пересекается с основной записью.'
     );
+};
+
+AppointmentChainManager.prototype.onServiceSelect = function(index, serviceId) {
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    if (!formElement) return;
+
+    const doctorSelect = formElement.querySelector('.doctor-select');
+    const serviceSelect = formElement.querySelector('.service-select');
+    const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+
+    if (!selectedOption || !doctorSelect) return;
+
+    const doctorName = doctorSelect.options[doctorSelect.selectedIndex]?.textContent || '';
+    const serviceName = selectedOption.textContent;
+
+    // Проверяем для Пищелева
+    if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
+        // Получаем выбранное время
+        const slotSelect = formElement.querySelector('.slot-select');
+        const timeText = slotSelect?.options[slotSelect.selectedIndex]?.dataset.time || '';
+
+        const validation = window.AppointmentUtils.PishchelevValidator.validateChainForPishchelev(
+            formElement, index
+        );
+
+        if (!validation.valid) {
+            // Показываем ошибку
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'pishchelev-service-error invalid-feedback d-block';
+            errorDiv.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Ошибка записи к врачу Пищелеву!</strong><br>
+                    ${validation.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+
+            // Удаляем старую ошибку
+            const oldError = formElement.querySelector('.pishchelev-service-error');
+            if (oldError) oldError.remove();
+
+            serviceSelect.parentNode.appendChild(errorDiv);
+            serviceSelect.classList.add('is-invalid');
+            slotSelect.classList.add('is-invalid');
+
+            // Показываем alert
+            alert(validation.message);
+        } else {
+            // Убираем ошибку если есть
+            const error = formElement.querySelector('.pishchelev-service-error');
+            if (error) error.remove();
+            serviceSelect.classList.remove('is-invalid');
+            if (slotSelect) slotSelect.classList.remove('is-invalid');
+        }
+    }
+
+    this.saveFormData(index);
 };
 
 AppointmentChainManager.prototype.saveFormData = function(index) {

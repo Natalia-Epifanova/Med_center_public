@@ -77,7 +77,6 @@ class PatientFieldsMixin:
 class AppointmentFormMixin:
     """Миксин с общими методами для форм записей"""
 
-    # РАСШИРЯЕМ существующие choices (переносим из AppointmentBaseForm)
     APPOINTMENT_CHOICES = [
         ("none", "Только одна услуга"),
         ("additional", "Добавить вторую услугу к этому же врачу"),
@@ -92,7 +91,7 @@ class AppointmentFormMixin:
         return choices_dict.get(value, value)
 
     def _validate_pishchelev_restrictions(self, cleaned_data):
-        """Проверка ограничений для врача Пищелева П.В."""
+        """Проверка ограничений для врача Пищелева П.В. для ВСЕХ записей"""
         doctor = None
 
         # Получаем врача в зависимости от контекста
@@ -103,10 +102,86 @@ class AppointmentFormMixin:
         elif hasattr(self, "doctor") and self.doctor:
             doctor = self.doctor
 
+        # Если это не Пищелев, выходим
+        if not doctor or "пищелев" not in doctor.surname.lower():
+            return
+
+        # Проверяем основную услугу
         service = cleaned_data.get("service")
         time_slot = getattr(self, "time_slot", None)
 
-        # Используем утилиту для валидации
         from timetable.utils import validate_pishchelev_restrictions
+        from django.core.exceptions import ValidationError
 
-        validate_pishchelev_restrictions(doctor, service, time_slot)
+        try:
+            validate_pishchelev_restrictions(doctor, service, time_slot)
+        except ValidationError as e:
+            # Перевыбрасываем исключение с более понятным сообщением
+            raise ValidationError(
+                f"Врач Пищелев П.В.: {str(e)}\n"
+                f"Услуга: {service.name if service else 'не указана'}\n"
+                f"Время: {time_slot.start_time if time_slot else 'не указано'}"
+            )
+
+        # Проверяем дополнительные услуги в цепочке
+        self._validate_pishchelev_for_chain(doctor, cleaned_data)
+
+    def _validate_pishchelev_for_chain(self, doctor, cleaned_data):
+        """Проверка ограничений Пищелева для записей в цепочке"""
+        appointment_chain_type = cleaned_data.get("appointment_chain_type")
+
+        # Проверяем дополнительную услугу для того же врача
+        if appointment_chain_type == "additional":
+            additional_service = cleaned_data.get("additional_service")
+            time_slot = getattr(self, "time_slot", None)
+
+            if additional_service and time_slot:
+                next_slot = time_slot.get_next_consecutive_slot()
+                if next_slot:
+                    from timetable.utils import validate_pishchelev_restrictions
+                    from django.core.exceptions import ValidationError
+
+                    try:
+                        validate_pishchelev_restrictions(
+                            doctor, additional_service, next_slot
+                        )
+                    except ValidationError as e:
+                        raise ValidationError(
+                            f"Ошибка для второй услуги ({additional_service.name}): {str(e)}"
+                        )
+
+        # Проверяем дополнительные записи к другим врачам/тому же врачу
+        if appointment_chain_type in ["another_doctor", "multiple"]:
+            additional_data = cleaned_data.get("additional_appointments_data")
+            if additional_data:
+                import json
+
+                try:
+                    appointments_list = json.loads(additional_data)
+                    for i, appointment_data in enumerate(appointments_list):
+                        # Если это запись к тому же врачу
+                        if appointment_data.get("doctor_id") == doctor.id:
+                            service_id = appointment_data.get("service_id")
+                            time_slot_id = appointment_data.get("time_slot_id")
+
+                            if service_id and time_slot_id:
+                                from timetable.models import MedicalService, TimeSlot
+
+                                try:
+                                    service = MedicalService.objects.get(id=service_id)
+                                    time_slot = TimeSlot.objects.get(id=time_slot_id)
+
+                                    from timetable.utils import (
+                                        validate_pishchelev_restrictions,
+                                    )
+
+                                    validate_pishchelev_restrictions(
+                                        doctor, service, time_slot
+                                    )
+                                except (
+                                    MedicalService.DoesNotExist,
+                                    TimeSlot.DoesNotExist,
+                                ):
+                                    continue
+                except (json.JSONDecodeError, KeyError):
+                    pass

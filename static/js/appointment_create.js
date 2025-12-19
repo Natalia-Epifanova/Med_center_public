@@ -35,6 +35,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 10. Настройка обработки ошибок сервера
     setupFormErrorHandling();
+    const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
+    if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
+    // Инициализируем валидацию для основной услуги
+    const mainServiceSelect = document.getElementById('id_service');
+        if (mainServiceSelect) {
+            mainServiceSelect.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                if (selectedOption) {
+                    window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                        this, doctorName
+                    );
+                }
+            });
+
+            // Проверяем сразу, если услуга уже выбрана
+            if (mainServiceSelect.value) {
+                window.AppointmentUtils.PishchelevValidator.validateServiceForPishchelev(
+                    mainServiceSelect, doctorName
+                );
+            }
+        }
+    }
 });
 
 function setupFormErrorHandling() {

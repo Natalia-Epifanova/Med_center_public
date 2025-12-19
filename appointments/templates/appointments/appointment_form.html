@@ -100,7 +100,7 @@
                     <!-- Блок предупреждения для врача Пищелева -->
                     <div id="pishchelevWarning" class="alert alert-warning mt-2" style="display: none;">
                         <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Особенности записи:</strong>
+                        <strong>Особенности записи к врачу Пищелеву П.В.:</strong>
                         <span id="pishchelevWarningText"></span>
                     </div>
 
@@ -390,6 +390,7 @@
                         </div>
                         <input type="hidden" id="id_needs_procedural_additional" name="needs_procedural_additional" value="">
                         {{ form.procedural_appointments_data }}
+
                         <!-- Кнопки действий -->
                         <div class="d-flex justify-content-between">
                             <a href="{% url 'timetable:schedule_day' %}?date={{ time_slot.date|date:'Y-m-d' }}"
@@ -420,7 +421,7 @@
     const originalTime = "{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}";
     const originalCabinet = "{{ time_slot.cabinet.number }}";
     const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
-
+    const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
 </script>
 
 <!-- Подключаем общие утилиты -->
