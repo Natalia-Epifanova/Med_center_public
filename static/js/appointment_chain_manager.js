@@ -1,3 +1,6 @@
+/**
+ * Менеджер цепочек записей для работы с дополнительными записями к разным врачам
+ */
 class AppointmentChainManager {
     constructor(options = {}) {
         this.csrfToken = options.csrfToken;
@@ -7,7 +10,11 @@ class AppointmentChainManager {
 
         this.additionalAppointments = [];
         this.appointmentForms = [];
-        this.proceduralAppointments = []; // Храним данные о процедурных записях
+        this.proceduralAppointments = [];
+
+        this.bookedSlots = new Set();
+        this.mainAppointmentSlot = null;
+        this.allBookedSlots = [];
 
         this.init();
     }
@@ -15,28 +22,102 @@ class AppointmentChainManager {
     init() {
         this.bindEvents();
         this.renderInitialTemplate();
+        this.setMainAppointmentSlot();
+    }
+
+    setMainAppointmentSlot() {
+        if (!window.originalDate) {
+            const hiddenDate = document.getElementById('js-original-date');
+            if (hiddenDate) window.originalDate = hiddenDate.value;
+        }
+
+        if (!window.originalTime) {
+            const hiddenTime = document.getElementById('js-original-time');
+            if (hiddenTime) window.originalTime = hiddenTime.value;
+        }
+
+        if (!window.currentSlotId) {
+            const hiddenSlotId = document.getElementById('js-current-slot-id');
+            if (hiddenSlotId) window.currentSlotId = parseInt(hiddenSlotId.value);
+        }
+
+        if (!window.currentSlotId || !window.originalTime || !window.originalDate) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const dateFromUrl = urlParams.get('date');
+            if (dateFromUrl && !window.originalDate) window.originalDate = dateFromUrl;
+            return;
+        }
+
+        const timeMatch = window.originalTime.match(/(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})/);
+        if (timeMatch) {
+            const formatTime = (hours, minutes) => {
+                const h = hours.padStart(2, '0');
+                const m = minutes.padStart(2, '0');
+                return `${h}:${m}:00`;
+            };
+
+            this.mainAppointmentSlot = {
+                id: window.currentSlotId,
+                startTime: formatTime(timeMatch[1], timeMatch[2]),
+                endTime: formatTime(timeMatch[3], timeMatch[4]),
+                display: window.originalTime,
+                date: window.originalDate
+            };
+
+            this.bookedSlots.add(window.currentSlotId.toString());
+        }
+    }
+
+    getMainAppointmentTime() {
+        if (!this.mainAppointmentSlot) return null;
+        return {
+            start_time: this.mainAppointmentSlot.startTime,
+            end_time: this.mainAppointmentSlot.endTime,
+            time: this.mainAppointmentSlot.display
+        };
+    }
+
+    checkSlotTimeOverlap(slotStart, slotEnd) {
+        const mainTime = this.getMainAppointmentTime();
+        if (!mainTime) return false;
+
+        const mainStart = mainTime.start_time;
+        const mainEnd = mainTime.end_time;
+
+        if (slotStart === mainStart && slotEnd === mainEnd) return true;
+
+        const timeToMinutes = (timeStr) => {
+            const parts = timeStr.split(':');
+            const hours = parseInt(parts[0], 10) || 0;
+            const minutes = parseInt(parts[1], 10) || 0;
+            const seconds = parts.length > 2 ? parseInt(parts[2], 10) || 0 : 0;
+            return hours * 60 + minutes + seconds / 60;
+        };
+
+        const slotStartMinutes = timeToMinutes(slotStart);
+        const slotEndMinutes = timeToMinutes(slotEnd);
+        const mainStartMinutes = timeToMinutes(mainStart);
+        const mainEndMinutes = timeToMinutes(mainEnd);
+
+        return (
+            (slotStartMinutes < mainEndMinutes && slotEndMinutes > mainStartMinutes) ||
+            (slotStartMinutes >= mainStartMinutes && slotEndMinutes <= mainEndMinutes) ||
+            (mainStartMinutes >= slotStartMinutes && mainEndMinutes <= slotEndMinutes)
+        );
     }
 
     bindEvents() {
-        // Слушаем изменение типа записи
         document.querySelectorAll('input[name="appointment_chain_type"]').forEach(radio => {
             radio.addEventListener('change', (e) => this.onChainTypeChange(e.target.value));
         });
 
-        // Инициализируем начальное состояние
         const initialType = document.querySelector('input[name="appointment_chain_type"]:checked');
-        if (initialType) {
-            this.onChainTypeChange(initialType.value);
-        }
+        if (initialType) this.onChainTypeChange(initialType.value);
     }
 
     onChainTypeChange(type) {
-        console.log('Chain type changed to:', type);
-
-        // Скрываем все секции
         this.hideAllSections();
 
-        // Показываем нужную секцию только если она существует
         switch(type) {
             case 'additional':
                 const additionalSection = document.getElementById('additionalServiceSection');
@@ -81,14 +162,11 @@ class AppointmentChainManager {
 
         sections.forEach(sectionId => {
             const section = document.getElementById(sectionId);
-            if (section) {
-                section.style.display = 'none';
-            }
+            if (section) section.style.display = 'none';
         });
     }
 
     renderInitialTemplate() {
-        // Шаблон для формы дополнительной записи с кнопкой процедурного кабинета
         this.appointmentFormTemplate = `
             <div class="appointment-form-card card mb-3" data-form-index="{index}">
                 <div class="card-header bg-light d-flex justify-content-between align-items-center">
@@ -134,7 +212,6 @@ class AppointmentChainManager {
                         </div>
                     </div>
 
-                    <!-- КНОПКА ПРОЦЕДУРНОГО КАБИНЕТА ДЛЯ ЭТОЙ ФОРМЫ -->
                     <div class="row mt-3">
                         <div class="col-12">
                             <div class="form-check">
@@ -166,12 +243,8 @@ class AppointmentChainManager {
 
     addAppointmentForm() {
         const container = document.getElementById('multipleAppointmentsContainer');
-        if (!container) {
-            console.error('Container multipleAppointmentsContainer not found');
-            return;
-        }
+        if (!container) return;
 
-        // Проверяем лимит
         if (this.additionalAppointments.length >= this.maxAdditionalAppointments) {
             alert(`Максимум можно добавить ${this.maxAdditionalAppointments} дополнительных записей`);
             return;
@@ -184,109 +257,75 @@ class AppointmentChainManager {
         formElement.innerHTML = formHtml;
         container.appendChild(formElement);
 
-        // Инициализируем форму
         this.initAppointmentForm(index);
     }
 
     initAppointmentForm(index) {
         const formElement = document.querySelector(`[data-form-index="${index}"]`);
-        if (!formElement) {
-            console.error(`Form element with index ${index} not found`);
-            return;
-        }
+        if (!formElement) return;
 
-        // Загружаем список врачей (исключая основного)
         this.loadDoctorsForForm(index);
 
-        // Устанавливаем минимальную дату
         const dateInput = formElement.querySelector('.date-select');
         const today = new Date().toISOString().split('T')[0];
         dateInput.min = today;
         dateInput.value = this.mainDate || today;
 
-        // Находим чекбокс процедурного кабинета и селектор услуг
         const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
         const serviceSelect = formElement.querySelector('.service-select');
 
-        // Добавляем обработчик для автоматического выделения процедурного кабинета
         if (serviceSelect && proceduralCheckbox) {
             serviceSelect.addEventListener('change', function() {
-                // Используем утилиту для проверки медикаментозных блокад
                 if (window.AppointmentUtils && window.AppointmentUtils.ProceduralManager) {
                     window.AppointmentUtils.ProceduralManager.updateProceduralCheckbox(this, proceduralCheckbox);
                 } else {
-                    // Фолбэк проверка
                     const selectedOption = this.options[this.selectedIndex];
                     const serviceName = selectedOption ? selectedOption.text.toLowerCase() : '';
-                    const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи', 'пункц'];
+                    const procedureKeywords = ['пункц', 'блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
 
-                    if (blockadeKeywords.some(keyword => serviceName.includes(keyword))) {
+                    if (procedureKeywords.some(keyword => serviceName.includes(keyword))) {
                         proceduralCheckbox.checked = true;
-                        console.log('Auto-checked procedural for medical blockade');
-
-                        // Вызываем событие change чтобы обновились данные
                         proceduralCheckbox.dispatchEvent(new Event('change'));
                     }
                 }
             });
         }
 
-        // Привязываем события
         this.bindFormEvents(index);
-
-        // Добавляем в массив форм
         this.appointmentForms.push(index);
 
-        // Триггерим загрузку слотов если дата уже установлена
         if (this.mainDate) {
-            setTimeout(() => {
-                this.onDateSelect(index, this.mainDate);
-            }, 100);
+            setTimeout(() => this.onDateSelect(index, this.mainDate), 100);
         }
     }
 
     async loadDoctorsForForm(index) {
         try {
-            // Проверяем, есть ли API endpoint
             const response = await fetch('/appointments/api/available-doctors/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': this.csrfToken
                 },
-                body: JSON.stringify({
-                    exclude_doctor_id: this.mainDoctorId
-                })
+                body: JSON.stringify({ exclude_doctor_id: this.mainDoctorId })
             });
 
-            if (!response.ok) {
-                console.error('Failed to load doctors:', response.status);
-                return;
-            }
+            if (!response.ok) return;
 
             const data = await response.json();
+            const formElement = document.querySelector(`[data-form-index="${index}"]`);
+            if (!formElement || !data.success) return;
 
-            if (data.success) {
-                const formElement = document.querySelector(`[data-form-index="${index}"]`);
-                if (!formElement) return;
+            const doctorSelect = formElement.querySelector('.doctor-select');
+            doctorSelect.innerHTML = '<option value="">Выберите врача...</option>';
 
-                const doctorSelect = formElement.querySelector('.doctor-select');
-
-                // Очищаем и заполняем список врачей
-                doctorSelect.innerHTML = '<option value="">Выберите врача...</option>';
-
-                data.doctors.forEach(doctor => {
-                    const option = document.createElement('option');
-                    option.value = doctor.id;
-                    option.textContent = `${doctor.surname} ${doctor.first_name[0]}.${doctor.last_name[0]}. (${doctor.specialization})`;
-                    doctorSelect.appendChild(option);
-                });
-            } else {
-                console.error('Failed to load doctors:', data.error);
-            }
+            data.doctors.forEach(doctor => {
+                const option = document.createElement('option');
+                option.value = doctor.id;
+                option.textContent = `${doctor.surname} ${doctor.first_name[0]}.${doctor.last_name[0]}. (${doctor.specialization})`;
+                doctorSelect.appendChild(option);
+            });
         } catch (error) {
-            console.error('Error loading doctors:', error);
-            // Если API не работает, используем fallback
             this.loadDoctorsFallback(index);
         }
     }
@@ -298,40 +337,91 @@ class AppointmentChainManager {
         const doctorSelect = formElement.querySelector('.doctor-select');
         doctorSelect.innerHTML = '<option value="">Загрузка врачей...</option>';
 
-        // Можно добавить fallback или сообщение об ошибке
         setTimeout(() => {
             doctorSelect.innerHTML = '<option value="">Не удалось загрузить врачей. Проверьте соединение.</option>';
         }, 2000);
     }
 
-    // Методы для типа "another_doctor" (одна дополнительная запись)
     loadAnotherDoctorForm() {
         const container = document.getElementById('anotherDoctorFormContainer');
-        if (!container) {
-            console.error('Container anotherDoctorFormContainer not found');
-            return;
-        }
+        if (!container) return;
 
-        // Очищаем контейнер
         container.innerHTML = '';
+        const formHtml = `
+            <div class="appointment-form-card card mb-3" data-form-index="single">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">Запись к другому врачу</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <label class="form-label">Врач *</label>
+                            <select class="form-select doctor-select" data-index="single" required>
+                                <option value="">Выберите врача...</option>
+                            </select>
+                            <div class="invalid-feedback">Выберите врача</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Услуга *</label>
+                            <select class="form-select service-select" data-index="single" disabled required>
+                                <option value="">Сначала выберите врача</option>
+                            </select>
+                            <div class="invalid-feedback">Выберите услугу</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Дата *</label>
+                            <input type="date" class="form-control date-select" data-index="single" required>
+                            <div class="invalid-feedback">Выберите дату</div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Время *</label>
+                            <select class="form-select slot-select" data-index="single" disabled required>
+                                <option value="">Сначала выберите врача и дату</option>
+                            </select>
+                            <div class="invalid-feedback">Выберите время</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Комментарий</label>
+                            <textarea class="form-control comment-input" data-index="single" rows="2"
+                                      placeholder="Необязательный комментарий"></textarea>
+                        </div>
+                    </div>
 
-        // Создаем новую форму
-        const formHtml = this.appointmentFormTemplate.replace(/{index}/g, 'single');
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input procedural-checkbox"
+                                       data-index="single" id="procedural_single">
+                                <label class="form-check-label" for="procedural_single">
+                                    <i class="fas fa-syringe"></i> Занять окошко в процедурном кабинете
+                                </label>
+                                <div class="form-text">
+                                    Автоматически займет такое же время в процедурном кабинете
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-12">
+                            <div class="form-text">
+                                Врач: <span class="doctor-name text-muted">не выбран</span> |
+                                Дата: <span class="appointment-date text-muted">не выбрана</span> |
+                                Время: <span class="appointment-time text-muted">не выбрано</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
         container.innerHTML = formHtml;
-
-        // Инициализируем форму
         this.initAppointmentForm('single');
-
-        // Показываем кнопку для добавления еще одной записи
-        const addAnotherBtn = document.getElementById('addAnotherAppointmentBtn');
-        if (addAnotherBtn) {
-            addAnotherBtn.style.display = 'block';
-        }
     }
 
-    // Метод для добавления еще одного врача (переход к multiple)
     addAnotherDoctorForm() {
-        // Меняем тип на multiple
         const multipleRadio = document.querySelector('input[name="appointment_chain_type"][value="multiple"]');
         if (multipleRadio) {
             multipleRadio.checked = true;
@@ -339,49 +429,32 @@ class AppointmentChainManager {
         }
     }
 
-    // Обновляем скрытое поле с данными
     updateHiddenField() {
         const hiddenField = document.getElementById('id_additional_appointments_data');
         if (hiddenField) {
-            // Сохраняем только валидные данные
             const validAppointments = this.additionalAppointments.filter(app =>
                 app.doctor_id && app.service_id && app.date && app.time_slot_id
             );
-
             hiddenField.value = JSON.stringify(validAppointments);
         }
     }
 
-    // Обновление скрытого поля с процедурными данными
     updateProceduralHiddenField() {
         const hiddenField = document.getElementById('id_procedural_appointments_data');
         if (!hiddenField) {
-            console.warn('Hidden field for procedural data not found - creating it dynamically');
-
-            // Создаем скрытое поле динамически
             const newField = document.createElement('input');
             newField.type = 'hidden';
             newField.id = 'id_procedural_appointments_data';
             newField.name = 'procedural_appointments_data';
 
-            // Добавляем его в форму
             const form = document.getElementById('appointmentForm');
-            if (form) {
-                form.appendChild(newField);
-            } else {
-                console.error('Cannot find appointment form');
-                return;
-            }
+            if (form) form.appendChild(newField);
+            else return;
         }
 
-        // Теперь поле должно существовать
         const field = document.getElementById('id_procedural_appointments_data');
-        if (!field) {
-            console.error('Failed to create procedural data field');
-            return;
-        }
+        if (!field) return;
 
-        // Сохраняем только валидные данные (все поля заполнены)
         const validData = this.proceduralAppointments.filter(item =>
             item.needs_procedural === true &&
             item.appointment_data &&
@@ -391,52 +464,48 @@ class AppointmentChainManager {
             item.appointment_data.time_slot_id
         );
 
-        console.log('Saving procedural data to hidden field:', validData);
         field.value = JSON.stringify(validData);
     }
 
-    // Метод для обработки процедурных записей
-    saveProceduralData(index, needsProcedural) {
-        // Находим данные формы
+    async saveProceduralData(index, needsProcedural) {
         const formData = this.getFormData(index);
-        if (!formData) {
-            console.error(`Cannot get form data for index ${index}`);
-            return;
-        }
+        if (!formData) return;
 
-        // Проверяем, все ли обязательные поля заполнены для процедурной записи
         const isValidForProcedural = formData.doctor_id &&
                                       formData.service_id &&
                                       formData.date &&
                                       formData.time_slot_id;
 
         if (!isValidForProcedural) {
-            console.log(`Form data for index ${index} is not complete for procedural`, formData);
-            // Удаляем запись если она была добавлена ранее
-            const existingIndex = this.proceduralAppointments.findIndex(
-                item => item.index == index
-            );
-            if (existingIndex >= 0) {
-                this.proceduralAppointments.splice(existingIndex, 1);
-            }
+            const existingIndex = this.proceduralAppointments.findIndex(item => item.index == index);
+            if (existingIndex >= 0) this.proceduralAppointments.splice(existingIndex, 1);
             this.updateProceduralHiddenField();
             return;
         }
 
-        // Проверяем, есть ли уже запись для этого индекса
-        const existingIndex = this.proceduralAppointments.findIndex(
-            item => item.index == index
-        );
+        if (needsProcedural) {
+            const isProceduralAvailable = await this.checkProceduralAvailability(
+                formData.date,
+                formData.time_slot_id
+            );
 
+            if (!isProceduralAvailable) {
+                const formElement = document.querySelector(`[data-form-index="${index}"]`);
+                const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
+                if (proceduralCheckbox) proceduralCheckbox.checked = false;
+                alert('Процедурный кабинет в это время занят. Выберите другое время или отключите процедурный кабинет.');
+                needsProcedural = false;
+            }
+        }
+
+        const existingIndex = this.proceduralAppointments.findIndex(item => item.index == index);
         if (existingIndex >= 0) {
-            // Обновляем существующую запись
             this.proceduralAppointments[existingIndex] = {
                 ...this.proceduralAppointments[existingIndex],
                 needs_procedural: needsProcedural,
                 appointment_data: formData
             };
         } else {
-            // Создаем новую запись
             this.proceduralAppointments.push({
                 index: index,
                 needs_procedural: needsProcedural,
@@ -444,15 +513,50 @@ class AppointmentChainManager {
             });
         }
 
-        console.log(`Saved procedural data for index ${index}:`, {
-            needs_procedural: needsProcedural,
-            appointment_data: formData
-        });
-
         this.updateProceduralHiddenField();
     }
 
-    // Валидация перед отправкой
+    async checkProceduralAvailability(date, timeSlotId) {
+        try {
+            const response = await fetch('/timetable/api/check-procedural-availability/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({ date: date, time_slot_id: timeSlotId })
+            });
+
+            if (!response.ok) return false;
+            const data = await response.json();
+            return data.is_available === true;
+        } catch (error) {
+            return false;
+        }
+    }
+
+    validateTimeOverlap() {
+        const mainAppointmentDate = this.mainDate;
+        const mainTime = this.getMainAppointmentTime();
+
+        if (!mainAppointmentDate || !mainTime) return { valid: true };
+
+        const overlappingAppointments = [];
+        this.additionalAppointments.forEach((appointment, index) => {
+            if (appointment.date === mainAppointmentDate && appointment.time_slot_id) {
+                overlappingAppointments.push({
+                    index: index + 1,
+                    date: appointment.date,
+                    doctorId: appointment.doctor_id,
+                    timeSlotId: appointment.time_slot_id
+                });
+            }
+        });
+
+        if (overlappingAppointments.length > 0) return { valid: true };
+        return { valid: true };
+    }
+
     validateBeforeSubmit() {
         const chainTypeElement = document.querySelector('input[name="appointment_chain_type"]:checked');
         if (!chainTypeElement) {
@@ -461,19 +565,23 @@ class AppointmentChainManager {
         }
 
         const chainType = chainTypeElement.value;
-
-        // Обновляем все скрытые поля перед валидацией
         this.updateHiddenField();
         this.updateProceduralHiddenField();
 
+        if (chainType === 'another_doctor' || chainType === 'multiple') {
+            const timeOverlapCheck = this.validateTimeOverlap();
+            if (!timeOverlapCheck.valid) {
+                alert(timeOverlapCheck.message);
+                return false;
+            }
+        }
+
         if (chainType === 'another_doctor') {
-            // Проверяем форму single
             if (!this.validateForm('single')) {
                 alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
                 return false;
             }
 
-            // Проверяем, что есть данные
             const formData = this.getFormData('single');
             if (!formData || !formData.doctor_id || !formData.service_id || !formData.date || !formData.time_slot_id) {
                 alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
@@ -482,7 +590,6 @@ class AppointmentChainManager {
 
             return true;
         } else if (chainType === 'multiple') {
-            // Проверяем все формы
             if (this.appointmentForms.length === 0) {
                 alert('Добавьте хотя бы одну дополнительную запись');
                 return false;
@@ -537,41 +644,30 @@ class AppointmentChainManager {
 
         return isValid;
     }
+
     removeAppointmentForm(index) {
-        // Удаляем элемент из DOM
         const formElement = document.querySelector(`[data-form-index="${index}"]`);
-        if (formElement) {
-            formElement.remove();
-        }
+        if (formElement) formElement.remove();
 
-        // Удаляем из массива форм
         const formIndex = this.appointmentForms.indexOf(index);
-        if (formIndex > -1) {
-            this.appointmentForms.splice(formIndex, 1);
-        }
+        if (formIndex > -1) this.appointmentForms.splice(formIndex, 1);
 
-        // Удаляем из дополнительных записей
         const appointmentIndex = this.additionalAppointments.findIndex(app => app.index === index);
-        if (appointmentIndex > -1) {
-            this.additionalAppointments.splice(appointmentIndex, 1);
-        }
+        if (appointmentIndex > -1) this.additionalAppointments.splice(appointmentIndex, 1);
 
-        // Удаляем из процедурных записей
         const proceduralIndex = this.proceduralAppointments.findIndex(item => item.index == index);
-        if (proceduralIndex > -1) {
-            this.proceduralAppointments.splice(proceduralIndex, 1);
-        }
+        if (proceduralIndex > -1) this.proceduralAppointments.splice(proceduralIndex, 1);
 
-        // Обновляем скрытые поля
+        const formData = this.getFormData(index);
+        if (formData && formData.time_slot_id) this.bookedSlots.delete(formData.time_slot_id.toString());
+
         this.updateHiddenField();
         this.updateProceduralHiddenField();
-
-        console.log(`Removed appointment form with index ${index}`);
     }
 
-    // Метод для получения данных формы
     getFormData(index) {
-        const formElement = document.querySelector(`[data-form-index="${index}"]`);
+        let selector = index === 'single' ? '[data-form-index="single"]' : `[data-form-index="${index}"]`;
+        const formElement = document.querySelector(selector);
         if (!formElement) return null;
 
         const doctorSelect = formElement.querySelector('.doctor-select');
@@ -588,46 +684,43 @@ class AppointmentChainManager {
             comment: commentInput ? commentInput.value : null
         };
     }
+
+    setAllBookedSlots(slots) {
+        if (slots && Array.isArray(slots)) {
+            this.allBookedSlots = slots;
+            slots.forEach(slot => {
+                if (slot.id) this.bookedSlots.add(slot.id.toString());
+            });
+        }
+    }
 }
 
-// Добавляем методы для работы с формами
 AppointmentChainManager.prototype.bindFormEvents = function(index) {
     const formElement = document.querySelector(`[data-form-index="${index}"]`);
     if (!formElement) return;
 
-    // Выбор врача
     const doctorSelect = formElement.querySelector('.doctor-select');
     doctorSelect.addEventListener('change', (e) => this.onDoctorSelect(index, e.target.value));
 
-    // Выбор даты
     const dateInput = formElement.querySelector('.date-select');
     dateInput.addEventListener('change', (e) => this.onDateSelect(index, e.target.value));
 
-    // Выбор времени
     const slotSelect = formElement.querySelector('.slot-select');
     slotSelect.addEventListener('change', (e) => this.onSlotSelect(index, e.target.value));
 
-    // Удаление формы
     const removeBtn = formElement.querySelector('.remove-form');
-    if (removeBtn) {
-        removeBtn.addEventListener('click', () => this.removeAppointmentForm(index));
-    }
+    if (removeBtn) removeBtn.addEventListener('click', () => this.removeAppointmentForm(index));
 
-    // Изменение комментария
     const commentInput = formElement.querySelector('.comment-input');
     commentInput.addEventListener('input', (e) => this.onCommentChange(index, e.target.value));
 
-    // Изменение чекбокса процедурного кабинета
     const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
     if (proceduralCheckbox) {
         proceduralCheckbox.addEventListener('change', (e) => {
             this.saveProceduralData(index, e.target.checked);
         });
 
-        // Сразу проверяем чекбокс при инициализации если он уже отмечен
-        if (proceduralCheckbox.checked) {
-            this.saveProceduralData(index, true);
-        }
+        if (proceduralCheckbox.checked) this.saveProceduralData(index, true);
     }
 };
 
@@ -640,7 +733,6 @@ AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorI
     const serviceSelect = formElement.querySelector('.service-select');
     const doctorNameSpan = formElement.querySelector('.doctor-name');
 
-    // Загружаем услуги врача
     try {
         const response = await fetch('/appointments/api/doctor-services/', {
             method: 'POST',
@@ -652,15 +744,9 @@ AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorI
         });
 
         const data = await response.json();
-        console.log('Doctor services API response:', data);
-
         if (data.success) {
-            // Обновляем имя врача
-            if (doctorNameSpan && data.doctor) {
-                doctorNameSpan.textContent = data.doctor.name;
-            }
+            if (doctorNameSpan && data.doctor) doctorNameSpan.textContent = data.doctor.name;
 
-            // Заполняем список услуг
             serviceSelect.innerHTML = '<option value="">Выберите услугу...</option>';
             data.services.forEach(service => {
                 const option = document.createElement('option');
@@ -672,97 +758,126 @@ AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorI
 
             serviceSelect.disabled = false;
 
-            // АВТОМАТИЧЕСКИ ЗАГРУЖАЕМ СЛОТЫ ЕСЛИ ДАТА УЖЕ ВЫБРАНА
             const dateInput = formElement.querySelector('.date-select');
-            if (dateInput && dateInput.value) {
-                console.log('Auto-loading slots for date:', dateInput.value);
-                this.onDateSelect(index, dateInput.value);
-            }
+            if (dateInput && dateInput.value) this.onDateSelect(index, dateInput.value);
         }
-    } catch (error) {
-        console.error('Error loading services:', error);
-    }
+    } catch (error) {}
 };
 
 AppointmentChainManager.prototype.onDateSelect = async function(index, date) {
     const formElement = document.querySelector(`[data-form-index="${index}"]`);
-    if (!formElement) {
-        console.error(`Form element for index ${index} not found`);
-        return;
-    }
+    if (!formElement) return;
+
+    this.clearTimeOverlapError(index);
 
     const doctorSelect = formElement.querySelector('.doctor-select');
     const slotSelect = formElement.querySelector('.slot-select');
     const dateSpan = formElement.querySelector('.appointment-date');
 
     const doctorId = doctorSelect.value;
+    if (!doctorId || !date) return;
 
-    if (!doctorId || !date) {
-        console.log(`Missing doctorId (${doctorId}) or date (${date})`);
-        return;
-    }
+    const mainTime = this.getMainAppointmentTime();
+    const isSameDate = date === window.originalDate;
 
-    console.log(`Loading slots for doctor ${doctorId}, date ${date}`);
+    if (dateSpan) dateSpan.textContent = date;
 
-    // Обновляем отображение даты
-    if (dateSpan) {
-        const formattedDate = new Date(date + 'T00:00:00').toLocaleDateString('ru-RU');
-        dateSpan.textContent = formattedDate;
-    }
-
-    // Загружаем доступные слоты
     try {
+        const requestData = {
+            doctor_id: doctorId,
+            date: date,
+            booked_slots: Array.from(this.bookedSlots),
+            main_appointment_time: isSameDate ? mainTime : null,
+            main_appointment_date: window.originalDate
+        };
+
         const response = await fetch('/appointments/api/available-slots-for-doctor/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': this.csrfToken
             },
-            body: JSON.stringify({
-                doctor_id: doctorId,
-                date: date
-            })
+            body: JSON.stringify(requestData)
         });
 
-        if (!response.ok) {
-            console.error('Failed to load slots:', response.status);
-            slotSelect.innerHTML = '<option value="">Ошибка загрузки слотов</option>';
-            slotSelect.disabled = true;
-            return;
-        }
-
         const data = await response.json();
-        console.log('Slots API response:', data);
+        if (data.success && data.slots) {
+            slotSelect.innerHTML = '';
 
-        if (data.success) {
-            slotSelect.innerHTML = '<option value="">Выберите время...</option>';
+            const oldError = formElement.querySelector('.slot-error');
+            if (oldError) oldError.remove();
+            slotSelect.classList.remove('is-invalid');
+            this.clearTimeOverlapError(index);
 
-            if (data.slots && data.slots.length > 0) {
-                console.log(`Found ${data.slots.length} available slots`);
-                data.slots.forEach(slot => {
-                    const option = document.createElement('option');
-                    option.value = slot.id;
-                    option.textContent = `${slot.time} (${slot.cabinet})`;
-                    option.dataset.time = slot.time;
-                    slotSelect.appendChild(option);
-                });
+            let availableSlotsCount = 0;
 
-                slotSelect.disabled = false;
-            } else {
-                console.log('No available slots found');
-                slotSelect.innerHTML = '<option value="">Нет доступных слотов на эту дату</option>';
-                slotSelect.disabled = true;
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = 'Выберите время...';
+            slotSelect.appendChild(defaultOption);
+
+            data.slots.forEach(slot => {
+                const option = document.createElement('option');
+                option.value = slot.id;
+                option.textContent = `${slot.time} (${slot.cabinet})`;
+                option.dataset.startTime = slot.start_time;
+                option.dataset.endTime = slot.end_time;
+                option.dataset.time = `${slot.time} (${slot.cabinet})`;
+                option.dataset.cabinet = slot.cabinet;
+                slotSelect.appendChild(option);
+                availableSlotsCount++;
+            });
+
+            slotSelect.disabled = availableSlotsCount === 0;
+
+            if (availableSlotsCount === 0) {
+                if (isSameDate && mainTime) {
+                    const noSlotsOption = document.createElement('option');
+                    noSlotsOption.value = '';
+                    noSlotsOption.textContent = 'Нет доступных слотов (время пересекается с основной записью)';
+                    slotSelect.appendChild(noSlotsOption);
+                    this.showNoAvailableSlotsMessage(formElement, mainTime);
+                } else {
+                    const noSlotsOption = document.createElement('option');
+                    noSlotsOption.value = '';
+                    noSlotsOption.textContent = 'Нет доступных слотов';
+                    slotSelect.appendChild(noSlotsOption);
+                }
             }
         } else {
-            console.error('API returned success=false:', data.error);
             slotSelect.innerHTML = '<option value="">Ошибка загрузки слотов</option>';
             slotSelect.disabled = true;
         }
     } catch (error) {
-        console.error('Error loading slots:', error);
         slotSelect.innerHTML = '<option value="">Ошибка загрузки слотов</option>';
         slotSelect.disabled = true;
     }
+};
+
+AppointmentChainManager.prototype.showNoAvailableSlotsMessage = function(formElement, mainTime) {
+    const oldMessage = formElement.querySelector('.no-available-slots-message');
+    if (oldMessage) oldMessage.remove();
+
+    const slotSelect = formElement.querySelector('.slot-select');
+    if (!slotSelect) return;
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'no-available-slots-message alert alert-warning mt-2';
+    messageDiv.innerHTML = `
+        <div class="d-flex align-items-start">
+            <i class="fas fa-info-circle me-2 mt-1"></i>
+            <div>
+                <strong>Нет доступных временных слотов</strong><br>
+                Все временные слоты на эту дату пересекаются с основной записью:<br>
+                • Основная запись: ${mainTime.time}<br>
+                <small class="text-muted">
+                    Пожалуйста, выберите другую дату для этой записи или другое время для основной записи.
+                </small>
+            </div>
+        </div>
+    `;
+
+    slotSelect.parentNode.appendChild(messageDiv);
 };
 
 AppointmentChainManager.prototype.onSlotSelect = function(index, slotId) {
@@ -770,15 +885,98 @@ AppointmentChainManager.prototype.onSlotSelect = function(index, slotId) {
     const slotSelect = formElement.querySelector('.slot-select');
     const timeSpan = formElement.querySelector('.appointment-time');
 
-    if (slotId && timeSpan) {
-        const selectedOption = slotSelect.options[slotSelect.selectedIndex];
-        if (selectedOption && selectedOption.dataset.time) {
-            timeSpan.textContent = selectedOption.dataset.time;
+    if (!slotId) {
+        if (timeSpan) timeSpan.textContent = 'не выбрано';
+
+        const formData = this.getFormData(index);
+        if (formData && formData.time_slot_id) this.bookedSlots.delete(formData.time_slot_id.toString());
+
+        this.saveFormData(index);
+        return;
+    }
+
+    const selectedOption = slotSelect.options[slotSelect.selectedIndex];
+    if (!selectedOption) return;
+
+    if (this.shouldCheckTimeOverlap()) {
+        const dateInput = formElement.querySelector('.date-select');
+        const slotDate = dateInput ? dateInput.value : null;
+
+        if (slotDate === window.originalDate && selectedOption.dataset.startTime && selectedOption.dataset.endTime) {
+            const isOverlapping = this.checkSlotTimeOverlap(
+                selectedOption.dataset.startTime,
+                selectedOption.dataset.endTime
+            );
+
+            if (isOverlapping) {
+                this.showTimeOverlapWarning(index, selectedOption);
+                slotSelect.value = '';
+                if (timeSpan) timeSpan.textContent = 'не выбрано';
+                slotSelect.classList.add('is-invalid');
+                return;
+            }
         }
     }
 
-    // Сохраняем данные формы
+    if (selectedOption.dataset.time && timeSpan) timeSpan.textContent = selectedOption.dataset.time;
+
+    this.bookedSlots.add(slotId.toString());
+    slotSelect.classList.remove('is-invalid');
+    this.clearTimeOverlapError(index);
+
+    const noSlotsMessage = formElement.querySelector('.no-available-slots-message');
+    if (noSlotsMessage) noSlotsMessage.remove();
+
     this.saveFormData(index);
+};
+
+AppointmentChainManager.prototype.clearTimeOverlapError = function(index) {
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    if (!formElement) return;
+
+    const overlapError = formElement.querySelector('.slot-time-overlap-error');
+    if (overlapError) overlapError.remove();
+
+    const noSlotsMessage = formElement.querySelector('.no-available-slots-message');
+    if (noSlotsMessage) noSlotsMessage.remove();
+
+    const slotSelect = formElement.querySelector('.slot-select');
+    if (slotSelect) slotSelect.classList.remove('is-invalid');
+};
+
+AppointmentChainManager.prototype.shouldCheckTimeOverlap = function() {
+    return window.originalDate && this.getMainAppointmentTime();
+};
+
+AppointmentChainManager.prototype.showTimeOverlapWarning = function(index, slotOption) {
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    const slotSelect = formElement.querySelector('.slot-select');
+
+    const oldError = formElement.querySelector('.slot-time-overlap-error');
+    if (oldError) oldError.remove();
+
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'slot-time-overlap-error invalid-feedback d-block';
+    errorDiv.innerHTML = `
+        <div class="alert alert-danger alert-dismissible fade show mt-2" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Ошибка: время пересекается с основной записью!</strong><br>
+            Основная запись: ${window.originalDate} ${this.getMainAppointmentTime().time}<br>
+            Выбранное время: ${slotOption.dataset.time}<br>
+            <small>Пожалуйста, выберите другое время, которое не пересекается с основной записью.</small>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+
+    slotSelect.parentNode.appendChild(errorDiv);
+
+    alert(
+        '❌ Вы не можете выбрать это время!\n\n' +
+        'Причина: время пересекается с основной записью.\n\n' +
+        'Основная запись: ' + window.originalDate + ' ' + this.getMainAppointmentTime().time + '\n' +
+        'Выбранное время: ' + slotOption.dataset.time + '\n\n' +
+        'Пожалуйста, выберите другое время, которое не пересекается с основной записью.'
+    );
 };
 
 AppointmentChainManager.prototype.saveFormData = function(index) {
@@ -792,7 +990,6 @@ AppointmentChainManager.prototype.saveFormData = function(index) {
     const commentInput = formElement.querySelector('.comment-input');
     const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
 
-    // Создаем объект данных
     const appointmentData = {
         doctor_id: doctorSelect ? doctorSelect.value : null,
         service_id: serviceSelect ? serviceSelect.value : null,
@@ -801,58 +998,42 @@ AppointmentChainManager.prototype.saveFormData = function(index) {
         comment: commentInput ? commentInput.value : null
     };
 
-    // Проверяем, все ли обязательные поля заполнены
     const isValid = appointmentData.doctor_id &&
                    appointmentData.service_id &&
                    appointmentData.date &&
                    appointmentData.time_slot_id;
 
-    // Обновляем или добавляем данные в дополнительные записи
     const existingIndex = this.additionalAppointments.findIndex(app => app.index === index);
 
     if (isValid) {
         if (existingIndex >= 0) {
-            this.additionalAppointments[existingIndex] = {
-                index: index,
-                ...appointmentData
-            };
+            this.additionalAppointments[existingIndex] = { index: index, ...appointmentData };
         } else {
-            this.additionalAppointments.push({
-                index: index,
-                ...appointmentData
-            });
+            this.additionalAppointments.push({ index: index, ...appointmentData });
         }
 
-        // Валидируем форму
         formElement.classList.remove('border-danger');
 
-        // ОБНОВЛЯЕМ ПРОЦЕДУРНЫЕ ДАННЫЕ если чекбокс отмечен
-        if (proceduralCheckbox && proceduralCheckbox.checked) {
-            this.saveProceduralData(index, true);
-        }
+        if (proceduralCheckbox && proceduralCheckbox.checked) this.saveProceduralData(index, true);
     } else {
-        // Удаляем невалидные данные
-        if (existingIndex >= 0) {
-            this.additionalAppointments.splice(existingIndex, 1);
-        }
-
-        // Помечаем невалидную форму
+        if (existingIndex >= 0) this.additionalAppointments.splice(existingIndex, 1);
         formElement.classList.add('border-danger');
 
-        // Удаляем процедурные данные если форма невалидна
-        const proceduralIndex = this.proceduralAppointments.findIndex(
-            item => item.index == index
-        );
+        const proceduralIndex = this.proceduralAppointments.findIndex(item => item.index == index);
         if (proceduralIndex >= 0) {
             this.proceduralAppointments.splice(proceduralIndex, 1);
             this.updateProceduralHiddenField();
         }
+
+        if (appointmentData.time_slot_id) this.bookedSlots.delete(appointmentData.time_slot_id.toString());
     }
 
-    // Обновляем скрытые поля
     this.updateHiddenField();
     this.updateProceduralHiddenField();
 };
 
-// Экспорт для использования
+AppointmentChainManager.prototype.onCommentChange = function(index, comment) {
+    this.saveFormData(index);
+};
+
 window.AppointmentChainManager = AppointmentChainManager;

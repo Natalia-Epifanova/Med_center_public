@@ -40,11 +40,35 @@
                                 </button>
                             </div>
                         </div>
+                        <!-- ДОБАВЬТЕ ЭТИ СКРЫТЫЕ ПОЛЯ ДЛЯ НАДЕЖНОСТИ -->
+                        <input type="hidden" id="js-original-date" value="{{ time_slot.date|date:'Y-m-d' }}">
+                        <input type="hidden" id="js-original-time" value="{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}">
+                        <input type="hidden" id="js-current-slot-id" value="{{ time_slot.id }}">
+                        <input type="hidden" id="js-doctor-id" value="{{ time_slot.doctor.id }}">
                     </div>
 
-                    <!-- Панель выбора нового времени (изначально скрыта) -->
-                    <div id="timeslot-selector-container" style="display: none;" class="mb-4"></div>
+                    <!-- КНОПКИ ПОДТВЕРЖДЕНИЯ/ОТМЕНЫ (изначально скрыты) -->
+                    <div id="time-change-buttons" class="mb-3" style="display: none;">
+                        <button type="button" class="btn btn-success btn-sm" id="confirm-time-change-btn">
+                            <i class="fas fa-check"></i> Подтвердить изменение времени
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm ms-2" id="cancel-time-change-btn">
+                            <i class="fas fa-times"></i> Отмена
+                        </button>
+                    </div>
 
+                    <!-- Контейнер для выбора нового времени (изначально скрыт) -->
+                    <div id="timeslot-selector-container" style="display: none;"></div>
+                    <!-- ДОБАВЬТЕ ЭТОТ БЛОК ПЕРЕД ФОРМОЙ -->
+                    <div id="server-errors-container" class="mb-3" style="display: none;">
+                        <div class="alert alert-danger">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Ошибки при сохранении:
+                            </h6>
+                            <ul id="server-errors-list" class="mb-0"></ul>
+                        </div>
+                    </div>
                     <!-- ОШИБКИ ФОРМЫ -->
                     {% if form.errors %}
                     <div class="alert alert-danger">
@@ -263,13 +287,8 @@
                                             <div class="alert alert-warning">
                                                 <i class="fas fa-exclamation-triangle"></i>
                                                 <strong>Будет занято два временных слота для одной услуги</strong><br>
-                                                • Текущий слот: <span id="current-slot-time">{{ time_slot.start_time|time:"H:i" }}-{{time_slot.end_time|time:"H:i" }}</span><br>
-                                                • Следующий слот:
-                                                {% if next_slot %}
-                                                <span id="next-slot-time">{{ next_slot.start_time|time:"H:i" }}-{{ next_slot.end_time|time:"H:i" }}</span>
-                                                {% else %}
-                                                <span id="next-slot-time">не доступен</span>
-                                                {% endif %}
+                                                • Текущий слот: <span id="current-slot-time">{{ time_slot.start_time|time:"H:i" }}-{{ time_slot.end_time|time:"H:i" }}</span><br>
+                                                • Следующий слот: <span id="next-slot-time">Загрузка...</span>
                                             </div>
                                         </div>
                                     </div>
@@ -401,6 +420,7 @@
     const originalTime = "{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}";
     const originalCabinet = "{{ time_slot.cabinet.number }}";
     const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
+
 </script>
 
 <!-- Подключаем общие утилиты -->
@@ -409,4 +429,40 @@
 <script src="/static/js/appointment_chain_manager.js?v={% now 'U' %}"></script>
 <!-- Подключаем основной скрипт создания записи -->
 <script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>
+
+<script>
+    // ДОБАВЬТЕ ЭТОТ КОД ПОСЛЕ ВСЕХ СКРИПТОВ
+
+    // Функция для проверки состояния
+    function debugAppointmentChainManager() {
+        console.log('=== DEBUG APPOINTMENT CHAIN MANAGER ===');
+        console.log('1. Window variables:', {
+            originalDate: window.originalDate,
+            originalTime: window.originalTime,
+            currentSlotId: window.currentSlotId,
+            doctorId: window.doctorId
+        });
+
+        console.log('2. Chain Manager exists?', !!window.chainManager);
+        if (window.chainManager) {
+            console.log('3. Main appointment slot:', window.chainManager.mainAppointmentSlot);
+            console.log('4. Main appointment time:', window.chainManager.getMainAppointmentTime());
+            console.log('5. Booked slots:', Array.from(window.chainManager.bookedSlots));
+        }
+
+        console.log('6. All global vars starting with "original":',
+            Object.keys(window).filter(key => key.includes('original') || key.includes('Date') || key.includes('Time'))
+        );
+    }
+
+    // Выполнить проверку через 2 секунды после загрузки
+    setTimeout(debugAppointmentChainManager, 2000);
+
+    // И при клике на любую кнопку
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('button, input[type="radio"], select')) {
+            setTimeout(debugAppointmentChainManager, 100);
+        }
+    });
+</script>
 {% endblock %}

@@ -436,7 +436,7 @@
                 }
 
                 const serviceName = selectedOption.text.toLowerCase();
-                const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи'];
+                const blockadeKeywords = ['блокад', 'введение', 'инъекц', 'укол', 'инфузи', 'пункция'];
 
                 return blockadeKeywords.some(keyword => serviceName.includes(keyword));
             },
@@ -761,7 +761,9 @@
                         return {
                             id: this.selectedSlotId,
                             display: this.selectedSlotDisplay,
-                            date: document.getElementById(`timeslot-date-${this.containerId}`)?.value
+                            date: document.getElementById(`timeslot-date-${this.containerId}`)?.value,
+                            time: this.selectedSlotDisplay ?
+                                  this.selectedSlotDisplay.split(' (')[0] : null
                         };
                     },
 

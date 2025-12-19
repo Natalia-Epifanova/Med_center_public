@@ -17,6 +17,7 @@ from appointments.views_api import (
     get_available_slots_for_doctor_api,
     validate_additional_appointment_api,
     get_available_doctors_api,
+    api_get_next_slot,
 )
 
 app_name = AppointmentsConfig.name
@@ -79,4 +80,5 @@ urlpatterns = [
         get_available_doctors_api,
         name="api_available_doctors",
     ),
+    path("api/get-next-slot/", api_get_next_slot, name="api_get_next_slot"),
 ]

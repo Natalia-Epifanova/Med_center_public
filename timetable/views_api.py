@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
-from .models import BloodTest, BloodTestCategory, TimeSlot
+from .models import BloodTest, BloodTestCategory, TimeSlot, Cabinet
 
 
 @csrf_exempt
@@ -113,67 +113,101 @@ def check_procedural_availability(request):
         try:
             data = json.loads(request.body)
             date = data.get("date")
-            start_time = data.get("start_time")
-            end_time = data.get("end_time")
+            time_slot_id = data.get("time_slot_id")
             current_appointment_id = data.get("current_appointment_id")
 
-            if not date or not start_time or not end_time:
+            if not date or not time_slot_id:
                 return JsonResponse(
-                    {"error": "Не указаны date, start_time или end_time"}, status=400
+                    {"error": "Не указаны date или time_slot_id"}, status=400
                 )
 
-            # Преобразуем строки в объекты
             try:
+                # Получаем слот по ID
+                time_slot = TimeSlot.objects.get(id=time_slot_id)
                 appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
-                start_time_obj = datetime.strptime(start_time, "%H:%M:%S").time()
-                end_time_obj = datetime.strptime(end_time, "%H:%M:%S").time()
+
+                # Проверяем, что дата слота совпадает
+                if time_slot.date != appointment_date:
+                    return JsonResponse(
+                        {
+                            "is_available": False,
+                            "error": "Дата слота не совпадает с указанной датой",
+                        }
+                    )
+
+                start_time = time_slot.start_time
+                end_time = time_slot.end_time
+
+                # Находим процедурный кабинет (кабинет №6)
+                try:
+                    procedural_cabinet = Cabinet.objects.get(number=6)
+                except Cabinet.DoesNotExist:
+                    return JsonResponse(
+                        {"error": "Процедурный кабинет (кабинет №6) не найден"},
+                        status=404,
+                    )
+
+                # Ищем занятые слоты в процедурном кабинете в это время
+                occupied_conflicting_slots = (
+                    TimeSlot.objects.filter(
+                        date=appointment_date,
+                        cabinet=procedural_cabinet,
+                        appointments__isnull=False,  # Только занятые слоты
+                    )
+                    .filter(
+                        # Проверяем пересечение времени
+                        start_time__lt=end_time,  # начало слота < конец нашего времени
+                        end_time__gt=start_time,  # конец слота > начало нашего времени
+                    )
+                    .distinct()
+                )
+
+                # Если есть текущая запись, исключаем ее из проверки
+                if current_appointment_id:
+                    occupied_conflicting_slots = occupied_conflicting_slots.exclude(
+                        appointments__id=current_appointment_id
+                    )
+
+                is_available = not occupied_conflicting_slots.exists()
+
+                return JsonResponse(
+                    {
+                        "is_available": is_available,
+                        "occupied_slots": (
+                            [
+                                {
+                                    "id": slot.id,
+                                    "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
+                                    "patient": (
+                                        slot.appointments.first().patient.full_name()
+                                        if slot.appointments.exists()
+                                        else "Неизвестно"
+                                    ),
+                                }
+                                for slot in occupied_conflicting_slots
+                            ]
+                            if not is_available
+                            else []
+                        ),
+                    }
+                )
+
+            except TimeSlot.DoesNotExist:
+                return JsonResponse({"error": "Слот не найден"}, status=404)
             except ValueError as e:
                 return JsonResponse(
-                    {"error": f"Неверный формат времени: {str(e)}"}, status=400
+                    {"error": f"Неверный формат даты: {str(e)}"}, status=400
+                )
+            except Exception as e:
+                print(f"Error in check_procedural_availability (inner): {str(e)}")
+                return JsonResponse(
+                    {"error": f"Внутренняя ошибка: {str(e)}"}, status=500
                 )
 
-            # Находим процедурный кабинет
-            procedural_cabinet = Cabinet.objects.get(number=6)
-
-            # Ищем занятые конфликтующие слоты
-            occupied_conflicting_slots = TimeSlot.get_conflicting_slots(
-                date=appointment_date,
-                start_time=start_time_obj,
-                end_time=end_time_obj,
-                cabinet=procedural_cabinet,
-            ).filter(appointments__isnull=False)
-
-            # Если есть текущая запись, исключаем ее из проверки
-            if current_appointment_id:
-                occupied_conflicting_slots = occupied_conflicting_slots.exclude(
-                    appointments__id=current_appointment_id
-                )
-
-            is_available = not occupied_conflicting_slots.exists()
-
-            return JsonResponse(
-                {
-                    "is_available": is_available,
-                    "occupied_slots": (
-                        [
-                            {
-                                "id": slot.id,
-                                "time": f"{slot.start_time}-{slot.end_time}",
-                                "patient": (
-                                    slot.appointments.first().patient.full_name()
-                                    if slot.appointments.exists()
-                                    else "Неизвестно"
-                                ),
-                            }
-                            for slot in occupied_conflicting_slots
-                        ]
-                        if not is_available
-                        else []
-                    ),
-                }
-            )
-
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Неверный формат JSON"}, status=400)
         except Exception as e:
+            print(f"Error in check_procedural_availability: {str(e)}")
             return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
 
     return JsonResponse({"error": "Метод не разрешен"}, status=405)

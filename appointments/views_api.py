@@ -1,7 +1,9 @@
 import json
+from datetime import datetime
+
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -72,67 +74,78 @@ def get_doctor_services_api(request):
 @require_http_methods(["POST"])
 @login_required
 def get_available_slots_for_doctor_api(request):
-    """API для получения доступных слотов врача"""
+    """API для получения доступных слотов врача для цепочек записей"""
     try:
         data = json.loads(request.body)
         doctor_id = data.get("doctor_id")
         date = data.get("date")
-        exclude_slot_id = data.get("exclude_slot_id")
+        booked_slots = data.get("booked_slots", [])
+        main_appointment_time = data.get("main_appointment_time")
+        main_appointment_date = data.get("main_appointment_date")
+
+        print(f"DEBUG API CALL: doctor_id={doctor_id}, date={date}")
+        print(
+            f"DEBUG: main_appointment_date={main_appointment_date}, main_appointment_time={main_appointment_time}"
+        )
+        print(f"DEBUG: window.originalDate (should be) = 2025-12-20")
 
         if not doctor_id or not date:
             return JsonResponse({"error": "Не указаны doctor_id или date"}, status=400)
 
         doctor = Doctor.objects.get(id=doctor_id)
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
 
-        # ВАЖНО: Проверьте, что метод get_available_slots_for_doctor существует
-        try:
-            if AppointmentService and hasattr(
-                AppointmentService, "get_available_slots_for_doctor"
-            ):
-                slots = AppointmentService.get_available_slots_for_doctor(
-                    doctor=doctor, date=date, exclude_slot_id=exclude_slot_id
-                )
-            else:
-                # Альтернативная реализация
-                from django.db.models import Q
-                from datetime import datetime
+        slots = TimeSlot.objects.filter(
+            doctor=doctor, date=target_date, slot_type="working"
+        ).order_by("start_time")
 
-                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        available_slots = []
+        for slot in slots:
+            # Проверяем доступность
+            is_available = slot.is_available()
 
-                slots = (
-                    TimeSlot.objects.filter(
-                        doctor=doctor, date=target_date, slot_type="working"
-                    )
-                    .filter(
-                        Q(appointments__isnull=True) | Q(id=exclude_slot_id)
-                        if exclude_slot_id
-                        else Q(appointments__isnull=True)
-                    )
-                    .order_by("start_time")
-                )
+            # Проверяем, не входит ли в забронированные слоты
+            is_booked = str(slot.id) in booked_slots if booked_slots else False
 
-        except Exception as service_error:
-            print(f"Error using AppointmentService: {service_error}")
-            # Простая реализация
-            from django.db.models import Q
-            from datetime import datetime
+            # Проверяем пересечение с основной записью
+            is_intersecting = False
+            if main_appointment_time and date == main_appointment_date:
+                main_start_str = main_appointment_time.get("start_time")
+                main_end_str = main_appointment_time.get("end_time")
 
-            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+                if main_start_str and main_end_str:
+                    try:
+                        # Конвертируем строки времени в datetime.time
+                        main_start = datetime.strptime(
+                            main_start_str, "%H:%M:%S"
+                        ).time()
+                        main_end = datetime.strptime(main_end_str, "%H:%M:%S").time()
 
-            slots = (
-                TimeSlot.objects.filter(
-                    doctor=doctor, date=target_date, slot_type="working"
-                )
-                .filter(
-                    Q(appointments__isnull=True) | Q(id=exclude_slot_id)
-                    if exclude_slot_id
-                    else Q(appointments__isnull=True)
-                )
-                .order_by("start_time")
-            )
+                        # Проверяем пересечение (включая полное совпадение)
+                        # Два интервала пересекаются, если:
+                        # slot.start_time < main_end И slot.end_time > main_start
+                        is_intersecting = (
+                            slot.start_time < main_end and main_start < slot.end_time
+                        )
+
+                        # Если время точно совпадает - это тоже пересечение
+                        if slot.start_time == main_start and slot.end_time == main_end:
+                            is_intersecting = True
+
+                        print(
+                            f"Slot {slot.start_time}-{slot.end_time} vs Main {main_start}-{main_end}: intersecting={is_intersecting}"
+                        )
+
+                    except ValueError:
+                        print(f"Error parsing time: {main_start_str} or {main_end_str}")
+
+            # Слот доступен если:
+            # 1. Доступен И не забронирован И не пересекается с основной записью (если та же дата)
+            if is_available and not is_booked and not is_intersecting:
+                available_slots.append(slot)
 
         slots_data = []
-        for slot in slots:
+        for slot in available_slots:
             slots_data.append(
                 {
                     "id": slot.id,
@@ -141,7 +154,6 @@ def get_available_slots_for_doctor_api(request):
                     "start_time": slot.start_time.strftime("%H:%M:%S"),
                     "end_time": slot.end_time.strftime("%H:%M:%S"),
                     "cabinet_number": slot.cabinet.number,
-                    "cabinet_name": slot.cabinet.name_of_cabinet or "",
                 }
             )
 
@@ -149,32 +161,13 @@ def get_available_slots_for_doctor_api(request):
             {
                 "success": True,
                 "slots": slots_data,
-                "doctor": {"id": doctor.id, "name": doctor.surname},
-                "date": date,
                 "count": len(slots_data),
             }
         )
 
-    except Doctor.DoesNotExist:
-        return JsonResponse({"error": "Врач не найден"}, status=404)
-    except ValueError as e:
-        return JsonResponse({"error": f"Неверный формат даты: {str(e)}"}, status=400)
     except Exception as e:
-        # ДЛЯ ОТЛАДКИ
-        import traceback
-
-        error_details = traceback.format_exc()
-        print(f"Error in get_available_slots_for_doctor_api: {e}")
-        print(f"Traceback: {error_details}")
-
-        return JsonResponse(
-            {
-                "success": False,
-                "error": str(e),
-                "details": "Ошибка при загрузке слотов",
-            },
-            status=500,
-        )
+        print(f"Error in get_available_slots_for_doctor_api: {str(e)}")
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
 @csrf_exempt
@@ -252,3 +245,60 @@ def get_available_doctors_api(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def api_get_next_slot(request):
+    """API для получения следующего временного слота"""
+    try:
+        data = json.loads(request.body)
+        doctor_id = data.get("doctor_id")
+        date = data.get("date")
+        current_slot_id = data.get("current_slot_id")
+
+        if not all([doctor_id, date, current_slot_id]):
+            return JsonResponse(
+                {"success": False, "error": "Missing required parameters"}, status=400
+            )
+
+        # Получаем текущий слот
+        try:
+            current_slot = TimeSlot.objects.get(
+                id=current_slot_id, doctor_id=doctor_id, date=date
+            )
+        except TimeSlot.DoesNotExist:
+            return JsonResponse(
+                {"success": False, "error": "Current slot not found"}, status=404
+            )
+
+        # Находим следующий слот по времени начала
+        next_slots = TimeSlot.objects.filter(
+            doctor_id=doctor_id,
+            date=date,
+            start_time__gt=current_slot.start_time,
+        ).order_by("start_time")
+
+        if next_slots.exists():
+            next_slot = next_slots.first()
+            return JsonResponse(
+                {
+                    "success": True,
+                    "next_slot": {
+                        "id": next_slot.id,
+                        "start_time": next_slot.start_time.strftime("%H:%M"),
+                        "end_time": next_slot.end_time.strftime("%H:%M"),
+                        "cabinet": next_slot.cabinet.number,
+                    },
+                }
+            )
+        else:
+            return JsonResponse({"success": True, "next_slot": None})
+
+    except Exception as e:
+        import traceback
+
+        return JsonResponse(
+            {"success": False, "error": str(e), "traceback": traceback.format_exc()},
+            status=500,
+        )
