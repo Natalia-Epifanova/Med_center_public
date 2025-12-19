@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
@@ -67,6 +68,33 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     def get_success_url(self):
         # Теперь self.object будет доступен
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
+
+    def create_additional_appointment(self, main_appointment, appointment_data):
+        """Создание дополнительной записи с проверкой пересечения времени"""
+
+        # Получаем время основной записи
+        main_time_slot = main_appointment.time_slot
+        main_start = main_time_slot.start_time
+        main_end = main_time_slot.end_time
+        main_date = main_time_slot.date
+
+        # Получаем время дополнительной записи
+        additional_time_slot = TimeSlot.objects.get(id=appointment_data["time_slot_id"])
+        additional_start = additional_time_slot.start_time
+        additional_end = additional_time_slot.end_time
+        additional_date = additional_time_slot.date
+
+        # Проверяем, что даты совпадают (если это важно)
+        if main_date != additional_date:
+            # Разные даты - нет пересечения
+            pass
+        else:
+            # Проверяем пересечение времени
+            if additional_start < main_end and main_start < additional_end:
+                raise ValidationError(
+                    f"Время дополнительной записи ({additional_start.strftime('%H:%M')}-{additional_end.strftime('%H:%M')}) "
+                    f"пересекается с временем основной записи ({main_start.strftime('%H:%M')}-{main_end.strftime('%H:%M')})"
+                )
 
 
 class AppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
