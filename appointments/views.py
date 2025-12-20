@@ -81,7 +81,8 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
         # Теперь self.object будет доступен
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
 
-    def create_additional_appointment(self, main_appointment, appointment_data):
+    @staticmethod
+    def create_additional_appointment(main_appointment, appointment_data):
         """Создание дополнительной записи с проверкой пересечения времени"""
 
         # Получаем время основной записи
@@ -179,7 +180,8 @@ class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView)
 
         return context
 
-    def find_all_related_appointments(self, appointment):
+    @staticmethod
+    def find_all_related_appointments(appointment):
         """Находит ВСЕ связанные записи рекурсивно"""
         found = set()
 
@@ -227,16 +229,10 @@ class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView)
             if action == "with_related" or action == "all":
                 # Находим все связанные записи
                 all_appointments = self.find_all_related_appointments(self.object)
-                appointment_ids = [a.id for a in all_appointments]
 
-                # ВАЖНО: Удаляем в обратном порядке, чтобы избежать проблем с foreign key
                 deleted_count = 0
                 for appointment in reversed(all_appointments):
                     try:
-                        # Сохраняем ID для логов
-                        app_id = appointment.id
-
-                        # Удаляем запись (это вызовет каскадное удаление связанных объектов)
                         appointment.delete()
 
                         deleted_count += 1

@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 
 from appointments.forms.base import AppointmentChainBaseForm
 from patients.services import PatientService
-from timetable.models import MedicalService, MedicalServiceCategory, BloodTest
+from timetable.models import BloodTest, MedicalService, MedicalServiceCategory
 
 
 class ProceduralAppointmentBaseForm(AppointmentChainBaseForm):

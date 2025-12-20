@@ -8,7 +8,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 
-from appointments.services import AppointmentChainService, AppointmentService
+from appointments.services import AppointmentChainService
 from timetable.models import (
     BloodTest,
     BloodTestCategory,
@@ -212,9 +212,6 @@ def get_available_doctors_api(request):
         exclude_doctor_id = data.get("exclude_doctor_id")
 
         doctors = Doctor.objects.order_by("surname")
-
-        if exclude_doctor_id:
-            doctors = doctors.exclude(id=exclude_doctor_id)
 
         doctors_data = []
         for doctor in doctors:
