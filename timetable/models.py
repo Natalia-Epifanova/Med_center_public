@@ -68,7 +68,7 @@ class Doctor(models.Model):
         ORTHOPEDIC_TRAUMATOLOGIST = "Orthopedic-traumatologist", _(
             "Травматолог-ортопед"
         )
-        NURSE = "nurse", _("Медсестра")
+        NURSE = "nurse", _("Старшая медсестра")
         NEUROLOGIST = "neurologist", _("Невролог")
         CARDIOLOGIST = "cardiologist", _("Кардиолог")
         GASTROENTEROLOGIST = "gastroenterologist", _("Гастроэнтеролог")
@@ -76,6 +76,10 @@ class Doctor(models.Model):
         DERMATOVENEROLOGIST = (
             "dermatovenerologist",
             _("Дерматовенеролог"),
+        )
+        PSYCHOLOGIST = (
+            "specialist_in_psychological_support)",
+            _("Специалист по психологическому сопровождению"),
         )
         ULTRASOUND_DIAGNOSTICS_DOCTOR = "ultrasound_diagnostics_doctor", _(
             "Врач ультразвуковой диагностики"

@@ -124,13 +124,6 @@ class AppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
         context["related_appointments"] = related_appointments
         context["has_related"] = len(related_appointments) > 1
 
-        # Дополнительная информация для отладки
-        print(f"DEBUG AppointmentDetailView: Кабинет: {appointment.cabinet.number}")
-        print(f"DEBUG AppointmentDetailView: Услуга: {appointment.service.name}")
-        print(
-            f"DEBUG AppointmentDetailView: Анализов выбрано: {appointment.selected_blood_tests.count()}"
-        )
-
         return context
 
 
@@ -404,7 +397,6 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
 
     def form_valid(self, form):
         try:
-            print("DEBUG: ProceduralAppointmentUpdateView.form_valid called")
             response = super().form_valid(form)
             messages.success(
                 self.request,
@@ -412,7 +404,6 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
             )
             return response
         except Exception as e:
-            print(f"ERROR in form_valid: {str(e)}")
             messages.error(self.request, f"Ошибка при обновлении записи: {str(e)}")
             return self.form_invalid(form)
 
@@ -441,9 +432,6 @@ def update_appointment_status(request, pk):
             appointment.status = new_status
             appointment.save()
 
-            # Логируем изменение для отладки
-            print(f"Статус записи {appointment.id} изменен на: {new_status}")
-
             return JsonResponse(
                 {
                     "success": True,
@@ -462,5 +450,4 @@ def update_appointment_status(request, pk):
             {"success": False, "error": "Запись не найдена"}, status=404
         )
     except Exception as e:
-        print(f"Ошибка при обновлении статуса: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
