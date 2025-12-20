@@ -923,141 +923,300 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
             appointment.total_with_blood_tests = appointment.price_at_appointment
 
 
-class ProceduralAppointmentUpdateForm(ProceduralAppointmentForm):
-    """Форма для редактирования записи в процедурный кабинет"""
+class ProceduralAppointmentUpdateForm(forms.ModelForm):
+    """Упрощенная форма для редактирования процедурной записи - только основные поля"""
+
+    procedural_start_time = forms.TimeField(
+        required=True,
+        label="Время начала",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+    )
+
+    procedural_end_time = forms.TimeField(
+        required=True,
+        label="Время окончания",
+        widget=forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
+    )
+
+    selected_blood_tests_input = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_selected_blood_tests"}),
+        label="Выбранные анализы крови",
+    )
+
+    total_sum = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.HiddenInput(attrs={"id": "id_total_sum"}),
+        label="Итоговая сумма",
+    )
+
+    class Meta:
+        model = Appointment
+        fields = ["service", "insurance_type", "comment"]
+        widgets = {
+            "service": forms.Select(attrs={"class": "form-select"}),
+            "insurance_type": forms.Select(attrs={"class": "form-select"}),
+            "comment": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        }
 
     def __init__(self, *args, **kwargs):
         self.current_appointment = kwargs.pop("current_appointment", None)
+        self.selected_date = kwargs.pop("selected_date", None)
         super().__init__(*args, **kwargs)
 
-        self.fields["service"].widget.attrs.update({"data-price-field": "id_total_sum"})
+        print(f"DEBUG ProceduralAppointmentUpdateForm __init__:")
+        print(f"  - Instance ID: {self.instance.id if self.instance else 'None'}")
 
+        # Устанавливаем начальные значения
         if self.current_appointment and self.instance.pk:
-            self._set_initial_blood_tests()
-            self._set_initial_comment_without_tests()
+            self._set_initial_values()
 
-            # Устанавливаем начальное значение для суммы
-            if self.current_appointment.total_with_blood_tests:
-                self.fields["total_sum"].initial = (
-                    self.current_appointment.total_with_blood_tests
-                )
+    def _set_initial_values(self):
+        """Устанавливает начальные значения для формы"""
+        print(f"DEBUG _set_initial_values:")
+        print(f"  - Current appointment ID: {self.current_appointment.id}")
 
-    def _set_initial_blood_tests(self):
-        """Устанавливаем начальные значения для выбранных анализов крови"""
+        # 1. Устанавливаем анализы крови
         selected_tests = self.current_appointment.selected_blood_tests.all()
-        if selected_tests:
+        if selected_tests.exists():
             test_ids = [str(test.blood_test.id) for test in selected_tests]
             self.fields["selected_blood_tests_input"].initial = ",".join(test_ids)
+            print(f"  - Initial test IDs: {test_ids}")
 
-    def _set_initial_comment_without_tests(self):
-        """Устанавливаем начальный комментарий без информации об анализах"""
-        if self.current_appointment and self.current_appointment.comment:
-            comment = self.current_appointment.comment
-            lines = comment.split("\n")
-            filtered_lines = []
+        # 2. Устанавливаем сумму
+        if self.current_appointment.total_with_blood_tests:
+            self.fields["total_sum"].initial = (
+                self.current_appointment.total_with_blood_tests
+            )
+            print(
+                f"  - Initial total: {self.current_appointment.total_with_blood_tests}"
+            )
 
-            for line in lines:
-                if not any(
-                    keyword in line
-                    for keyword in ["Анализы:", "Итого:", "Забор крови:"]
-                ):
-                    filtered_lines.append(line)
+        # 3. Устанавливаем время
+        if self.current_appointment.start_time:
+            self.fields["procedural_start_time"].initial = (
+                self.current_appointment.start_time.strftime("%H:%M")
+            )
+        if self.current_appointment.end_time:
+            self.fields["procedural_end_time"].initial = (
+                self.current_appointment.end_time.strftime("%H:%M")
+            )
 
-            clean_comment = "\n".join(filtered_lines).strip()
-            self.fields["comment"].initial = clean_comment
+        # 4. Устанавливаем услугу
+        if self.current_appointment.service:
+            self.fields["service"].initial = self.current_appointment.service
 
-    def save(self, commit=True):
-        appointment = super().save(commit=False)
+    def clean(self):
+        """Переопределяем clean для отладки"""
+        cleaned_data = super().clean()
 
-        # Используем текущий слот
-        time_slot = (
-            self.current_appointment.time_slot
-            if self.current_appointment
-            else appointment.time_slot
+        print(f"DEBUG ProceduralAppointmentUpdateForm clean:")
+        print(
+            f"  - selected_blood_tests_input value: {cleaned_data.get('selected_blood_tests_input')}"
         )
+        print(f"  - total_sum value: {cleaned_data.get('total_sum')}")
+        print(f"  - procedural_start_time: {cleaned_data.get('procedural_start_time')}")
+        print(f"  - procedural_end_time: {cleaned_data.get('procedural_end_time')}")
 
-        # Обновляем время если нужно
+        # Валидация времени
+        start_time = cleaned_data.get("procedural_start_time")
+        end_time = cleaned_data.get("procedural_end_time")
+
+        if start_time and end_time and start_time >= end_time:
+            raise forms.ValidationError(
+                "Время окончания должно быть позже времени начала"
+            )
+
+        # Проверка доступности времени в процедурном кабинете
+        if start_time and end_time and self.selected_date:
+            if not self._check_procedural_time_availability(start_time, end_time):
+                raise forms.ValidationError(
+                    "Выбранное время в процедурном кабинете уже занято. "
+                    "Пожалуйста, выберите другое время."
+                )
+
+        # ВАЖНО: Если нет анализов, устанавливаем пустую строку
+        if not cleaned_data.get("selected_blood_tests_input"):
+            cleaned_data["selected_blood_tests_input"] = ""
+
+        # ВАЖНО: Если нет суммы, пытаемся ее рассчитать
+        if not cleaned_data.get("total_sum"):
+            # Пытаемся рассчитать сумму на основе выбранных тестов и услуги
+            try:
+                service = (
+                    cleaned_data.get("service") or self.current_appointment.service
+                )
+                test_ids_input = cleaned_data.get("selected_blood_tests_input", "")
+
+                test_ids = [
+                    int(id.strip())
+                    for id in test_ids_input.split(",")
+                    if id.strip().isdigit()
+                ]
+                tests_price = sum(
+                    BloodTest.objects.filter(id__in=test_ids).values_list(
+                        "price", flat=True
+                    )
+                )
+                service_price = service.price if service else 0
+                total = tests_price + service_price
+
+                cleaned_data["total_sum"] = total
+                print(f"  - Calculated total: {total}")
+            except:
+                cleaned_data["total_sum"] = 0
+
+        return cleaned_data
+
+    def _check_procedural_time_availability(self, start_time, end_time):
+        """Проверяет доступность времени в процедурном кабинете"""
+        try:
+            from timetable.models import Cabinet, TimeSlot
+
+            procedural_cabinet = Cabinet.objects.get(number=6)
+
+            conflicting_slots = TimeSlot.get_conflicting_slots(
+                date=self.selected_date,
+                start_time=start_time,
+                end_time=end_time,
+                cabinet=procedural_cabinet,
+            ).filter(appointments__isnull=False)
+
+            # Исключаем текущую запись из проверки
+            if self.current_appointment and self.current_appointment.time_slot:
+                conflicting_slots = conflicting_slots.exclude(
+                    id=self.current_appointment.time_slot_id
+                )
+
+            return not conflicting_slots.exists()
+
+        except Exception as e:
+            print(f"ERROR in time availability check: {str(e)}")
+            return False
+
+    @transaction.atomic
+    def save(self, commit=True):
+        """Переопределяем save для ОБНОВЛЕНИЯ существующей записи"""
+        print(f"DEBUG ProceduralAppointmentUpdateForm.save() called")
+        print(f"  - Instance ID: {self.instance.id}")
+
+        # ОБНОВЛЕНИЕ существующей записи
+        appointment = self.instance
+
+        # 1. Обновляем время если изменилось
         start_time = self.cleaned_data.get("procedural_start_time")
         end_time = self.cleaned_data.get("procedural_end_time")
 
-        if start_time and end_time and time_slot:
-            if start_time != time_slot.start_time or end_time != time_slot.end_time:
-                time_slot.start_time = start_time
-                time_slot.end_time = end_time
-                time_slot.save()
+        if start_time and end_time and appointment.time_slot:
+            # Проверяем, изменилось ли время
+            current_start = appointment.time_slot.start_time.strftime("%H:%M")
+            current_end = appointment.time_slot.end_time.strftime("%H:%M")
+            new_start = (
+                start_time.strftime("%H:%M")
+                if hasattr(start_time, "strftime")
+                else str(start_time)
+            )
+            new_end = (
+                end_time.strftime("%H:%M")
+                if hasattr(end_time, "strftime")
+                else str(end_time)
+            )
 
-        appointment.time_slot = time_slot
+            if current_start != new_start or current_end != new_end:
+                print(
+                    f"  - Time changed from {current_start}-{current_end} to {new_start}-{new_end}"
+                )
 
-        # Обновляем пациента
-        patient_data = self.get_patient_data()
-        patient, created = PatientService.get_or_create_patient(patient_data)
-        appointment.patient = patient
+                # Создаем новый слот или используем существующий
+                from appointments.services import ProceduralAppointmentService
 
-        # Сохраняем общую сумму из скрытого поля
+                time_slot = ProceduralAppointmentService.create_or_get_procedural_slot(
+                    date=appointment.date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    doctor=appointment.doctor,
+                )
+
+                # Проверяем доступность (кроме текущей записи)
+                if time_slot.id != appointment.time_slot_id:
+                    if time_slot.appointments.exclude(id=appointment.id).exists():
+                        raise forms.ValidationError(
+                            "Выбранное время уже занято другой записью. Пожалуйста, выберите другое время."
+                        )
+
+                appointment.time_slot = time_slot
+
+        # 2. Обновляем остальные поля
+        appointment.service = self.cleaned_data.get("service") or appointment.service
+        appointment.insurance_type = (
+            self.cleaned_data.get("insurance_type") or appointment.insurance_type
+        )
+
+        # 3. Сохраняем комментарий как есть (без добавления информации об анализах)
+        user_comment = self.cleaned_data.get("comment", "")
+        if user_comment != appointment.comment:
+            appointment.comment = user_comment
+            print(f"  - Comment updated: {appointment.comment}")
+
+        # 4. Сохраняем общую сумму
         total_sum = self.cleaned_data.get("total_sum")
         if total_sum:
             appointment.total_with_blood_tests = total_sum
-        else:
-            # Если сумма не пришла, пересчитываем
-            selected_blood_tests = self.cleaned_data.get("selected_blood_tests", [])
-            tests_price = sum(test.price for test in selected_blood_tests)
-            service_price = (
-                appointment.price_at_appointment or appointment.service.price
-            )
-            appointment.total_with_blood_tests = service_price + tests_price
+            print(f"  - Total sum from form: {total_sum}")
+        elif not appointment.total_with_blood_tests:
+            # Если сумма не установлена, вычисляем ее
+            tests_price = appointment.get_tests_price
+            service_price = appointment.service.price if appointment.service else 0
+            appointment.total_with_blood_tests = tests_price + service_price
+            print(f"  - Calculated total: {appointment.total_with_blood_tests}")
 
+        # 5. Сохраняем запись
         if commit:
             appointment.save()
+            print(f"  - Appointment saved, ID: {appointment.id}")
 
-            # Обновляем связи с анализами
-            selected_blood_tests = self.cleaned_data.get("selected_blood_tests", [])
-            current_relations = AppointmentBloodTest.objects.filter(
-                appointment=appointment
-            )
-            current_test_ids = set(
-                relation.blood_test_id for relation in current_relations
-            )
-            new_test_ids = set(test.id for test in selected_blood_tests)
+            # 6. Обновляем анализы крови
+            self._update_blood_tests(appointment)
 
-            # Удаляем старые
-            if current_test_ids - new_test_ids:
-                AppointmentBloodTest.objects.filter(
-                    appointment=appointment,
-                    blood_test_id__in=current_test_ids - new_test_ids,
-                ).delete()
-
-            # Добавляем новые
-            for test_id in new_test_ids - current_test_ids:
-                AppointmentBloodTest.objects.create(
-                    appointment=appointment, blood_test_id=test_id
-                )
-
-            # Формируем комментарий
-            user_comment = self.cleaned_data.get("comment", "").strip()
-            comment_lines = []
-
-            if user_comment:
-                comment_lines.append(user_comment)
-
-            if selected_blood_tests:
-                tests_price = sum(test.price for test in selected_blood_tests)
-                service_price = (
-                    appointment.price_at_appointment or appointment.service.price
-                )
-                total_price = tests_price + service_price
-
-                comment_lines.append(
-                    f"Анализы: {tests_price} руб. + Забор крови: {service_price} руб. = Итого: {total_price} руб."
-                )
-
-            if comment_lines:
-                appointment.comment = "\n".join(comment_lines)
-            else:
-                appointment.comment = ""
-
-            appointment.save()
+            print(f"  - All updates completed")
 
         return appointment
+
+    def _update_blood_tests(self, appointment):
+        """Обновляет выбранные анализы крови"""
+        selected_blood_tests_input = self.cleaned_data.get(
+            "selected_blood_tests_input", ""
+        )
+        print(f"DEBUG _update_blood_tests - input: {selected_blood_tests_input}")
+
+        # Удаляем все текущие связи
+        appointment.selected_blood_tests.all().delete()
+        print(f"  - Deleted all existing test relations")
+
+        if selected_blood_tests_input and selected_blood_tests_input.strip():
+            try:
+                # Парсим ID анализов
+                test_ids = [
+                    int(id.strip())
+                    for id in selected_blood_tests_input.split(",")
+                    if id.strip() and id.strip().isdigit()
+                ]
+
+                print(f"  - Parsed test IDs: {test_ids}")
+
+                # Добавляем новые
+                for test_id in test_ids:
+                    AppointmentBloodTest.objects.create(
+                        appointment=appointment, blood_test_id=test_id
+                    )
+                    print(f"  - Added test: {test_id}")
+
+                print(f"  - Added {len(test_ids)} tests")
+
+            except (ValueError, TypeError) as e:
+                print(f"ERROR parsing test IDs: {str(e)}")
 
 
 class AdditionalAppointmentForm(forms.Form):

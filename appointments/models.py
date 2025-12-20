@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 
 from patients.models import Patient
@@ -195,6 +196,33 @@ class Appointment(models.Model):
     def actual_price(self):
         """Возвращает цену, которая должна отображаться в истории"""
         return self.price_at_appointment or self.service.price
+
+    @property
+    def get_tests_price(self):
+        """Возвращает общую стоимость выбранных анализов"""
+        if hasattr(self, "selected_blood_tests"):
+            total = (
+                self.selected_blood_tests.aggregate(total=Sum("blood_test__price"))[
+                    "total"
+                ]
+                or 0
+            )
+            return total
+        return 0
+
+    @property
+    def get_total_price(self):
+        """Возвращает общую стоимость (анализы + услуга)"""
+        tests_price = self.get_tests_price
+        service_price = self.service.price if self.service else 0
+        return tests_price + service_price
+
+    @property
+    def actual_price(self):
+        """Возвращает актуальную цену для отображения"""
+        if self.total_with_blood_tests:
+            return self.total_with_blood_tests
+        return self.get_total_price
 
     def save(self, *args, **kwargs):
         """Переопределяем save для сохранения цены на момент записи и установки типа цепочки"""

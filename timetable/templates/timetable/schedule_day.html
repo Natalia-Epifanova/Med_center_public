@@ -34,6 +34,7 @@
 
                                 <h5 class="mb-0 text-center timetable-current-date">
                                     <strong>{{ selected_date|date:"d.m.Y" }}</strong>
+                                    <span class="text-muted ms-2">({{ selected_date|date:"l" }})</span>
                                     {% if selected_date == current_date %}
                                     <span class="badge bg-info ms-2">Сегодня</span>
                                     {% endif %}
@@ -343,7 +344,7 @@
 
                                             <!-- Блок действий -->
                                             <div class="btn-group btn-group-sm mt-1" role="group">
-                                                <!-- Кнопка редактирования записи -->
+                                                <!-- Кнопка просмотра записи -->
                                                 {% if is_medical_admin or is_admin %}
                                                 <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
                                                    class="btn btn-outline-info" title="Просмотр записи">
@@ -359,14 +360,6 @@
                                                         <span class="visually-hidden">Требуется перезапись</span>
                                                     </span>
                                                 </span>
-                                                {% endif %}
-                                                {% if is_medical_admin or is_admin %}
-                                                    {% if appointment.time_slot.cabinet.number == 6 and "забор крови" in appointment.service.name|lower %}
-                                                    <a href="{% url 'appointments:appointment_update_procedural' appointment.pk %}"
-                                                       class="btn btn-sm btn-outline-info" title="Редактировать анализы крови">
-                                                        <i class="fas fa-vial"></i>
-                                                    </a>
-                                                    {% endif %}
                                                 {% endif %}
 
                                                 <!-- Индикатор последовательной записи -->
