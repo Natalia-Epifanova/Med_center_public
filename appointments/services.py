@@ -605,3 +605,48 @@ class ConsecutiveAppointmentService:
 
         # Сохраняем изменения
         appointment.save()
+
+
+class CommonAppointmentService:
+    """Общие методы для работы с записями (обычными и процедурными)"""
+
+    @staticmethod
+    def validate_additional_appointments(appointments_list, exclude_doctor_id=None):
+        """Валидация дополнительных записей (общий метод)"""
+        from timetable.utils import get_doctor_services  # ИМПОРТИРУЕМ
+
+        errors = []
+
+        for i, appointment_data in enumerate(appointments_list, start=1):
+            try:
+                doctor = Doctor.objects.get(id=appointment_data["doctor_id"])
+                service = MedicalService.objects.get(id=appointment_data["service_id"])
+                time_slot = TimeSlot.objects.get(id=appointment_data["time_slot_id"])
+
+                # ИСПРАВЛЕНИЕ: Используем существующую функцию
+                available_services = get_doctor_services(doctor)
+                if not available_services.filter(id=service.id).exists():
+                    errors.append(
+                        f"Ошибка в записи #{i}: Услуга '{service.name}' недоступна врачу {doctor.surname}"
+                    )
+
+                # Проверяем доступность слота
+                if not time_slot.is_available():
+                    errors.append(
+                        f"Ошибка в записи #{i}: Время {time_slot.start_time} у врача {doctor.surname} уже занято"
+                    )
+
+                # Проверка исключения врача
+                if exclude_doctor_id and doctor.id == exclude_doctor_id:
+                    errors.append(
+                        f"Ошибка в записи #{i}: Нельзя создать запись к тому же врачу"
+                    )
+
+            except (
+                Doctor.DoesNotExist,
+                MedicalService.DoesNotExist,
+                TimeSlot.DoesNotExist,
+            ) as e:
+                errors.append(f"Ошибка в записи #{i}: {str(e)}")
+
+        return errors

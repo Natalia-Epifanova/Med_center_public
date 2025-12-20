@@ -284,7 +284,7 @@ class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView)
 
 
 class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
-    """Создание записи в процедурный кабинет без привязки к слоту"""
+    """Создание записи в процедурный кабинет с поддержкой цепочек"""
 
     model = Appointment
     form_class = ProceduralAppointmentForm
@@ -292,6 +292,7 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+
         # Получаем дату из GET параметров
         date_str = self.request.GET.get("date")
         if date_str:
@@ -302,8 +303,7 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
         else:
             self.selected_date = timezone.now().date()
 
-        # Находим процедурный кабинет и врача-медсестр
-
+        # Находим процедурный кабинет и врача-медсестру
         self.procedural_cabinet = Cabinet.objects.get(number=6)
         self.nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
 
@@ -314,28 +314,19 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        # Для цепочек нам нужен ID врача-медсестры
+        nurse_doctor_id = self.nurse_doctor.id if self.nurse_doctor else None
+
         context.update(
             {
                 "selected_date": self.selected_date,
                 "procedural_cabinet": self.procedural_cabinet,
                 "nurse_doctor": self.nurse_doctor,
+                "nurse_doctor_id": nurse_doctor_id,  # Добавляем для JavaScript
             }
         )
+
         return context
-
-    def form_valid(self, form):
-        try:
-            # Сохраняем запись
-            self.object = form.save()
-
-            messages.success(
-                self.request, "Запись в процедурный кабинет создана успешно!"
-            )
-            return redirect(self.get_success_url())
-
-        except Exception as e:
-            messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
-            return self.form_invalid(form)
 
     def get_success_url(self):
         return reverse("timetable:schedule_day") + f"?date={self.selected_date}"

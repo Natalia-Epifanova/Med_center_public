@@ -2,7 +2,6 @@ import json
 
 from django import forms
 from django.core.exceptions import ValidationError
-from django.forms import ModelForm
 
 from appointments.mixins import AppointmentFormMixin, PatientFieldsMixin
 from appointments.models import Appointment
@@ -12,22 +11,29 @@ from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
 from timetable.models import MedicalService
 
 
-class AppointmentBaseForm(
+class AppointmentChainBaseForm(
     StyleFormMixin,
     PatientFieldsMixin,
     ServiceBasedFormMixin,
-    ModelForm,
+    forms.Form,  # Изменяем с ModelForm на Form для большей гибкости
     AppointmentFormMixin,
 ):
-    """Базовая форма для записи на прием"""
+    """Базовая форма для записей с поддержкой цепочек"""
 
+    # Основные поля (будут переопределены в дочерних формах)
     service = forms.ModelChoiceField(
         queryset=MedicalService.objects.none(),
         widget=forms.Select(attrs={"class": "form-select"}),
         label="Услуга",
     )
 
-    # ЗАМЕНЯЕМ appointment_type на appointment_chain_type
+    insurance_type = forms.ChoiceField(
+        choices=Appointment.InsuranceType.choices,
+        widget=forms.Select(attrs={"class": "form-select"}),
+        label="Тип оплаты",
+    )
+
+    # Поля для цепочек записей
     appointment_chain_type = forms.ChoiceField(
         choices=AppointmentFormMixin.APPOINTMENT_CHOICES,
         initial="none",
@@ -42,6 +48,20 @@ class AppointmentBaseForm(
         label="Вторая услуга",
     )
 
+    # Поля для записей к другим врачам
+    additional_appointments_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_additional_appointments_data"}),
+        label="Данные дополнительных записей",
+    )
+
+    # Поля для процедурных записей в цепочке
+    procedural_appointments_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_procedural_appointments_data"}),
+        label="Данные процедурных записей",
+    )
+
     needs_procedural = forms.BooleanField(
         required=False,
         initial=False,
@@ -49,10 +69,19 @@ class AppointmentBaseForm(
         label="Занять окошко в процедурном кабинете",
         help_text="Автоматически займет такое же время в процедурном кабинете",
     )
-    procedural_appointments_data = forms.CharField(
+
+    # Общие поля
+    needs_reschedule = forms.BooleanField(
         required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_procedural_appointments_data"}),
-        label="Данные процедурных записей",
+        initial=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        label="Требуется перезапись на более ранний срок",
+    )
+
+    comment = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
+        label="Комментарий",
     )
 
     total_sum = forms.DecimalField(
@@ -63,36 +92,24 @@ class AppointmentBaseForm(
         label="Итоговая сумма",
     )
 
-    # НОВОЕ: Поле для хранения JSON данных дополнительных записей
-    additional_appointments_data = forms.CharField(
+    # Новое: флаг для процедурного кабинета второй услуги
+    needs_procedural_additional = forms.CharField(
         required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_additional_appointments_data"}),
-        label="Данные дополнительных записей",
+        widget=forms.HiddenInput(attrs={"id": "id_needs_procedural_additional"}),
     )
 
-    class Meta:
-        model = Appointment
-        fields = ["service", "insurance_type", "needs_reschedule", "comment"]
-        widgets = {
-            "insurance_type": forms.Select(attrs={"class": "form-select"}),
-            "needs_reschedule": forms.CheckboxInput(
-                attrs={"class": "form-check-input"}
-            ),
-            "comment": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
-        }
-        labels = {
-            "insurance_type": "Тип оплаты",
-            "needs_reschedule": "Требуется перезапись на более ранний срок",
-            "comment": "Комментарий",
-        }
-
     def __init__(self, *args, **kwargs):
+        self.time_slot = kwargs.pop("time_slot", None)
+        self.doctor = kwargs.pop("doctor", None)
         super().__init__(*args, **kwargs)
+
+        # Инициализация полей
         self._set_initial_appointment_chain_type()
+        self._initialize_service_queryset()
 
     def _set_initial_appointment_chain_type(self):
         """Устанавливает начальное значение для типа цепочки записей"""
-        if self.instance and self.instance.pk:
+        if hasattr(self, "instance") and self.instance and self.instance.pk:
             if self.instance.chain_type == Appointment.ChainType.MULTIPLE_DOCTORS:
                 self.fields["appointment_chain_type"].initial = "multiple"
             elif self.instance.chain_type == Appointment.ChainType.SAME_DOCTOR:
@@ -103,11 +120,23 @@ class AppointmentBaseForm(
             else:
                 self.fields["appointment_chain_type"].initial = "none"
 
-    def clean(self):
-        cleaned_data = super().clean()
+    def _initialize_service_queryset(self):
+        """Инициализирует queryset услуг"""
+        from appointments.services import AppointmentService
 
-        # ВАЛИДАЦИЯ ДЛЯ ВРАЧА ПИЩЕЛЕВА П.В. (добавляем в самое начало)
-        self._validate_pishchelev_for_main_appointment(cleaned_data)
+        doctor_to_use = self.doctor or (
+            self.time_slot.doctor if self.time_slot else None
+        )
+
+        if doctor_to_use:
+            services = doctor_to_use.get_available_services()
+            self.fields["service"].queryset = services
+            if "additional_service" in self.fields:
+                self.fields["additional_service"].queryset = services
+
+    def clean(self):
+        """Общая валидация для всех форм с цепочками"""
+        cleaned_data = super().clean()
 
         # Валидация данных пациента
         patient_data = self.get_patient_data()
@@ -122,7 +151,7 @@ class AppointmentBaseForm(
                 'При выборе опции "Добавить вторую услугу к этому же врачу" необходимо указать вторую услугу'
             )
 
-        # Валидация для записи к другому врачу
+        # Валидация для записей к другим врачам
         if appointment_chain_type in ["another_doctor", "multiple"]:
             additional_data = cleaned_data.get("additional_appointments_data")
             if additional_data:
@@ -130,13 +159,12 @@ class AppointmentBaseForm(
                     appointments_list = json.loads(additional_data)
                     if not appointments_list:
                         raise ValidationError(
-                            f'При выборе опции "{self.get_appointment_type_display(appointment_chain_type)}" необходимо добавить хотя бы одну дополнительную запись'
+                            f'При выборе опции "{self.get_appointment_type_display(appointment_chain_type)}" '
+                            f"необходимо добавить хотя бы одну дополнительную запись"
                         )
 
-                    # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем все дополнительные записи
-                    self._validate_additional_appointments_for_pishchelev(
-                        appointments_list
-                    )
+                    # Валидация всех дополнительных записей
+                    self._validate_additional_appointments(appointments_list)
 
                 except json.JSONDecodeError:
                     raise ValidationError(
@@ -144,93 +172,13 @@ class AppointmentBaseForm(
                     )
 
         # Валидация последовательных записей
-        time_slot = getattr(self, "time_slot", None)
-        if appointment_chain_type in ["additional", "two_slots"] and time_slot:
-            current_time_slot = getattr(self, "current_time_slot", None)
-            AppointmentValidator.validate_consecutive_slot(time_slot, current_time_slot)
-
-        # Дополнительная валидация Пищелева для всех случаев
-        self._validate_pishchelev_all_restrictions(cleaned_data)
+        if appointment_chain_type in ["additional", "two_slots"] and self.time_slot:
+            AppointmentValidator.validate_consecutive_slot(self.time_slot)
 
         return cleaned_data
 
-    def _validate_pishchelev_for_main_appointment(self, cleaned_data):
-        """Валидация ограничений для врача Пищелева П.В. (основная запись)"""
-        # Пытаемся получить врача разными способами
-        doctor = None
-
-        if hasattr(self, "time_slot") and self.time_slot:
-            doctor = self.time_slot.doctor
-        elif hasattr(self, "doctor") and self.doctor:
-            doctor = self.doctor
-        elif (
-            hasattr(self, "instance")
-            and self.instance
-            and hasattr(self.instance, "time_slot")
-            and self.instance.time_slot
-        ):
-            doctor = self.instance.time_slot.doctor
-
-        if not doctor:
-            return
-
-        # Проверяем, является ли врач Пищелевым
-        is_pishchelev = "пищелев" in doctor.surname.lower()
-        if not is_pishchelev:
-            return
-
-        # Получаем выбранную услугу
-        service = cleaned_data.get("service")
-        if not service:
-            return
-
-        # Получаем время слота
-        time_slot = None
-        if hasattr(self, "time_slot") and self.time_slot:
-            time_slot = self.time_slot
-        elif (
-            hasattr(self, "instance")
-            and self.instance
-            and hasattr(self.instance, "time_slot")
-        ):
-            time_slot = self.instance.time_slot
-
-        if not time_slot:
-            return
-
-        # Получаем длительность слота
-        slot_duration_minutes = self._get_slot_duration_minutes(time_slot)
-        if not slot_duration_minutes:
-            return
-
-        # Проверяем ограничение: 20-минутные слоты только для стелек
-        is_insoles_service = self._is_insoles_service(service)
-
-        if slot_duration_minutes == 20 and not is_insoles_service:
-            raise forms.ValidationError(
-                "❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек!\n\n"
-                'Выберите услугу "Изготовление стелек" или выберите 30-минутный интервал.'
-            )
-
-    def _get_slot_duration_minutes(self, time_slot):
-        """Вычисляет длительность слота в минутах"""
-        if not time_slot.start_time or not time_slot.end_time:
-            return None
-
-        # Конвертируем время в минуты
-        start_minutes = time_slot.start_time.hour * 60 + time_slot.start_time.minute
-        end_minutes = time_slot.end_time.hour * 60 + time_slot.end_time.minute
-
-        return end_minutes - start_minutes
-
-    def _is_insoles_service(self, service):
-        """Проверяет, является ли услуга изготовлением стелек"""
-        service_name_lower = service.name.lower()
-        insoles_keywords = ["стель", "стелек", "manufacture_of_insoles", "изготовление"]
-        return any(keyword in service_name_lower for keyword in insoles_keywords)
-
-    def _validate_additional_appointments_for_pishchelev(self, appointments_list):
-        """Проверяет дополнительные записи на ограничения Пищелева"""
+    def _validate_additional_appointments(self, appointments_list):
+        """Валидация дополнительных записей"""
         for i, appointment_data in enumerate(appointments_list, start=1):
             doctor_id = appointment_data.get("doctor_id")
             service_id = appointment_data.get("service_id")
@@ -241,84 +189,39 @@ class AppointmentBaseForm(
 
             try:
                 from timetable.models import Doctor, MedicalService, TimeSlot
+                from timetable.utils import (
+                    get_doctor_services,
+                )  # ИМПОРТИРУЕМ СУЩЕСТВУЮЩУЮ ФУНКЦИЮ
 
                 doctor = Doctor.objects.get(id=doctor_id)
-
-                # Проверяем только для Пищелева
-                if "пищелев" not in doctor.surname.lower():
-                    continue
-
                 service = MedicalService.objects.get(id=service_id)
                 time_slot = TimeSlot.objects.get(id=time_slot_id)
 
-                from django.core.exceptions import ValidationError
-
-                from timetable.utils import validate_pishchelev_restrictions
-
-                try:
-                    validate_pishchelev_restrictions(doctor, service, time_slot)
-                except ValidationError as e:
+                # Проверка доступности слота
+                if not time_slot.is_available():
                     raise ValidationError(
-                        f"Ошибка в дополнительной записи #{i} (к врачу {doctor.surname}): {str(e)}"
+                        f"Ошибка в дополнительной записи #{i}: "
+                        f"Слот {time_slot.start_time} у врача {doctor.surname} уже занят"
+                    )
+
+                # ИСПРАВЛЕНИЕ: Используем существующую функцию вместо can_perform_service
+                # Проверяем, что услуга доступна врачу через get_doctor_services
+                available_services = get_doctor_services(doctor)
+                if not available_services.filter(id=service.id).exists():
+                    raise ValidationError(
+                        f"Ошибка в дополнительной записи #{i}: "
+                        f"Услуга '{service.name}' недоступна врачу {doctor.surname}"
                     )
 
             except (
                 Doctor.DoesNotExist,
                 MedicalService.DoesNotExist,
                 TimeSlot.DoesNotExist,
-            ):
-                continue
+            ) as e:
+                raise ValidationError(f"Ошибка в дополнительной записи #{i}: {str(e)}")
 
-    def _validate_pishchelev_all_restrictions(self, cleaned_data):
-        """Полная проверка всех записей на ограничения Пищелева"""
-        # Получаем врача для основной записи
-        doctor = None
-        if hasattr(self, "time_slot") and self.time_slot:
-            doctor = self.time_slot.doctor
-        elif hasattr(self, "doctor") and self.doctor:
-            doctor = self.doctor
-
-        # Если это не Пищелев, и нет дополнительных записей к Пищелеву, выходим
-        is_main_pishchelev = doctor and "пищелев" in doctor.surname.lower()
-
-        # Проверяем основную запись если это Пищелев
-        if is_main_pishchelev:
-            service = cleaned_data.get("service")
-            time_slot = getattr(self, "time_slot", None)
-
-            if service and time_slot:
-                from django.core.exceptions import ValidationError
-
-                from timetable.utils import validate_pishchelev_restrictions
-
-                try:
-                    validate_pishchelev_restrictions(doctor, service, time_slot)
-                except ValidationError as e:
-                    raise ValidationError(
-                        f"Врач Пищелев П.В.: {str(e)}\n"
-                        f"Услуга: {service.name if service else 'не указана'}\n"
-                        f"Время: {time_slot.start_time if time_slot else 'не указано'}"
-                    )
-
-        # Проверяем дополнительную услугу для того же врача (если основной Пищелев)
-        if is_main_pishchelev:
-            appointment_chain_type = cleaned_data.get("appointment_chain_type")
-            if appointment_chain_type == "additional":
-                additional_service = cleaned_data.get("additional_service")
-                time_slot = getattr(self, "time_slot", None)
-
-                if additional_service and time_slot:
-                    next_slot = time_slot.get_next_consecutive_slot()
-                    if next_slot:
-                        from django.core.exceptions import ValidationError
-
-                        from timetable.utils import validate_pishchelev_restrictions
-
-                        try:
-                            validate_pishchelev_restrictions(
-                                doctor, additional_service, next_slot
-                            )
-                        except ValidationError as e:
-                            raise ValidationError(
-                                f"Ошибка для второй услуги ({additional_service.name}): {str(e)}"
-                            )
+    def save(self, commit=True):
+        """Общий метод сохранения - должен быть переопределен в дочерних классах"""
+        raise NotImplementedError(
+            "Метод save должен быть переопределен в дочернем классе"
+        )
