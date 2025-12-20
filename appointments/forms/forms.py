@@ -9,7 +9,6 @@ from appointments.forms.base import AppointmentChainBaseForm
 from appointments.forms.procedural_base import ProceduralAppointmentBaseForm
 from appointments.models import Appointment, AppointmentBloodTest, AppointmentChain
 from appointments.services import (
-    AppointmentService,
     ConsecutiveAppointmentService,
     ProceduralAppointmentService,
 )
@@ -18,10 +17,18 @@ from timetable.models import BloodTest, Doctor, MedicalService, TimeSlot
 from timetable.utils import get_doctor_services
 
 
-class AppointmentForm(AppointmentChainBaseForm):
+class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
     """Форма создания записи с возможностью изменения времени"""
 
-    # Добавляем поля для изменения времени
+    class Meta:
+        model = Appointment
+        fields = [
+            "service",
+            "insurance_type",
+            "needs_reschedule",
+            "comment",
+        ]
+
     allow_time_change = forms.BooleanField(
         required=False,
         initial=False,
@@ -46,14 +53,13 @@ class AppointmentForm(AppointmentChainBaseForm):
     )
 
     def __init__(self, *args, **kwargs):
-        # Убираем time_slot и doctor из kwargs перед передачей в родительский класс
+
         self.time_slot = kwargs.pop("time_slot", None)
         self.doctor = kwargs.pop("doctor", None)
 
-        # Передаем очищенные kwargs в родительский класс
+        # Теперь передаем в родительский класс
         super().__init__(*args, **kwargs, time_slot=self.time_slot, doctor=self.doctor)
 
-        # УСТАНАВЛИВАЕМ QUERYSET ДЛЯ УСЛУГ через сервис
         from appointments.services import AppointmentService
 
         # Инициализируем поля с текущими значениями
@@ -150,7 +156,7 @@ class AppointmentForm(AppointmentChainBaseForm):
     def save(self, commit=True):
         """Сохраняет запись с транзакционной безопасностью"""
         if not commit:
-            return super().save(commit=False)
+            return super(AppointmentChainBaseForm, self).save(commit=False)
 
         try:
             with transaction.atomic():
@@ -158,8 +164,8 @@ class AppointmentForm(AppointmentChainBaseForm):
                 patient_data = self.get_patient_data()
                 patient, created = PatientService.get_or_create_patient(patient_data)
 
-                # Создание записи
-                appointment = super().save(commit=False)
+                # Получаем объект записи из родительского класса
+                appointment = super(AppointmentChainBaseForm, self).save(commit=False)
                 appointment.patient = patient
 
                 # Определяем, какой слот использовать
@@ -269,8 +275,7 @@ class AppointmentForm(AppointmentChainBaseForm):
 
                 return appointment
 
-        except forms.ValidationError as e:
-            # Пробрасываем ValidationError дальше
+        except forms.ValidationError:
             raise
         except IntegrityError as e:
             if "unique_doctor_time_slot" in str(e):

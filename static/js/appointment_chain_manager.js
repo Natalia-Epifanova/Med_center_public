@@ -307,7 +307,7 @@ class AppointmentChainManager {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': this.csrfToken
                 },
-                body: JSON.stringify({ exclude_doctor_id: this.mainDoctorId })
+                body: JSON.stringify({ exclude_doctor_id: null  })
             });
 
             if (!response.ok) return;

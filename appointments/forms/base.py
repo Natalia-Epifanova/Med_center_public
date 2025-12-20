@@ -15,10 +15,14 @@ class AppointmentChainBaseForm(
     StyleFormMixin,
     PatientFieldsMixin,
     ServiceBasedFormMixin,
-    forms.Form,  # Изменяем с ModelForm на Form для большей гибкости
     AppointmentFormMixin,
+    forms.ModelForm,
 ):
     """Базовая форма для записей с поддержкой цепочек"""
+
+    class Meta:
+        model = Appointment
+        fields = []  # Будем определять в дочерних формах
 
     # Основные поля (будут переопределены в дочерних формах)
     service = forms.ModelChoiceField(
@@ -122,7 +126,6 @@ class AppointmentChainBaseForm(
 
     def _initialize_service_queryset(self):
         """Инициализирует queryset услуг"""
-        from appointments.services import AppointmentService
 
         doctor_to_use = self.doctor or (
             self.time_slot.doctor if self.time_slot else None
@@ -221,7 +224,6 @@ class AppointmentChainBaseForm(
                 raise ValidationError(f"Ошибка в дополнительной записи #{i}: {str(e)}")
 
     def save(self, commit=True):
-        """Общий метод сохранения - должен быть переопределен в дочерних классах"""
-        raise NotImplementedError(
-            "Метод save должен быть переопределен в дочернем классе"
-        )
+        """Базовый метод сохранения"""
+        # Сохраняем только базовые поля ModelForm
+        return super(forms.ModelForm, self).save(commit)

@@ -1,24 +1,19 @@
 from django.urls import path
 
 from appointments.apps import AppointmentsConfig
-from appointments.views import (
-    AppointmentCreateView,
-    AppointmentDeleteOptionsView,
-    AppointmentDetailView,
-    AppointmentSimpleEditView,
-    ProceduralAppointmentCreateView,
-    ProceduralAppointmentUpdateView,
-    update_appointment_status,
-)
-from appointments.views_api import (
-    api_get_next_slot,
-    check_procedural_availability,
-    get_available_doctors_api,
-    get_blood_tests,
-    get_doctor_services_api,
-    validate_additional_appointment_api,
-    get_available_slots_for_doctor_api,
-)
+from appointments.views import (AppointmentCreateView,
+                                AppointmentDeleteOptionsView,
+                                AppointmentDetailView,
+                                AppointmentSimpleEditView,
+                                ProceduralAppointmentCreateView,
+                                ProceduralAppointmentUpdateView,
+                                update_appointment_status)
+from appointments.views_api import (api_get_next_slot,
+                                    check_procedural_availability,
+                                    get_available_doctors_api,
+                                    get_available_slots_for_doctor_api,
+                                    get_blood_tests, get_doctor_services_api,
+                                    validate_additional_appointment_api)
 
 app_name = AppointmentsConfig.name
 

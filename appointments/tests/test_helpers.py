@@ -2,7 +2,7 @@
 from django.test import TestCase
 from django.utils import timezone
 
-from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
+from timetable.models import Doctor, MedicalService, TimeSlot
 
 
 class AppointmentTestMixin:
