@@ -46,8 +46,8 @@ class BloodTestSelection {
 
     async loadBloodTests() {
         try {
-            console.log('Loading blood tests from /timetable/api/blood-tests/');
-            const response = await fetch('/timetable/api/blood-tests/');
+            console.log('Loading blood tests from /appointments/api/blood-tests/');
+            const response = await fetch('/appointments/api/blood-tests/');
             console.log('Response status:', response.status);
 
             const data = await response.json();

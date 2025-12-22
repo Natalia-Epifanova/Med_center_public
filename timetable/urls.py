@@ -2,26 +2,12 @@ from django.urls import path
 
 from appointments.views import update_appointment_status
 from timetable.apps import TimetableConfig
-from timetable.views import (
-    CopyScheduleView,
-    CopyWeeklyScheduleView,
-    DoctorReportView,
-    EmergencySlotCreateView,
-    HomeView,
-    RescheduleRequestsView,
-    ScheduleDayView,
-    TimeSlotCreateView,
-    TimeSlotDeleteView,
-    TimeSlotDetailView,
-    TimeSlotUpdateView,
-    save_day_comment,
-)
-from timetable.views_api import (
-    check_procedural_availability,
-    get_available_slots,
-    get_blood_tests,
-)
-from patients.views_api import check_patient_api
+from timetable.views import (CopyScheduleView, CopyWeeklyScheduleView,
+                             DoctorReportView, EmergencySlotCreateView,
+                             HomeView, RescheduleRequestsView, ScheduleDayView,
+                             TimeSlotCreateView, TimeSlotDeleteView,
+                             TimeSlotDetailView, TimeSlotUpdateView,
+                             save_day_comment)
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -50,19 +36,8 @@ urlpatterns = [
         RescheduleRequestsView.as_view(),
         name="reschedule_requests",
     ),
-    path(
-        "api/get-available-slots/",
-        get_available_slots,
-        name="api_get_available_slots",
-    ),
-    path(
-        "api/check-procedural-availability/",
-        check_procedural_availability,
-        name="api_check_procedural_availability",
-    ),
     path("day-comment/save/", save_day_comment, name="save_day_comment"),
     path("doctor-report/<str:date>/", DoctorReportView.as_view(), name="doctor_report"),
-    path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
     path("copy-schedule/", CopyScheduleView.as_view(), name="copy_schedule"),
     path(
         "copy-weekly-schedule/",
