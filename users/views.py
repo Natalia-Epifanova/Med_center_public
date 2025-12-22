@@ -1,9 +1,10 @@
-from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import LoginView, PasswordChangeView
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, UpdateView
 
-from users.forms import UserRegisterForm, UserProfileForm, CustomPasswordChangeForm
+from users.forms import (CustomPasswordChangeForm, UserProfileForm,
+                         UserRegisterForm)
 from users.models import User
 
 

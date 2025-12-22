@@ -1,6 +1,7 @@
-from typing import Tuple, Dict, Any, Optional
-from django.db import transaction, models
+from typing import Any, Dict, Optional, Tuple
+
 from django.core.exceptions import ValidationError
+from django.db import models, transaction
 from phonenumber_field.phonenumber import PhoneNumber
 
 from patients.models import Patient
