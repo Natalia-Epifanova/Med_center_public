@@ -9,29 +9,17 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.decorators.http import require_POST
-from django.views.generic import (
-    DeleteView,
-    DetailView,
-    FormView,
-    ListView,
-    TemplateView,
-    UpdateView,
-)
+from django.views.generic import (DeleteView, DetailView, FormView, ListView,
+                                  TemplateView, UpdateView)
 
 from appointments.models import Appointment
-from timetable.forms import (
-    CopyScheduleForm,
-    DayCommentForm,
-    TimeSlotForm,
-    TimeSlotUpdateForm,
-)
+from timetable.forms import (CopyScheduleForm, DayCommentForm, TimeSlotForm,
+                             TimeSlotUpdateForm)
 from timetable.models import Cabinet, DayComment, Doctor, TimeSlot
 from timetable.services import CopyScheduleService, TimeSlotService
 from users.permissions.decorators import admin_required
-from users.permissions.mixins import (
-    AdminRequiredMixin,
-    MedicalAdminOrAdminRequiredMixin,
-)
+from users.permissions.mixins import (AdminRequiredMixin,
+                                      MedicalAdminOrAdminRequiredMixin)
 
 
 class HomeView(TemplateView):

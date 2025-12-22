@@ -85,7 +85,7 @@ def check_patient_api(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def search_patients_api(request):
-    """API для поиска пациентов по ФИО или номеру карты (оригинальный вариант)"""
+    """API для поиска пациентов с поиском по дате рождения (простая версия)"""
     try:
         search_query = request.GET.get("q", "").strip()
 
@@ -94,22 +94,87 @@ def search_patients_api(request):
                 {"error": "Введите хотя бы 2 символа для поиска"}, status=400
             )
 
-        # Ищем пациентов (оригинальная логика поиска)
-        patients = Patient.objects.filter(
-            models.Q(surname__icontains=search_query)
-            | models.Q(first_name__icontains=search_query)
-            | models.Q(phone_number__icontains=search_query)
-            | models.Q(card_number__icontains=search_query)
-        )[
-            :10
-        ]  # Ограничиваем результаты
+        from django.db import connection
+        from django.db.models import Q
 
-        # Формируем ответ в старом формате
+        # Начинаем с пустого queryset
+        patients = Patient.objects.none()
+
+        print(f"Поиск: '{search_query}'")
+
+        # 1. Пробуем найти по точной дате в разных форматах
+        date_formats = ["%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y", "%Y%m%d", "%d%m%Y"]
+
+        for fmt in date_formats:
+            try:
+                date_obj = datetime.strptime(search_query, fmt).date()
+                print(f"Найдена дата в формате {fmt}: {date_obj}")
+                patients = Patient.objects.filter(date_of_birth=date_obj)[:10]
+                if patients.exists():
+                    print(f"Найдено по точной дате: {patients.count()}")
+                    break
+            except ValueError:
+                continue
+
+        # 2. Если не нашли по точной дате, ищем по текстовым полям
+        if not patients.exists():
+            print("Ищем по текстовым полям и частичным датам")
+
+            # Создаем базовый queryset для текстового поиска
+            text_search = Patient.objects.filter(
+                Q(surname__icontains=search_query)
+                | Q(first_name__icontains=search_query)
+                | Q(last_name__icontains=search_query)
+                | Q(phone_number__icontains=search_query)
+                | Q(card_number__icontains=search_query)
+            )
+
+            # 3. ДОБАВЛЯЕМ: поиск по дате рождения через аннотацию
+            from django.db.models import CharField, Value
+            from django.db.models.functions import Cast, Concat
+
+            try:
+                # Преобразуем дату в строку для поиска
+                if search_query.replace(".", "").replace("-", "").isdigit():
+                    # Для SQLite
+                    if connection.vendor == "sqlite":
+                        date_search = Patient.objects.extra(
+                            where=["strftime('%%d.%%m.%%Y', date_of_birth) LIKE %s"],
+                            params=[f"%{search_query}%"],
+                        )
+                    # Для PostgreSQL
+                    elif connection.vendor == "postgresql":
+                        date_search = Patient.objects.extra(
+                            where=["to_char(date_of_birth, 'DD.MM.YYYY') LIKE %s"],
+                            params=[f"%{search_query}%"],
+                        )
+                    # Для MySQL
+                    else:
+                        date_search = Patient.objects.extra(
+                            where=["DATE_FORMAT(date_of_birth, '%%d.%%m.%%Y') LIKE %s"],
+                            params=[f"%{search_query}%"],
+                        )
+
+                    # Объединяем результаты
+                    patients = (text_search | date_search).distinct()[:10]
+                    print(f"Найдено по тексту и дате: {patients.count()}")
+                else:
+                    patients = text_search[:10]
+                    print(f"Найдено только по тексту: {patients.count()}")
+
+            except Exception as db_error:
+                print(f"Ошибка поиска по дате: {db_error}")
+                patients = text_search[:10]
+
+        # 4. Формируем ответ
         patients_list = []
         for patient in patients:
             patients_list.append(
                 {
                     "id": patient.id,
+                    "surname": patient.surname,
+                    "first_name": patient.first_name,
+                    "last_name": patient.last_name or "",
                     "full_name": patient.get_full_name(),
                     "card_number": patient.card_number,
                     "phone_number": patient.phone_number,
@@ -129,4 +194,8 @@ def search_patients_api(request):
         )
 
     except Exception as e:
+        import traceback
+
+        print(f"Ошибка при поиске: {e}")
+        print(traceback.format_exc())
         return JsonResponse({"error": f"Ошибка при поиске: {str(e)}"}, status=500)
