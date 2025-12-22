@@ -518,6 +518,47 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         if time_slot.appointments.exists() and time_slot != self.appointment.time_slot:
             raise forms.ValidationError("Этот временной слот уже занят")
 
+        # Проверяем доступность в процедурном кабинете, если есть связанная процедурная запись
+        if self.appointment:
+            from appointments.models import AppointmentChain
+
+            procedural_chain = AppointmentChain.objects.filter(
+                main_appointment=self.appointment,
+                chain_type=AppointmentChain.ChainType.PROCEDURAL,
+            ).first()
+
+            if procedural_chain:
+                from timetable.models import Cabinet
+
+                # Находим процедурный кабинет
+                try:
+                    procedural_cabinet = Cabinet.objects.get(number=6)
+                except Cabinet.DoesNotExist:
+                    return time_slot
+
+                # Проверяем доступность в процедурном кабинете
+                conflicting_slots = procedural_chain.related_appointment.time_slot.__class__.objects.filter(
+                    date=time_slot.date,
+                    cabinet=procedural_cabinet,
+                    start_time__lt=time_slot.end_time,
+                    end_time__gt=time_slot.start_time,
+                    appointments__isnull=False,
+                ).exclude(
+                    id=procedural_chain.related_appointment.time_slot_id
+                )
+
+                if conflicting_slots.exists():
+                    occupied_slot = conflicting_slots.first()
+                    patient_name = (
+                        occupied_slot.appointments.first().patient.get_full_name()
+                    )
+
+                    raise forms.ValidationError(
+                        f"Время {time_slot.start_time.strftime('%H:%M')}-{time_slot.end_time.strftime('%H:%M')} "
+                        f"в процедурном кабинете занято пациентом {patient_name}. "
+                        f"Пожалуйста, выберите другое время или отмените процедурную запись."
+                    )
+
         return time_slot
 
     @transaction.atomic
@@ -544,6 +585,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
     def _move_procedural_appointment(self, appointment, old_time_slot, new_time_slot):
         """Переносит связанную процедурную запись на новое время"""
         from appointments.models import AppointmentChain
+        from timetable.models import Cabinet, TimeSlot
 
         # Находим процедурную запись
         procedural_chain = AppointmentChain.objects.filter(
@@ -551,14 +593,67 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             chain_type=AppointmentChain.ChainType.PROCEDURAL,
         ).first()
 
-        if procedural_chain:
-            procedural_appointment = procedural_chain.related_appointment
+        if not procedural_chain:
+            return
 
-            # Обновляем слот процедурной записи
-            procedural_appointment.time_slot.date = new_time_slot.date
-            procedural_appointment.time_slot.start_time = new_time_slot.start_time
-            procedural_appointment.time_slot.end_time = new_time_slot.end_time
-            procedural_appointment.time_slot.save()
+        procedural_appointment = procedural_chain.related_appointment
+
+        # Находим процедурный кабинет (кабинет 6)
+        try:
+            procedural_cabinet = Cabinet.objects.get(number=6)
+        except Cabinet.DoesNotExist:
+            return
+
+        # ПРОВЕРЯЕМ ДОСТУПНОСТЬ В ПРОЦЕДУРНОМ КАБИНЕТЕ
+        # Ищем занятые слоты в процедурном кабинете на новое время
+        conflicting_slots = TimeSlot.objects.filter(
+            date=new_time_slot.date,
+            cabinet=procedural_cabinet,
+            start_time__lt=new_time_slot.end_time,
+            end_time__gt=new_time_slot.start_time,
+            appointments__isnull=False,
+        ).exclude(
+            id=procedural_appointment.time_slot_id  # Исключаем текущий слот процедурной записи
+        )
+
+        if conflicting_slots.exists():
+            # Найдены конфликтующие записи
+            occupied_slot = conflicting_slots.first()
+            patient_name = occupied_slot.appointments.first().patient.get_full_name()
+
+            raise forms.ValidationError(
+                f"Невозможно перенести запись: время {new_time_slot.start_time.strftime('%H:%M')}-"
+                f"{new_time_slot.end_time.strftime('%H:%M')} в процедурном кабинете уже занято пациентом "
+                f"{patient_name}. Пожалуйста, выберите другое время."
+            )
+
+        # ЕСЛИ ВРЕМЯ СВОБОДНО - обновляем слот процедурной записи
+        # Находим или создаем слот в процедурном кабинете
+        procedural_time_slot, created = TimeSlot.objects.get_or_create(
+            doctor=procedural_appointment.doctor,
+            cabinet=procedural_cabinet,
+            date=new_time_slot.date,
+            start_time=new_time_slot.start_time,
+            end_time=new_time_slot.end_time,
+            defaults={"slot_type": "working"},
+        )
+
+        # Проверяем, не занят ли этот слот другой записью
+        if not created and procedural_time_slot.appointments.exists():
+            # Пытаемся найти другую запись в этом слоте (не нашу)
+            other_appointment = procedural_time_slot.appointments.exclude(
+                id=procedural_appointment.id
+            ).first()
+
+            if other_appointment:
+                raise forms.ValidationError(
+                    f"Невозможно перенести запись: время в процедурном кабинете уже занято записью "
+                    f"#{other_appointment.id} для пациента {other_appointment.patient.get_full_name()}."
+                )
+
+        # Обновляем слот процедурной записи
+        procedural_appointment.time_slot = procedural_time_slot
+        procedural_appointment.save()
 
 
 class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
