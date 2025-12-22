@@ -76,7 +76,7 @@ def get_available_slots_for_doctor_api(request):
         data = json.loads(request.body)
         doctor_id = data.get("doctor_id")
         date = data.get("date")
-        booked_slots = data.get("booked_slots", [])
+        booked_slots = data.get("booked_slots", [])  # Сюда придет [currentSlotId]
         main_appointment_time = data.get("main_appointment_time")
         main_appointment_date = data.get("main_appointment_date")
 
@@ -86,50 +86,20 @@ def get_available_slots_for_doctor_api(request):
         doctor = Doctor.objects.get(id=doctor_id)
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
 
+        # Получаем все слоты на указанную дату
         slots = TimeSlot.objects.filter(
             doctor=doctor, date=target_date, slot_type="working"
         ).order_by("start_time")
 
         available_slots = []
         for slot in slots:
-            # Проверяем доступность
-            is_available = slot.is_available()
+            # Проверяем, является ли это текущим слотом редактируемой записи
+            is_current_slot = str(slot.id) in booked_slots
 
-            # Проверяем, не входит ли в забронированные слоты
-            is_booked = str(slot.id) in booked_slots if booked_slots else False
+            # Проверяем доступность (слот свободен ИЛИ это текущий слот)
+            is_available = slot.is_available() or is_current_slot
 
-            # Проверяем пересечение с основной записью
-            is_intersecting = False
-            if main_appointment_time and date == main_appointment_date:
-                main_start_str = main_appointment_time.get("start_time")
-                main_end_str = main_appointment_time.get("end_time")
-
-                if main_start_str and main_end_str:
-                    try:
-                        # Конвертируем строки времени в datetime.time
-                        main_start = datetime.strptime(
-                            main_start_str, "%H:%M:%S"
-                        ).time()
-                        main_end = datetime.strptime(main_end_str, "%H:%M:%S").time()
-
-                        # Проверяем пересечение (включая полное совпадение)
-                        # Два интервала пересекаются, если:
-                        # slot.start_time < main_end И slot.end_time > main_start
-                        is_intersecting = (
-                            slot.start_time < main_end and main_start < slot.end_time
-                        )
-
-                        # Если время точно совпадает - это тоже пересечение
-                        if slot.start_time == main_start and slot.end_time == main_end:
-                            is_intersecting = True
-
-                    except ValueError:
-                        # Если ошибка парсинга времени, игнорируем проверку
-                        pass
-
-            # Слот доступен если:
-            # 1. Доступен И не забронирован И не пересекается с основной записью (если та же дата)
-            if is_available and not is_booked and not is_intersecting:
+            if is_available:
                 available_slots.append(slot)
 
         slots_data = []
@@ -142,6 +112,7 @@ def get_available_slots_for_doctor_api(request):
                     "start_time": slot.start_time.strftime("%H:%M:%S"),
                     "end_time": slot.end_time.strftime("%H:%M:%S"),
                     "cabinet_number": slot.cabinet.number,
+                    "is_current": str(slot.id) in booked_slots,
                 }
             )
 
