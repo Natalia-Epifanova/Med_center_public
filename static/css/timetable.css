@@ -523,4 +523,26 @@
 
 .is-invalid + .slot-time-overlap-error {
     display: block !important;
+
+#patient-search-results {
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    position: relative;
+}
+
+#patient-results-list {
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+#patient-results-list .list-group-item {
+    padding: 0.5rem;
+    border: none;
+    border-bottom: 1px solid #eee;
+}
+
+#patient-results-list .list-group-item:hover {
+    background-color: #f8f9fa;
+}
 }
