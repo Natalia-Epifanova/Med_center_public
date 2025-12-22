@@ -178,6 +178,9 @@
                             if (patient.phone_number) {
                                 message += `<strong>Телефон:</strong> ${patient.phone_number}<br>`;
                             }
+                            if (patient.date_of_birth) {
+                                message += `<strong>Дата рождения:</strong> ${patient.date_of_birth}<br>`;
+                            }
 
                             message += `<small class="text-muted">Система автоматически использует существующую запись при сохранении</small>`;
                             message += `</div>`;

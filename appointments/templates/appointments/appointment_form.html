@@ -189,6 +189,31 @@
                                         <div id="patientCheckResult" class="mt-2" style="display: none;"></div>
                                     </div>
                                 </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <input type="text"
+                                                   class="form-control"
+                                                   id="patient-search-input"
+                                                   placeholder="Поиск пациента (ФИО, номер карты, телефон)...">
+                                            <button class="btn btn-outline-primary" type="button" id="patient-search-btn">
+                                                <i class="fas fa-search"></i> Найти
+                                            </button>
+                                        </div>
+
+                                        <!-- Результаты поиска -->
+                                        <div id="patient-search-results" class="mt-2" style="display: none;">
+                                            <div class="card">
+                                                <div class="card-header py-2">
+                                                    <small>Результаты поиска:</small>
+                                                </div>
+                                                <div class="card-body p-2">
+                                                    <div id="patient-results-list" class="list-group list-group-flush"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
