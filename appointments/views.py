@@ -2,23 +2,23 @@ import json
 from datetime import datetime
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DeleteView, UpdateView
+from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
-from appointments.forms import (
+from appointments.forms.forms import (
     AppointmentForm,
-    AppointmentUpdateForm,
+    AppointmentSimpleEditForm,
     ProceduralAppointmentForm,
     ProceduralAppointmentUpdateForm,
 )
-from appointments.models import Appointment
+from appointments.models import Appointment, AppointmentChain
 from timetable.models import Cabinet, Doctor, TimeSlot
 from timetable.utils import get_status_badge_class
 from users.permissions.decorators import medical_admin_or_admin_required
@@ -34,17 +34,21 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
         kwargs["time_slot"] = time_slot
-        kwargs["doctor"] = time_slot.doctor
+        kwargs["doctor"] = time_slot.doctor  # Убедитесь, что передается doctor
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+
+        # Получаем следующий слот для отображения в форме
+        next_slot = time_slot.get_next_consecutive_slot()
+
         context.update(
             {
                 "time_slot": time_slot,
-                "doctor": time_slot.doctor,
-                "next_slot": time_slot.get_next_consecutive_slot(),
+                "doctor": time_slot.doctor,  # Убедитесь, что передается в шаблон
+                "next_slot": next_slot,
             }
         )
         return context
@@ -52,11 +56,23 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
     @transaction.atomic
     def form_valid(self, form):
         try:
+            # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем форму еще раз перед сохранением
+            if not form.is_valid():
+                # Если есть ошибки, показываем их пользователю
+                for field, errors in form.errors.items():
+                    for error in errors:
+                        messages.error(self.request, f"Ошибка в поле {field}: {error}")
+                return self.form_invalid(form)
+
             # Сохраняем результат form.save() в self.object
             self.object = form.save()
             messages.success(self.request, "Запись успешно создана!")
             return HttpResponseRedirect(self.get_success_url())
 
+        except ValidationError as e:
+            # Ловим ValidationError из формы
+            messages.error(self.request, str(e))
+            return self.form_invalid(form)
         except Exception as e:
             messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
             return self.form_invalid(form)
@@ -65,112 +81,206 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
         # Теперь self.object будет доступен
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
 
+    @staticmethod
+    def create_additional_appointment(main_appointment, appointment_data):
+        """Создание дополнительной записи с проверкой пересечения времени"""
 
-class AppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
-    """Полное редактирование записи на прием"""
+        # Получаем время основной записи
+        main_time_slot = main_appointment.time_slot
+        main_start = main_time_slot.start_time
+        main_end = main_time_slot.end_time
+        main_date = main_time_slot.date
+
+        # Получаем время дополнительной записи
+        additional_time_slot = TimeSlot.objects.get(id=appointment_data["time_slot_id"])
+        additional_start = additional_time_slot.start_time
+        additional_end = additional_time_slot.end_time
+        additional_date = additional_time_slot.date
+
+        # Проверяем, что даты совпадают (если это важно)
+        if main_date != additional_date:
+            # Разные даты - нет пересечения
+            pass
+        else:
+            # Проверяем пересечение времени
+            if additional_start < main_end and main_start < additional_end:
+                raise ValidationError(
+                    f"Время дополнительной записи ({additional_start.strftime('%H:%M')}-{additional_end.strftime('%H:%M')}) "
+                    f"пересекается с временем основной записи ({main_start.strftime('%H:%M')}-{main_end.strftime('%H:%M')})"
+                )
+
+
+class AppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
+    """Только просмотр записи - никакого редактирования"""
 
     model = Appointment
-    form_class = AppointmentUpdateForm
-    template_name = "appointments/appointment_update_form.html"
-
-    def get_success_url(self):
-        return reverse_lazy("timetable:schedule_day") + f"?date={self.object.date}"
-
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["current_appointment"] = self.object
-        kwargs["doctor"] = self.object.doctor
-        return kwargs
+    template_name = "appointments/appointment_detail.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["time_slot"] = self.object.time_slot
-        context["doctor"] = self.object.doctor
-        context["current_appointment"] = self.object
+        appointment = self.object
 
-        # Получаем информацию о следующем слоте для отображения
-        next_slot = self.object.time_slot.get_next_consecutive_slot()
-        context["next_slot"] = next_slot
+        # Собираем связанные записи для отображения
+        related_appointments = appointment.get_chain_appointments()
+        context["related_appointments"] = related_appointments
+        context["has_related"] = len(related_appointments) > 1
 
         return context
 
-    def get_initial(self):
-        initial = super().get_initial()
-        # Заполняем поля пациента из существующей записи
-        patient = self.object.patient
-        initial.update(
-            {
-                "surname": patient.surname,
-                "first_name": patient.first_name,
-                "last_name": patient.last_name,
-                "phone_number": patient.phone_number,
-                "card_number": patient.card_number,
-                "date_of_birth": patient.date_of_birth,
-            }
-        )
-        return initial
 
-    def form_valid(self, form):
-        # Сохраняем информацию о старом слоте для сообщения
-        old_time_slot = self.object.time_slot
-        # ИСПРАВЛЕНИЕ: получаем новый слот из time_slot_id
-        new_time_slot = form.cleaned_data["time_slot_id"]  # Это объект TimeSlot
-
-        # Сохраняем запись
-        response = super().form_valid(form)
-
-        # Добавляем сообщение об изменении
-        if old_time_slot != new_time_slot:
-            messages.success(
-                self.request,
-                f"Запись успешно обновлена. Время изменено с {old_time_slot.date} {old_time_slot.start_time} на {new_time_slot.date} {new_time_slot.start_time}",
-            )
-        else:
-            messages.success(self.request, "Запись успешно обновлена.")
-
-        return response
-
-
-class AppointmentDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
-    """Удаление записи на прием"""
+class AppointmentSimpleEditView(MedicalAdminOrAdminRequiredMixin, UpdateView):
+    """Простое редактирование - только слот, услуга, тип оплаты"""
 
     model = Appointment
-    template_name = "appointments/appointment_confirm_delete.html"
+    form_class = AppointmentSimpleEditForm
+    template_name = "appointments/appointment_edit_simple.html"
 
     def get_success_url(self):
-        date = self.object.date
-        return reverse_lazy("timetable:schedule_day") + f"?date={date}"
+        messages.success(self.request, f"Запись #{self.object.id} успешно обновлена")
+        return reverse("appointments:appointment_detail", kwargs={"pk": self.object.pk})
 
-    def delete(self, request, *args, **kwargs):
-        appointment = self.get_object()
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["appointment"] = self.object
+        return context
 
-        # Удаляем ВСЕ записи, которые ссылаются на эту запись как на предыдущую
-        # Это включает процедурные записи и любые другие связанные записи
-        related_appointments = Appointment.objects.filter(
-            previous_appointment=appointment
-        )
-        related_count = related_appointments.count()
 
-        # Удаляем связанные записи
-        related_appointments.delete()
+class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+    """Удаление с выбором опций"""
 
-        # Удаляем основную запись
-        result = super().delete(request, *args, **kwargs)
+    model = Appointment
+    template_name = "appointments/appointment_delete_options.html"
 
-        # Сообщение пользователю
-        if related_count > 0:
-            messages.success(
-                self.request,
-                f"Запись и {related_count} связанных записей успешно удалены.",
+    # Исправляем метод get_success_url
+    def get_success_url(self):
+        # Получаем объект записи (уже удаленный)
+        appointment = self.object
+
+        # Если объект существует и у него есть дата, возвращаем на эту дату
+        if appointment and hasattr(appointment, "date") and appointment.date:
+            return (
+                reverse_lazy("timetable:schedule_day")
+                + f"?date={appointment.date.strftime('%Y-%m-%d')}"
             )
-        else:
-            messages.success(self.request, "Запись успешно удалена.")
 
-        return result
+        # Иначе возвращаем на сегодняшнюю дату
+        return (
+            reverse_lazy("timetable:schedule_day")
+            + f"?date={timezone.now().date().strftime('%Y-%m-%d')}"
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        appointment = self.object
+
+        # Получаем ВСЕ связанные записи
+        all_related = self.find_all_related_appointments(appointment)
+        context["related_appointments"] = all_related
+        context["has_related"] = len(all_related) > 1
+
+        return context
+
+    @staticmethod
+    def find_all_related_appointments(appointment):
+        """Находит ВСЕ связанные записи рекурсивно"""
+        found = set()
+
+        def find_recursive(app):
+            if app in found:
+                return
+
+            found.add(app)
+
+            # 1. Через AppointmentChain
+            # Записи, где app - основная
+            for chain in AppointmentChain.objects.filter(main_appointment=app):
+                find_recursive(chain.related_appointment)
+
+            # Записи, где app - связанная
+            for chain in AppointmentChain.objects.filter(related_appointment=app):
+                find_recursive(chain.main_appointment)
+
+            # 2. Через previous_appointment
+            # Следующие записи
+            next_app = Appointment.objects.filter(previous_appointment=app).first()
+            if next_app:
+                find_recursive(next_app)
+
+            # Предыдущие записи
+            if app.previous_appointment:
+                find_recursive(app.previous_appointment)
+
+        find_recursive(appointment)
+        return sorted(found, key=lambda x: (x.date, x.start_time))
+
+    @transaction.atomic
+    def delete(self, request, *args, **kwargs):
+        """Обрабатывает DELETE запрос"""
+        self.object = self.get_object()
+
+        # Сохраняем дату перед удалением, чтобы использовать в redirect
+        appointment_date = self.object.date
+        appointment_id = self.object.id
+
+        # Определяем действие из POST данных или GET параметров
+        action = request.POST.get("action", request.GET.get("action", "single"))
+
+        try:
+            if action == "with_related" or action == "all":
+                # Находим все связанные записи
+                all_appointments = self.find_all_related_appointments(self.object)
+
+                deleted_count = 0
+                for appointment in reversed(all_appointments):
+                    try:
+                        appointment.delete()
+
+                        deleted_count += 1
+
+                    except Exception as e:
+                        messages.error(request, f"Ошибка при удалении: {str(e)}")
+
+                messages.success(request, f"Удалено {deleted_count} записей")
+
+            else:
+                # Удаляем только эту запись
+                appointment_id = self.object.id
+                self.object.delete()
+                messages.success(request, f"Запись #{appointment_id} удалена")
+
+        except Exception as e:
+            messages.error(request, f"Ошибка при удалении: {str(e)}")
+            # Возвращаем обратно на страницу удаления если ошибка
+            return self.get(request, *args, **kwargs)
+
+        # Перенаправляем на расписание НА ТУ ЖЕ ДАТУ
+        return redirect(
+            reverse("timetable:schedule_day")
+            + f"?date={appointment_date.strftime('%Y-%m-%d')}"
+        )
+
+    def post(self, request, *args, **kwargs):
+        """Обрабатывает POST запрос (делегируем delete)"""
+        return self.delete(request, *args, **kwargs)
+
+    def get(self, request, *args, **kwargs):
+        """Обрабатывает GET запрос для отображения формы"""
+        try:
+            return super().get(request, *args, **kwargs)
+        except Appointment.DoesNotExist:
+            # Если запись уже удалена, перенаправляем на расписание
+            messages.info(request, "Эта запись уже была удалена")
+            # Попытаемся получить дату из URL параметров
+            date_param = request.GET.get("date")
+            if date_param:
+                return redirect(
+                    reverse("timetable:schedule_day") + f"?date={date_param}"
+                )
+            return redirect("timetable:schedule_day")
 
 
 class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
-    """Создание записи в процедурный кабинет без привязки к слоту"""
+    """Создание записи в процедурный кабинет с поддержкой цепочек"""
 
     model = Appointment
     form_class = ProceduralAppointmentForm
@@ -178,6 +288,7 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
+
         # Получаем дату из GET параметров
         date_str = self.request.GET.get("date")
         if date_str:
@@ -188,8 +299,7 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
         else:
             self.selected_date = timezone.now().date()
 
-        # Находим процедурный кабинет и врача-медсестр
-
+        # Находим процедурный кабинет и врача-медсестру
         self.procedural_cabinet = Cabinet.objects.get(number=6)
         self.nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
 
@@ -200,39 +310,48 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
+        # Для цепочек нам нужен ID врача-медсестры
+        nurse_doctor_id = self.nurse_doctor.id if self.nurse_doctor else None
+
         context.update(
             {
                 "selected_date": self.selected_date,
                 "procedural_cabinet": self.procedural_cabinet,
                 "nurse_doctor": self.nurse_doctor,
+                "nurse_doctor_id": nurse_doctor_id,  # Добавляем для JavaScript
             }
         )
+
         return context
-
-    def form_valid(self, form):
-        try:
-            # Сохраняем запись
-            self.object = form.save()
-
-            messages.success(
-                self.request, "Запись в процедурный кабинет создана успешно!"
-            )
-            return redirect(self.get_success_url())
-
-        except Exception as e:
-            messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
-            return self.form_invalid(form)
 
     def get_success_url(self):
         return reverse("timetable:schedule_day") + f"?date={self.selected_date}"
+
+
+class ProceduralAppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
+    """Просмотр процедурной записи - используем обычный шаблон"""
+
+    model = Appointment
+    template_name = "appointments/appointment_detail.html"  # Используем тот же шаблон
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        appointment = self.object
+
+        # Собираем связанные записи для отображения
+        related_appointments = appointment.get_chain_appointments()
+        context["related_appointments"] = related_appointments
+        context["has_related"] = len(related_appointments) > 1
+
+        return context
 
 
 class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     """Редактирование записи в процедурный кабинет"""
 
     model = Appointment
-    form_class = ProceduralAppointmentUpdateForm
-    template_name = "appointments/procedural_appointment_update_form.html"
+    form_class = ProceduralAppointmentUpdateForm  # Используем новую упрощенную форму
+    template_name = "appointments/procedural_appointment_edit_simple.html"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -243,29 +362,18 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Получаем выбранные анализы для передачи в JavaScript
+        # Получаем выбранные анализы
         selected_tests = self.object.selected_blood_tests.all()
-
-        # ВАЖНОЕ ИСПРАВЛЕНИЕ: Получаем ID самих анализов крови
         initial_test_ids = [test.blood_test.id for test in selected_tests]
-
-        # ДЛЯ ОТЛАДКИ
-        print(f"DEBUG: Appointment ID: {self.object.id}")
-        print(
-            f"DEBUG: Selected AppointmentBloodTest objects count: {selected_tests.count()}"
-        )
-        print(f"DEBUG: BloodTest IDs: {initial_test_ids}")
-        print(f"DEBUG: JSON dumps result: {json.dumps(initial_test_ids)}")
 
         context.update(
             {
                 "selected_date": self.object.date,
                 "procedural_cabinet": self.object.cabinet,
                 "nurse_doctor": self.object.doctor,
-                "initial_test_ids": json.dumps(
-                    initial_test_ids
-                ),  # Используйте json.dumps!
+                "initial_test_ids": json.dumps(initial_test_ids),
                 "current_appointment": self.object,
+                "appointment": self.object,
             }
         )
         return context
@@ -273,20 +381,7 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
     def get_initial(self):
         initial = super().get_initial()
 
-        # Заполняем поля пациента
-        patient = self.object.patient
-        initial.update(
-            {
-                "surname": patient.surname,
-                "first_name": patient.first_name,
-                "last_name": patient.last_name,
-                "phone_number": patient.phone_number,
-                "card_number": patient.card_number,
-                "date_of_birth": patient.date_of_birth,
-            }
-        )
-
-        # Заполняем время из слота
+        # Заполняем время
         initial.update(
             {
                 "procedural_start_time": self.object.start_time,
@@ -300,7 +395,8 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
         try:
             response = super().form_valid(form)
             messages.success(
-                self.request, "Запись в процедурный кабинет успешно обновлена!"
+                self.request,
+                f"Запись #{self.object.id} в процедурный кабинет успешно обновлена!",
             )
             return response
         except Exception as e:
@@ -308,7 +404,7 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
             return self.form_invalid(form)
 
     def get_success_url(self):
-        return reverse("timetable:schedule_day") + f"?date={self.object.date}"
+        return reverse("appointments:appointment_detail", kwargs={"pk": self.object.pk})
 
 
 @require_POST
@@ -332,9 +428,6 @@ def update_appointment_status(request, pk):
             appointment.status = new_status
             appointment.save()
 
-            # Логируем изменение для отладки
-            print(f"Статус записи {appointment.id} изменен на: {new_status}")
-
             return JsonResponse(
                 {
                     "success": True,
@@ -353,5 +446,4 @@ def update_appointment_status(request, pk):
             {"success": False, "error": "Запись не найдена"}, status=404
         )
     except Exception as e:
-        print(f"Ошибка при обновлении статуса: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)

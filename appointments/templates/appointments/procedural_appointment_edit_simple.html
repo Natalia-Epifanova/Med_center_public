@@ -1,0 +1,273 @@
+<!-- templates/appointments/procedural_appointment_edit_simple.html -->
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-syringe"></i> Изменение процедурной записи #{{ appointment.id }}
+            </h5>
+            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+               class="btn btn-sm btn-outline-dark">
+                <i class="fas fa-times"></i> Отмена
+            </a>
+        </div>
+
+        <div class="card-body">
+            <!-- Информация о текущей записи -->
+            <div class="alert alert-info mb-4">
+                <strong>Текущая информация:</strong><br>
+                Пациент: {{ appointment.patient.get_full_name }}<br>
+                Врач: {{ appointment.doctor.surname }} {{ appointment.doctor.first_name.0 }}.{{ appointment.doctor.last_name.0 }}.<br>
+                Дата: {{ appointment.date|date:"d.m.Y" }}
+            </div>
+
+            <!-- Сообщения об ошибках -->
+            {% if messages %}
+            <div class="messages mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Отображение ошибок формы -->
+            {% if form.errors %}
+            <div class="alert alert-danger mb-4">
+                <h6 class="alert-heading">Пожалуйста, исправьте следующие ошибки:</h6>
+                <ul class="mb-0">
+                    {% for field, errors in form.errors.items %}
+                        {% for error in errors %}
+                            <li>
+                                {% if field == '__all__' %}
+                                    <strong>Общая ошибка:</strong> {{ error }}
+
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- ВАЖНО: ID формы должен быть appointmentForm для работы JavaScript -->
+            <form method="post" id="appointmentForm">
+                {% csrf_token %}
+
+                <!-- Время -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Начало</label>
+                        {{ form.procedural_start_time }}
+                        {% if form.procedural_start_time.errors %}
+                        <div class="text-danger small">{{ form.procedural_start_time.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Окончание</label>
+                        {{ form.procedural_end_time }}
+                        {% if form.procedural_end_time.errors %}
+                        <div class="text-danger small">{{ form.procedural_end_time.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Услуга -->
+                <div class="mb-3">
+                    <label class="form-label">Услуга</label>
+                    {{ form.service }}
+                    {% if form.service.errors %}
+                    <div class="text-danger small">{{ form.service.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- ВСТАВКА ДЛЯ ВЫБОРА АНАЛИЗОВ КРОВИ -->
+                <!-- Изменено: показываем блок всегда для процедурных записей -->
+                <div class="card mb-4" id="bloodTestSelectionSection">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0"><i class="fas fa-vial"></i> Выбор анализов крови</h6>
+                        <div>
+                            <span class="badge bg-primary" id="selectedTestsCount">0 анализов</span>
+                            <span class="badge bg-success ms-1" id="selectedTestsPrice">0 руб.</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <!-- Поиск -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label class="form-label">Поиск анализов:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="bloodTestSearch"
+                                           placeholder="Введите код или название анализа...">
+                                    <button class="btn btn-outline-secondary" type="button" id="clearBloodTestSearch">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Категории -->
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <label class="form-label">Категории анализов:</label>
+                                <div class="blood-test-categories" style="max-height: 120px; overflow-y: auto;">
+                                    <div id="bloodTestCategories" class="d-flex flex-wrap gap-2">
+                                        <!-- Категории загружаются через JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <!-- Доступные анализы -->
+                            <div class="col-md-7">
+                                <label class="form-label">Доступные анализы:</label>
+                                <div id="availableBloodTests" class="border rounded p-2" style="height: 400px; overflow-y: auto;">
+                                    <div class="text-center text-muted py-5">
+                                        <i class="fas fa-spinner fa-spin"></i> Загрузка анализов...
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Выбранные анализы -->
+                            <div class="col-md-5">
+                                <label class="form-label">Выбранные анализы:</label>
+                                <div id="selectedBloodTests" class="border rounded p-2" style="height: 400px; overflow-y: auto;">
+                                    <div class="text-muted text-center py-5">
+                                        <i class="fas fa-inbox fa-2x mb-3"></i><br>
+                                        Анализы не выбраны
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Тип оплаты -->
+                <div class="mb-3">
+                    <label class="form-label">Тип оплаты</label>
+                    {{ form.insurance_type }}
+                    {% if form.insurance_type.errors %}
+                    <div class="text-danger small">{{ form.insurance_type.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Комментарий -->
+                <div class="mb-3">
+                    <label class="form-label">Комментарий</label>
+                    {{ form.comment }}
+                    {% if form.comment.errors %}
+                    <div class="text-danger small">{{ form.comment.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Скрытые поля -->
+                {{ form.total_sum }}
+                {{ form.selected_blood_tests_input }}
+
+                <!-- Кнопки -->
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+                           class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> Назад к просмотру
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save"></i> Сохранить изменения
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('=== Procedural Appointment Edit Form Loaded ===');
+
+        const initialTestIds = {{ initial_test_ids|safe|default:"[]" }};
+        console.log('Initial test IDs:', initialTestIds);
+
+        // Обязательно показываем блок выбора анализов
+        const bloodTestSection = document.getElementById('bloodTestSelectionSection');
+        if (bloodTestSection) {
+            bloodTestSection.style.display = 'block';
+        }
+
+        // Инициализация выбора анализов
+        if (typeof BloodTestSelection !== 'undefined') {
+            console.log('BloodTestSelection class found, initializing...');
+
+            window.bloodTestSelection = new BloodTestSelection({
+                initialTests: initialTestIds
+            });
+
+            // Добавляем обработчик изменения услуги для обновления суммы
+            const serviceSelect = document.getElementById('id_service');
+            if (serviceSelect) {
+                serviceSelect.addEventListener('change', function() {
+                    console.log('Service changed, updating total sum...');
+                    setTimeout(() => {
+                        if (window.bloodTestSelection) {
+                            window.bloodTestSelection.updateTotalSum();
+                        }
+                    }, 100);
+                });
+            }
+        } else {
+            console.error('BloodTestSelection class not found!');
+        }
+
+        // Обработчик отправки формы - ОБЯЗАТЕЛЬНО обновляем скрытые поля
+        const form = document.getElementById('appointmentForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                console.log('=== Form submit triggered ===');
+
+                // ВАЖНО: Сначала обновляем скрытые поля
+                if (window.bloodTestSelection) {
+                    console.log('Updating fields before submit...');
+
+                    // 1. Обновляем выбранные тесты
+                    window.bloodTestSelection.updateFormField();
+
+                    // 2. Обновляем сумму
+                    window.bloodTestSelection.updateTotalSum();
+
+                    // 3. Проверяем результат
+                    const testsField = document.getElementById('id_selected_blood_tests');
+                    const totalField = document.getElementById('id_total_sum');
+
+                    console.log('Tests field value before submit:', testsField?.value);
+                    console.log('Total field value before submit:', totalField?.value);
+
+                    // 4. Убеждаемся, что поля имеют правильные имена
+                    if (testsField && testsField.name !== 'selected_blood_tests_input') {
+                        testsField.name = 'selected_blood_tests_input';
+                    }
+                    if (totalField && totalField.name !== 'total_sum') {
+                        totalField.name = 'total_sum';
+                    }
+                }
+
+                // 5. Добавляем небольшую задержку чтобы JS успел обновить DOM
+                setTimeout(() => {
+                    console.log('Form submission proceeding...');
+                    // Форма отправляется автоматически
+                }, 100);
+            });
+        }
+    });
+</script>
+
+<!-- Подключаем JavaScript для выбора анализов -->
+<script src="{% static 'js/blood_test_selection.js' %}"></script>
+{% endblock %}
