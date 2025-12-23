@@ -221,3 +221,137 @@ class CopyScheduleForm(StyleFormMixin, forms.Form):
         today = timezone.now().date()
         self.fields["source_date"].initial = today
         self.fields["target_date"].initial = today + timedelta(days=7)
+
+
+class CopyWeeklyScheduleForm(forms.Form):
+    """Форма для копирования расписания по недельному шаблону с выбором недель"""
+
+    # Неделя-источник
+    source_week_start = forms.DateField(
+        required=True,
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control", "id": "source_week_start"}
+        ),
+        label="Начало недели, С которой копировать",
+    )
+
+    # Неделя-цель
+    target_week_start = forms.DateField(
+        required=True,
+        widget=forms.DateInput(
+            attrs={"type": "date", "class": "form-control", "id": "target_week_start"}
+        ),
+        label="Начало недели, На которую копировать",
+    )
+
+    # Дни для копирования
+    WEEKDAY_CHOICES = [
+        (0, "Понедельник"),
+        (1, "Вторник"),
+        (2, "Среда"),
+        (3, "Четверг"),
+        (4, "Пятница"),
+        (5, "Суббота"),
+        (6, "Воскресенье"),
+    ]
+
+    days_to_copy = forms.MultipleChoiceField(
+        choices=WEEKDAY_CHOICES,
+        required=True,
+        widget=forms.CheckboxSelectMultiple(attrs={"class": "form-check-input"}),
+        label="Дни недели для копирования",
+    )
+
+    # Опции фильтрации (опционально)
+    copy_type = forms.ChoiceField(
+        choices=[
+            ("all", "Все слоты"),
+            ("by_cabinet", "Только определенные кабинеты"),
+            ("by_doctor", "Только определенных врачей"),
+        ],
+        initial="all",
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        label="Что копировать?",
+        required=False,
+    )
+
+    cabinets = forms.ModelMultipleChoiceField(
+        queryset=Cabinet.objects.all().order_by("number"),
+        required=False,
+        widget=forms.SelectMultiple(attrs={"class": "form-select", "size": "5"}),
+        label="Кабинеты для копирования",
+    )
+
+    doctors = forms.ModelMultipleChoiceField(
+        queryset=Doctor.objects.all().order_by("surname"),
+        required=False,
+        widget=forms.SelectMultiple(attrs={"class": "form-select", "size": "5"}),
+        label="Врачи для копирования",
+    )
+
+    # Обработка конфликтов
+    conflict_resolution = forms.ChoiceField(
+        choices=[
+            ("skip", "Пропускать существующие слоты"),
+            ("override", "Перезаписать существующие слоты"),
+        ],
+        initial="skip",
+        widget=forms.RadioSelect(attrs={"class": "form-check-input"}),
+        label="Что делать с существующими слотами?",
+        required=False,
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        source_week_start = cleaned_data.get("source_week_start")
+        target_week_start = cleaned_data.get("target_week_start")
+
+        if source_week_start and target_week_start:
+            # Проверяем, что это понедельники (начало недели)
+            if source_week_start.weekday() != 0:
+                raise forms.ValidationError(
+                    "Дата начала недели-источника должна быть понедельником"
+                )
+
+            if target_week_start.weekday() != 0:
+                raise forms.ValidationError(
+                    "Дата начала недели-цели должна быть понедельником"
+                )
+
+            # Предотвращаем копирование на ту же неделю
+            if source_week_start == target_week_start:
+                raise forms.ValidationError(
+                    "Нельзя копировать расписание на ту же неделю"
+                )
+
+        # Проверяем, что выбраны дни
+        days_to_copy = cleaned_data.get("days_to_copy")
+        if not days_to_copy:
+            raise forms.ValidationError("Выберите хотя бы один день для копирования")
+
+        return cleaned_data
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Предзаполняем ближайшие понедельники
+        today = timezone.now().date()
+
+        # Ближайший прошедший понедельник (источник)
+        last_monday = today - timedelta(days=today.weekday())
+
+        # Ближайший будущий понедельник (цель)
+        if today.weekday() == 0:
+            next_monday = today + timedelta(days=7)
+        else:
+            days_until_monday = (7 - today.weekday()) % 7
+            next_monday = today + timedelta(days=days_until_monday)
+
+        self.fields["source_week_start"].initial = last_monday
+        self.fields["target_week_start"].initial = next_monday
+        self.fields["days_to_copy"].initial = [
+            "0",
+            "1",
+            "2",
+            "3",
+            "4",
+        ]  # Пн-Пт по умолчанию

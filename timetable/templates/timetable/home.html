@@ -6,7 +6,7 @@
 </div>
 {% endblock %}
 {% block content %}
-<a class="nav-link" href="{% url 'timetable:schedule_create' %}">Добавить расписание (доступно администратору) </a>
-<a class="nav-link" href="{% url 'timetable:schedule_day' %}">Посмотреть добавленное расписание (без возможности записи, доступно администратору) </a>
+{% if is_admin %}<a class="nav-link" href="{% url 'timetable:schedule_create' %}">Добавить расписание (доступно администратору) </a>{% endif %}
+<a class="nav-link" href="{% url 'timetable:schedule_day' %}">Посмотреть добавленное расписание</a>
 
 {% endblock %}
