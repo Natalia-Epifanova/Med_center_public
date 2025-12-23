@@ -253,14 +253,19 @@
 
                                             {% endif %}">
                                     <td>
-                                        <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
-                                           class="text-decoration-none"
-                                           title="Нажмите для просмотра деталей слота">
+                                        {% if is_admin or slot.cabinet.number == 6 and is_medical_admin %}
+                                            <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
+                                               class="text-decoration-none"
+                                               title="Нажмите для просмотра деталей слота">
+                                                <strong>{{ slot.start_time|time:"H:i" }}-{{ slot.end_time|time:"H:i" }}</strong>
+                                            </a>
+                                        {% else %}
                                             <strong>{{ slot.start_time|time:"H:i" }}-{{ slot.end_time|time:"H:i" }}</strong>
-                                        </a>
+                                        {% endif %}
+
                                         {% if slot.slot_type == 'break' %}
-                                        <br>
-                                        <small class="text-muted fw-bold">Перерыв</small>
+                                            <br>
+                                            <small class="text-muted fw-bold">Перерыв</small>
                                         {% endif %}
 
                                         <!-- Индикатор типа оплаты -->

@@ -275,8 +275,9 @@ class Appointment(models.Model):
 
     def get_chain_appointments(self):
         """Получить все записи в цепочке (как основные, так и связанные)"""
-        from .models import \
-            AppointmentChain  # Импорт внутри метода чтобы избежать циклического импорта
+        from .models import (
+            AppointmentChain,
+        )  # Импорт внутри метода чтобы избежать циклического импорта
 
         appointments = []
 
