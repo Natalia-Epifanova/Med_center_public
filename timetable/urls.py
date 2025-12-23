@@ -2,12 +2,21 @@ from django.urls import path
 
 from appointments.views import update_appointment_status
 from timetable.apps import TimetableConfig
-from timetable.views import (CopyScheduleView, CopyWeeklyScheduleView,
-                             DoctorReportView, EmergencySlotCreateView,
-                             HomeView, RescheduleRequestsView, ScheduleDayView,
-                             TimeSlotCreateView, TimeSlotDeleteView,
-                             TimeSlotDetailView, TimeSlotUpdateView,
-                             save_day_comment)
+from timetable.views import (
+    CopyScheduleView,
+    CopyWeeklyScheduleView,
+    DoctorReportView,
+    EmergencySlotCreateView,
+    HomeView,
+    RescheduleRequestsView,
+    ScheduleDayView,
+    TimeSlotCreateView,
+    TimeSlotDeleteView,
+    TimeSlotDetailView,
+    TimeSlotUpdateView,
+    save_day_comment,
+)
+from timetable.views_api import week_schedule_preview
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -43,5 +52,10 @@ urlpatterns = [
         "copy-weekly-schedule/",
         CopyWeeklyScheduleView.as_view(),
         name="copy_weekly_schedule",
+    ),
+    path(
+        "api/week-schedule-preview/",
+        week_schedule_preview,
+        name="week_schedule_preview",
     ),
 ]

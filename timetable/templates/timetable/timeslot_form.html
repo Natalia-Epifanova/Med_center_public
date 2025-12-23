@@ -32,7 +32,13 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <label class="form-label">{{ form.date.label }}</label>
-                                {{ form.date }}
+                                <!-- Изменяем поле даты для автоматического заполнения -->
+                                <input type="date"
+                                       name="date"
+                                       id="id_date"
+                                       class="form-control"
+                                       value="{{ object.date|date:'Y-m-d' }}"
+                                       required>
                                 {% if form.date.errors %}
                                 <div class="text-danger small">{{ form.date.errors }}</div>
                                 {% endif %}
@@ -56,14 +62,24 @@
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">{{ form.start_time.label }}</label>
-                                {{ form.start_time }}
+                                <input type="time"
+                                       name="start_time"
+                                       id="id_start_time"
+                                       class="form-control"
+                                       value="{{ object.start_time|time:'H:i' }}"
+                                       required>
                                 {% if form.start_time.errors %}
                                 <div class="text-danger small">{{ form.start_time.errors }}</div>
                                 {% endif %}
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label">{{ form.end_time.label }}</label>
-                                {{ form.end_time }}
+                                <input type="time"
+                                       name="end_time"
+                                       id="id_end_time"
+                                       class="form-control"
+                                       value="{{ object.end_time|time:'H:i' }}"
+                                       required>
                                 {% if form.end_time.errors %}
                                 <div class="text-danger small">{{ form.end_time.errors }}</div>
                                 {% endif %}
@@ -80,7 +96,11 @@
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">{{ form.description.label }}</label>
-                                {{ form.description }}
+                                <input type="text"
+                                       name="description"
+                                       id="id_description"
+                                       class="form-control"
+                                       value="{{ object.description|default_if_none:'' }}">
                                 {% if form.description.errors %}
                                 <div class="text-danger small">{{ form.description.errors }}</div>
                                 {% endif %}
@@ -107,4 +127,23 @@
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    // Автоматически заполняем поля при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        // Дата уже заполнена через value атрибут
+        console.log('Дата слота:', "{{ object.date|date:'Y-m-d' }}");
+        console.log('Время начала:', "{{ object.start_time|time:'H:i' }}");
+        console.log('Время окончания:', "{{ object.end_time|time:'H:i' }}");
+
+        // Также можно заполнить через JavaScript, если нужно
+        // document.getElementById('id_date').value = "{{ object.date|date:'Y-m-d' }}";
+        // document.getElementById('id_start_time').value = "{{ object.start_time|time:'H:i' }}";
+        // document.getElementById('id_end_time').value = "{{ object.end_time|time:'H:i' }}";
+        // document.getElementById('id_description').value = "{{ object.description|default_if_none:'' }}";
+    });
+</script>
+{% endblock %}
 {% endblock %}

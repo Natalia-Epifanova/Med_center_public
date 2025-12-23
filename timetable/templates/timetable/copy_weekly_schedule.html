@@ -1,0 +1,470 @@
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Копирование расписания по недельному шаблону</h1>
+    <p class="lead">Скопируйте расписание с выбранной недели на другую неделю</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Сообщения -->
+    {% if messages %}
+    <div class="row mb-4">
+        <div class="col-md-10 mx-auto">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Форма -->
+    <div class="row mb-4">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-copy"></i> Копировать расписание с недели на неделю
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'timetable:copy_weekly_schedule' %}" id="copyWeeklyForm">
+                        {% csrf_token %}
+
+                        <!-- Недели -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.source_week_start.label_tag }}
+                                    {{ form.source_week_start }}
+                                    <div class="form-text">
+                                        Выберите понедельник недели, с которой копировать расписание
+                                    </div>
+                                    {% if form.source_week_start.errors %}
+                                    <div class="text-danger">
+                                        {{ form.source_week_start.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.target_week_start.label_tag }}
+                                    {{ form.target_week_start }}
+                                    <div class="form-text">
+                                        Выберите понедельник недели, на которую копировать расписание
+                                    </div>
+                                    {% if form.target_week_start.errors %}
+                                    <div class="text-danger">
+                                        {{ form.target_week_start.errors }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Предпросмотр недель -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-info text-white py-2">
+                                        <small><i class="fas fa-calendar-week"></i> Неделя-источник</small>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div id="sourceWeekPreview" class="text-center text-muted">
+                                            <small>Выберите дату начала недели</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-success text-white py-2">
+                                        <small><i class="fas fa-calendar-plus"></i> Неделя-цель</small>
+                                    </div>
+                                    <div class="card-body p-2">
+                                        <div id="targetWeekPreview" class="text-center text-muted">
+                                            <small>Выберите дату начала недели</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Дни недели -->
+                        <div class="row mb-4">
+                            <div class="col-12">
+                                <label class="form-label d-block mb-3">
+                                    <i class="fas fa-calendar-day"></i> {{ form.days_to_copy.label }}
+                                </label>
+
+                                <div class="row">
+                                    {% for choice in form.days_to_copy %}
+                                    <div class="col-md-4 col-sm-6 mb-2">
+                                        <div class="form-check">
+                                            {{ choice.tag }}
+                                            <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                {{ choice.choice_label }}
+                                            </label>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+
+                                {% if form.days_to_copy.errors %}
+                                <div class="text-danger">
+                                    {{ form.days_to_copy.errors }}
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Дополнительные опции -->
+                        <div class="accordion mb-4" id="advancedOptions">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#collapseAdvanced">
+                                        <i class="fas fa-cog me-2"></i> Дополнительные настройки
+                                    </button>
+                                </h2>
+                                <div id="collapseAdvanced" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <!-- Тип копирования -->
+                                        <div class="mb-3">
+                                            <label class="form-label">{{ form.copy_type.label }}</label>
+                                            {% for choice in form.copy_type %}
+                                            <div class="form-check">
+                                                {{ choice.tag }}
+                                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                    {{ choice.choice_label }}
+                                                </label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+
+                                        <!-- Кабинеты (показывается если выбрано by_cabinet) -->
+                                        <div class="mb-3" id="cabinetSelect" style="display: none;">
+                                            {{ form.cabinets.label_tag }}
+                                            {{ form.cabinets }}
+                                        </div>
+
+                                        <!-- Врачи (показывается если выбрано by_doctor) -->
+                                        <div class="mb-3" id="doctorSelect" style="display: none;">
+                                            {{ form.doctors.label_tag }}
+                                            {{ form.doctors }}
+                                        </div>
+
+                                        <!-- Обработка конфликтов -->
+                                        <div class="mb-3">
+                                            <label class="form-label">{{ form.conflict_resolution.label }}</label>
+                                            {% for choice in form.conflict_resolution %}
+                                            <div class="form-check">
+                                                {{ choice.tag }}
+                                                <label class="form-check-label" for="{{ choice.id_for_label }}">
+                                                    {{ choice.choice_label }}
+                                                </label>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Кнопки -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'timetable:schedule_day' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Назад
+                            </a>
+
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-outline-info" onclick="previewCopy()">
+                                    <i class="fas fa-eye"></i> Предпросмотр
+                                </button>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-play"></i> Выполнить копирование
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Предпросмотр копирования -->
+    <div class="row" id="copyPreview" style="display: none;">
+        <div class="col-md-10 mx-auto">
+            <div class="card">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0">
+                        <i class="fas fa-search"></i> Предпросмотр копирования
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>День</th>
+                                    <th>С какой даты</th>
+                                    <th>На какую дату</th>
+                                    <th>Кол-во слотов</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody id="previewTableBody">
+                                <!-- Сюда будет вставлен предпросмотр -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Автоматическая установка ближайших понедельников
+    function setNearestMondays() {
+        const today = new Date();
+        const currentDay = today.getDay();
+
+        // Преобразуем JS day (0=Вс, 1=Пн) в Python day (0=Пн, 6=Вс)
+        const jsToPyDay = (jsDay) => jsDay === 0 ? 6 : jsDay - 1;
+
+        // Ближайший прошедший понедельник
+        const lastMonday = new Date(today);
+        lastMonday.setDate(today.getDate() - jsToPyDay(today.getDay()));
+
+        // Ближайший будущий понедельник
+        const nextMonday = new Date(today);
+        const daysUntilMonday = (7 - jsToPyDay(today.getDay())) % 7;
+        nextMonday.setDate(today.getDate() + daysUntilMonday);
+
+        // Форматируем для input type="date"
+        function formatDate(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        // Устанавливаем значения
+        const sourceInput = document.getElementById('source_week_start');
+        const targetInput = document.getElementById('target_week_start');
+
+        if (sourceInput && !sourceInput.value) {
+            sourceInput.value = formatDate(lastMonday);
+            updateWeekPreview(sourceInput.value, 'source');
+        }
+
+        if (targetInput && !targetInput.value) {
+            targetInput.value = formatDate(nextMonday);
+            updateWeekPreview(targetInput.value, 'target');
+        }
+    }
+
+    // Показ/скрытие дополнительных полей
+    const copyTypeRadios = document.querySelectorAll('input[name="copy_type"]');
+    const cabinetSelect = document.getElementById('cabinetSelect');
+    const doctorSelect = document.getElementById('doctorSelect');
+
+    function toggleAdvancedFields() {
+        const selectedType = document.querySelector('input[name="copy_type"]:checked');
+
+        if (selectedType) {
+            cabinetSelect.style.display = selectedType.value === 'by_cabinet' ? 'block' : 'none';
+            doctorSelect.style.display = selectedType.value === 'by_doctor' ? 'block' : 'none';
+        }
+    }
+
+    copyTypeRadios.forEach(radio => {
+        radio.addEventListener('change', toggleAdvancedFields);
+    });
+
+    // Обновление предпросмотра недели
+    function updateWeekPreview(dateString, type) {
+        const date = new Date(dateString);
+        const previewDiv = document.getElementById(`${type}WeekPreview`);
+
+        if (!previewDiv) return;
+
+        if (isNaN(date.getTime())) {
+            previewDiv.innerHTML = '<small class="text-danger">Неверная дата</small>';
+            return;
+        }
+
+        // Проверяем, что это понедельник
+        const jsDay = date.getDay();
+        const isMonday = jsDay === 1 || (jsDay === 0 && type === 'source'); // Пн=1 в JS
+
+        if (!isMonday && type === 'target') {
+            previewDiv.innerHTML = `
+                <small class="text-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Выберите понедельник
+                </small>`;
+            return;
+        }
+
+        // Получаем даты недели
+        const weekDates = [];
+        for (let i = 0; i < 7; i++) {
+            const weekDate = new Date(date);
+            weekDate.setDate(date.getDate() + i);
+            weekDates.push(weekDate);
+        }
+
+        // Формируем HTML
+        const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+        const fullWeekdays = [
+            'Понедельник', 'Вторник', 'Среда', 'Четверг',
+            'Пятница', 'Суббота', 'Воскресенье'
+        ];
+
+        let html = '<div class="row g-1">';
+        weekDates.forEach((weekDate, index) => {
+            const formattedDate = weekDate.toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit'
+            });
+
+            const badgeClass = index < 5 ? 'bg-primary' : 'bg-secondary';
+
+            html += `
+                <div class="col-12">
+                    <div class="d-flex justify-content-between align-items-center p-1 border rounded mb-1">
+                        <div>
+                            <span class="badge ${badgeClass} me-2">${weekdays[index]}</span>
+                            <small>${fullWeekdays[index]}</small>
+                        </div>
+                        <div>
+                            <small class="text-muted">${formattedDate}</small>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+
+        previewDiv.innerHTML = html;
+    }
+
+    // Обработчики изменения дат
+    document.getElementById('source_week_start').addEventListener('change', function() {
+        updateWeekPreview(this.value, 'source');
+    });
+
+    document.getElementById('target_week_start').addEventListener('change', function() {
+        updateWeekPreview(this.value, 'target');
+    });
+
+    // Предпросмотр копирования
+    window.previewCopy = function() {
+        const sourceDate = document.getElementById('source_week_start').value;
+        const targetDate = document.getElementById('target_week_start').value;
+        const selectedDays = Array.from(
+            document.querySelectorAll('input[name="days_to_copy"]:checked')
+        ).map(cb => parseInt(cb.value));
+
+        if (!sourceDate || !targetDate || selectedDays.length === 0) {
+            alert('Заполните все обязательные поля');
+            return;
+        }
+
+        const source = new Date(sourceDate);
+        const target = new Date(targetDate);
+
+        // Проверяем, что это понедельники
+        if (source.getDay() !== 1) {
+            alert('Дата начала недели-источника должна быть понедельником');
+            return;
+        }
+
+        if (target.getDay() !== 1) {
+            alert('Дата начала недели-цели должна быть понедельником');
+            return;
+        }
+
+        // Формируем предпросмотр
+        const weekdays = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+        let previewHtml = '';
+
+        selectedDays.forEach(day => {
+            const sourceDay = new Date(source);
+            sourceDay.setDate(source.getDate() + day);
+
+            const targetDay = new Date(target);
+            targetDay.setDate(target.getDate() + day);
+
+            const sourceFormatted = sourceDay.toLocaleDateString('ru-RU');
+            const targetFormatted = targetDay.toLocaleDateString('ru-RU');
+
+            previewHtml += `
+                <tr>
+                    <td>${weekdays[day]}</td>
+                    <td>${sourceFormatted}</td>
+                    <td>${targetFormatted}</td>
+                    <td>
+                        <span class="badge bg-info">
+                            <span id="slotCount_${day}">?</span> слотов
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-warning" id="status_${day}">
+                            <i class="fas fa-sync-alt fa-spin"></i> Проверка...
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('previewTableBody').innerHTML = previewHtml;
+        document.getElementById('copyPreview').style.display = 'block';
+
+        // Запрашиваем данные с сервера
+        fetch(`/timetable/api/week-schedule-preview/?source=${sourceDate}&target=${targetDate}&days=${selectedDays.join(',')}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    data.days.forEach(dayData => {
+                        const slotCount = document.getElementById(`slotCount_${dayData.day}`);
+                        const status = document.getElementById(`status_${dayData.day}`);
+
+                        if (slotCount) {
+                            slotCount.textContent = dayData.slot_count;
+                        }
+
+                        if (status) {
+                            if (dayData.has_schedule) {
+                                status.className = 'badge bg-success';
+                                status.innerHTML = '<i class="fas fa-check"></i> Будет скопировано';
+                            } else {
+                                status.className = 'badge bg-secondary';
+                                status.innerHTML = '<i class="fas fa-times"></i> Нет расписания';
+                            }
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка при предпросмотре:', error);
+            });
+    };
+
+    // Инициализация
+    setNearestMondays();
+    toggleAdvancedFields();
+    updateWeekPreview(document.getElementById('source_week_start').value, 'source');
+    updateWeekPreview(document.getElementById('target_week_start').value, 'target');
+});
+</script>
+{% endblock %}

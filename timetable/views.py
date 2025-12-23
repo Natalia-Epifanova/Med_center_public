@@ -9,17 +9,30 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.decorators.http import require_POST
-from django.views.generic import (DeleteView, DetailView, FormView, ListView,
-                                  TemplateView, UpdateView)
+from django.views.generic import (
+    DeleteView,
+    DetailView,
+    FormView,
+    ListView,
+    TemplateView,
+    UpdateView,
+)
 
 from appointments.models import Appointment
-from timetable.forms import (CopyScheduleForm, DayCommentForm, TimeSlotForm,
-                             TimeSlotUpdateForm)
+from timetable.forms import (
+    CopyScheduleForm,
+    DayCommentForm,
+    TimeSlotForm,
+    TimeSlotUpdateForm,
+    CopyWeeklyScheduleForm,
+)
 from timetable.models import Cabinet, DayComment, Doctor, TimeSlot
 from timetable.services import CopyScheduleService, TimeSlotService
 from users.permissions.decorators import admin_required
-from users.permissions.mixins import (AdminRequiredMixin,
-                                      MedicalAdminOrAdminRequiredMixin)
+from users.permissions.mixins import (
+    AdminRequiredMixin,
+    MedicalAdminOrAdminRequiredMixin,
+)
 
 
 class HomeView(TemplateView):
@@ -105,7 +118,7 @@ class TimeSlotCreateView(AdminRequiredMixin, FormView):
         return []
 
 
-class TimeSlotUpdateView(AdminRequiredMixin, UpdateView):
+class TimeSlotUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     model = TimeSlot
     form_class = TimeSlotUpdateForm
     template_name = "timetable/timeslot_form.html"
@@ -124,7 +137,7 @@ class TimeSlotDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
     context_object_name = "slot"
 
 
-class TimeSlotDeleteView(AdminRequiredMixin, DeleteView):
+class TimeSlotDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
     model = TimeSlot
     template_name = "timetable/timeslot_confirm_delete.html"
 
@@ -489,80 +502,105 @@ class CopyScheduleView(AdminRequiredMixin, FormView):
         return self.success_url
 
 
-class CopyWeeklyScheduleView(AdminRequiredMixin, TemplateView):
-    """Копирование расписания по недельному шаблону"""
+class CopyWeeklyScheduleView(AdminRequiredMixin, FormView):
+    """Копирование расписания по недельному шаблону с выбором недель"""
 
+    form_class = CopyWeeklyScheduleForm
     template_name = "timetable/copy_weekly_schedule.html"
+    success_url = reverse_lazy("timetable:schedule_day")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Предзаполняем даты
-        today = timezone.now().date()
-        monday = today - timedelta(days=today.weekday())
-        next_monday = monday + timedelta(days=7)
-        end_of_month = today.replace(day=28) + timedelta(days=4)
-        end_of_month = end_of_month.replace(day=1) - timedelta(days=1)
+        # Добавляем информацию о выбранных неделях для предпросмотра
+        source_week = self.request.GET.get("source_week")
+        target_week = self.request.GET.get("target_week")
 
-        context.update(
-            {
-                "today": today,
-                "start_date": next_monday,
-                "end_date": end_of_month,
-                "weekdays": [
-                    (0, "Понедельник"),
-                    (1, "Вторник"),
-                    (2, "Среда"),
-                    (3, "Четверг"),
-                    (4, "Пятница"),
-                    (5, "Суббота"),
-                    (6, "Воскресенье"),
-                ],
-            }
-        )
+        if source_week:
+            try:
+                source_date = datetime.strptime(source_week, "%Y-%m-%d").date()
+                context["source_week_dates"] = self.get_week_dates(source_date)
+            except ValueError:
+                pass
+
+        if target_week:
+            try:
+                target_date = datetime.strptime(target_week, "%Y-%m-%d").date()
+                context["target_week_dates"] = self.get_week_dates(target_date)
+            except ValueError:
+                pass
 
         return context
 
-    def post(self, request):
+    def get_week_dates(self, start_date):
+        """Возвращает список дат недели начиная с понедельника"""
+        if start_date.weekday() != 0:
+            start_date = start_date - timedelta(days=start_date.weekday())
+
+        week_dates = []
+        for i in range(7):
+            date = start_date + timedelta(days=i)
+            week_dates.append(
+                {
+                    "date": date,
+                    "weekday": date.weekday(),
+                    "weekday_name": self.get_weekday_name(date.weekday()),
+                    "has_schedule": TimeSlot.objects.filter(date=date).exists(),
+                }
+            )
+
+        return week_dates
+
+    def get_weekday_name(self, weekday):
+        """Возвращает название дня недели"""
+        weekdays = {
+            0: "Понедельник",
+            1: "Вторник",
+            2: "Среда",
+            3: "Четверг",
+            4: "Пятница",
+            5: "Суббота",
+            6: "Воскресенье",
+        }
+        return weekdays.get(weekday, "")
+
+    def form_valid(self, form):
         try:
-            start_date_str = request.POST.get("start_date")
-            end_date_str = request.POST.get("end_date")
-            pattern_days = [int(day) for day in request.POST.getlist("pattern_days")]
+            source_week_start = form.cleaned_data["source_week_start"]
+            target_week_start = form.cleaned_data["target_week_start"]
+            days_to_copy = [int(day) for day in form.cleaned_data["days_to_copy"]]
+            copy_type = form.cleaned_data.get("copy_type", "all")
+            cabinets = form.cleaned_data.get("cabinets")
+            doctors = form.cleaned_data.get("doctors")
+            conflict_resolution = form.cleaned_data.get("conflict_resolution", "skip")
 
-            if not pattern_days:
-                messages.error(
-                    request, "Выберите хотя бы один день недели для копирования"
-                )
-                return self.get(request)
-
-            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
-            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
-
-            if start_date >= end_date:
-                messages.error(request, "Дата начала должна быть раньше даты окончания")
-                return self.get(request)
-
-            # Копируем по шаблону
-            result = CopyScheduleService.copy_weekly_pattern(
-                start_date=start_date,
-                end_date=end_date,
-                pattern_days=pattern_days,
-                user=request.user,
-                request=request,
+            # Копируем расписание
+            result = CopyScheduleService.copy_weekly_schedule(
+                source_week_start=source_week_start,
+                target_week_start=target_week_start,
+                days_to_copy=days_to_copy,
+                copy_type=copy_type,
+                cabinets=cabinets,
+                doctors=doctors,
+                conflict_resolution=conflict_resolution,
+                user=self.request.user,
+                request=self.request,
             )
 
             if result["success"]:
-                success_count = sum(
-                    1 for r in result["results"] if r["result"]["success"]
-                )
                 messages.success(
-                    request,
-                    f"Успешно создано расписание на {success_count} дней из {result['total_days_processed']}",
+                    self.request,
+                    f"Успешно скопировано {result['created_count']} слотов "
+                    f"({result['days_copied']} дней). "
+                    f"Пропущено {result['skipped_count']} слотов.",
                 )
             else:
-                messages.error(request, f"Ошибка при копировании: {result['error']}")
+                messages.error(
+                    self.request, f"Ошибка при копировании: {result['error']}"
+                )
 
         except Exception as e:
-            messages.error(request, f"Ошибка при копировании расписания: {str(e)}")
+            messages.error(self.request, f"Ошибка при копировании расписания: {str(e)}")
+            return self.form_invalid(form)
 
-        return redirect("timetable:schedule_day")
+        return super().form_valid(form)
