@@ -117,7 +117,7 @@ class TimeSlotCreateView(AdminRequiredMixin, FormView):
         return []
 
 
-class TimeSlotUpdateView(AdminRequiredMixin, UpdateView):
+class TimeSlotUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     model = TimeSlot
     form_class = TimeSlotUpdateForm
     template_name = "timetable/timeslot_form.html"
@@ -136,7 +136,7 @@ class TimeSlotDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
     context_object_name = "slot"
 
 
-class TimeSlotDeleteView(AdminRequiredMixin, DeleteView):
+class TimeSlotDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
     model = TimeSlot
     template_name = "timetable/timeslot_confirm_delete.html"
 
