@@ -518,9 +518,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if self.appointment:
-            print(
-                f"DEBUG __init__: Appointment ID = {self.appointment.id}, Doctor = {self.appointment.doctor}"
-            )
 
             # Устанавливаем минимальную дату - сегодня
             from django.utils import timezone
@@ -533,9 +530,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
             # Инициализируем поле слота
             if self.appointment.time_slot:
-                print(
-                    f"DEBUG __init__: Current slot ID = {self.appointment.time_slot.id}"
-                )
+
                 self.fields["new_time_slot_id"].initial = self.appointment.time_slot.id
                 # Устанавливаем отображение текущего слота
                 self.fields["new_time_slot_display"].initial = (
@@ -552,13 +547,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
     def clean(self):
         cleaned_data = super().clean()
 
-        print(f"=== DEBUG clean ===")
-        print(f"new_date: {cleaned_data.get('new_appointment_date')}")
-        print(
-            f"new_time_slot_id from cleaned_data: {cleaned_data.get('new_time_slot_id')}"
-        )
-        print(f"POST data: {self.data}")
-
         new_date = cleaned_data.get("new_appointment_date")
         new_time_slot_id = cleaned_data.get("new_time_slot_id")
 
@@ -566,9 +554,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             try:
                 # Получаем объект TimeSlot
                 new_time_slot = TimeSlot.objects.get(id=new_time_slot_id)
-                print(
-                    f"DEBUG clean: Found slot {new_time_slot.id} for date {new_time_slot.date}"
-                )
 
                 # 1. Проверяем, что слот принадлежит выбранной дате
                 if new_time_slot.date != new_date:
@@ -607,7 +592,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
                 # Если все проверки пройдены, добавляем объект в cleaned_data
                 cleaned_data["new_time_slot"] = new_time_slot
-                print(f"DEBUG clean: Successfully added new_time_slot to cleaned_data")
 
             except TimeSlot.DoesNotExist:
                 self.add_error(
@@ -622,22 +606,16 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         elif new_date and not new_time_slot_id:
             self.add_error("new_time_slot_id", "Выберите временной слот")
 
-        print(f"Form errors: {self.errors}")
-        print(f"=== END DEBUG clean ===")
-
         return cleaned_data
 
     @transaction.atomic
     def save(self, commit=True):
-        print(f"DEBUG save: Starting save process")
 
         appointment = super().save(commit=False)
 
         # Получаем новую дату и слот
         new_date = self.cleaned_data["new_appointment_date"]
         new_time_slot = self.cleaned_data["new_time_slot"]
-
-        print(f"DEBUG save: new_date = {new_date}, new_time_slot = {new_time_slot.id}")
 
         # Сохраняем старый слот для сообщения
         old_time_slot = appointment.time_slot
@@ -648,7 +626,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         if commit:
             appointment.save()
-            print(f"DEBUG save: Appointment saved, new date = {appointment.date}")
 
             # Переносим процедурную запись если она есть
             try:
@@ -667,9 +644,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         self, appointment, old_time_slot, new_time_slot, old_date
     ):
         """Переносит связанную процедурную запись на новое время"""
-        print(
-            f"DEBUG _move_procedural_appointment: Moving from {old_date} to {new_time_slot.date}"
-        )
 
         from appointments.models import AppointmentChain
         from timetable.models import Cabinet, TimeSlot
@@ -680,20 +654,10 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             chain_type=AppointmentChain.ChainType.PROCEDURAL,
         ).first()
 
-        if not procedural_chain:
-            print(
-                f"DEBUG _move_procedural_appointment: No procedural appointment found"
-            )
-            return
-
         procedural_appointment = procedural_chain.related_appointment
 
         # Находим процедурный кабинет (кабинет 6)
-        try:
-            procedural_cabinet = Cabinet.objects.get(number=6)
-        except Cabinet.DoesNotExist:
-            print(f"DEBUG _move_procedural_appointment: Procedural cabinet not found")
-            return
+        procedural_cabinet = Cabinet.objects.get(number=6)
 
         # Проверяем доступность времени в процедурном кабинете на новую дату
         conflicting_slots = TimeSlot.objects.filter(
@@ -744,9 +708,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         # Обновляем слот процедурной записи
         procedural_appointment.time_slot = procedural_time_slot
         procedural_appointment.save()
-        print(
-            f"DEBUG _move_procedural_appointment: Procedural appointment moved to {new_time_slot.date}"
-        )
 
 
 class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
@@ -1171,10 +1132,6 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         self.current_appointment = kwargs.pop("current_appointment", None)
         self.selected_date = kwargs.pop("selected_date", None)
         super().__init__(*args, **kwargs)
-
-        print(f"DEBUG ProceduralAppointmentUpdateForm __init__:")
-        print(f"  - Instance ID: {self.instance.id if self.instance else 'None'}")
-
         # Устанавливаем минимальную дату - сегодня
         from django.utils import timezone
 
@@ -1189,30 +1146,23 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
 
     def _set_initial_values(self):
         """Устанавливает начальные значения для формы"""
-        print(f"DEBUG _set_initial_values:")
-        print(f"  - Current appointment ID: {self.current_appointment.id}")
 
         # 1. Устанавливаем дату
         if self.current_appointment.date:
             self.fields["procedural_appointment_date"].initial = (
                 self.current_appointment.date
             )
-            print(f"  - Initial date: {self.current_appointment.date}")
 
         # 2. Устанавливаем анализы крови
         selected_tests = self.current_appointment.selected_blood_tests.all()
         if selected_tests.exists():
             test_ids = [str(test.blood_test.id) for test in selected_tests]
             self.fields["selected_blood_tests_input"].initial = ",".join(test_ids)
-            print(f"  - Initial test IDs: {test_ids}")
 
         # 3. Устанавливаем сумму
         if self.current_appointment.total_with_blood_tests:
             self.fields["total_sum"].initial = (
                 self.current_appointment.total_with_blood_tests
-            )
-            print(
-                f"  - Initial total: {self.current_appointment.total_with_blood_tests}"
             )
 
         # 4. Устанавливаем время
@@ -1232,15 +1182,6 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
     def clean(self):
         """Переопределяем clean для отладки"""
         cleaned_data = super().clean()
-
-        print(f"DEBUG ProceduralAppointmentUpdateForm clean:")
-        print(
-            f"  - selected_blood_tests_input value: {cleaned_data.get('selected_blood_tests_input')}"
-        )
-        print(f"  - total_sum value: {cleaned_data.get('total_sum')}")
-        print(f"  - date: {cleaned_data.get('procedural_appointment_date')}")
-        print(f"  - procedural_start_time: {cleaned_data.get('procedural_start_time')}")
-        print(f"  - procedural_end_time: {cleaned_data.get('procedural_end_time')}")
 
         # Валидация времени
         start_time = cleaned_data.get("procedural_start_time")
@@ -1289,7 +1230,6 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                 total = tests_price + service_price
 
                 cleaned_data["total_sum"] = total
-                print(f"  - Calculated total: {total}")
             except:
                 cleaned_data["total_sum"] = 0
 
@@ -1324,9 +1264,6 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
     @transaction.atomic
     def save(self, commit=True):
         """Переопределяем save для ОБНОВЛЕНИЯ существующей записи"""
-        print(f"DEBUG ProceduralAppointmentUpdateForm.save() called")
-        print(f"  - Instance ID: {self.instance.id}")
-
         # ОБНОВЛЕНИЕ существующей записи
         appointment = self.instance
 
@@ -1334,10 +1271,6 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         new_date = self.cleaned_data.get("procedural_appointment_date")
         start_time = self.cleaned_data.get("procedural_start_time")
         end_time = self.cleaned_data.get("procedural_end_time")
-
-        print(f"  - New date: {new_date}")
-        print(f"  - New start time: {start_time}")
-        print(f"  - New end time: {end_time}")
 
         # 2. Проверяем, изменились ли дата или время
         date_changed = new_date and new_date != appointment.date
@@ -1361,10 +1294,6 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
 
         # 3. Если дата или время изменились, создаем/ищем новый слот
         if date_changed or time_changed:
-            print(
-                f"  - Time changed from {current_start}-{current_end} to {new_start}-{new_end}"
-            )
-            print(f"  - Date changed from {appointment.date} to {new_date}")
 
             # Создаем новый слот или используем существующий
             from appointments.services import ProceduralAppointmentService
@@ -1395,29 +1324,20 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         user_comment = self.cleaned_data.get("comment", "")
         if user_comment != appointment.comment:
             appointment.comment = user_comment
-            print(f"  - Comment updated: {appointment.comment}")
-
         # 6. Сохраняем общую сумму
         total_sum = self.cleaned_data.get("total_sum")
         if total_sum:
             appointment.total_with_blood_tests = total_sum
-            print(f"  - Total sum from form: {total_sum}")
         elif not appointment.total_with_blood_tests:
             # Если сумма не установлена, вычисляем ее
             tests_price = appointment.get_tests_price
             service_price = appointment.service.price if appointment.service else 0
             appointment.total_with_blood_tests = tests_price + service_price
-            print(f"  - Calculated total: {appointment.total_with_blood_tests}")
-
         # 7. Сохраняем запись
         if commit:
             appointment.save()
-            print(f"  - Appointment saved, ID: {appointment.id}")
-
             # 8. Обновляем анализы крови
             self._update_blood_tests(appointment)
-
-            print(f"  - All updates completed")
 
         return appointment
 
@@ -1426,11 +1346,9 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         selected_blood_tests_input = self.cleaned_data.get(
             "selected_blood_tests_input", ""
         )
-        print(f"DEBUG _update_blood_tests - input: {selected_blood_tests_input}")
 
         # Удаляем все текущие связи
         appointment.selected_blood_tests.all().delete()
-        print(f"  - Deleted all existing test relations")
 
         if selected_blood_tests_input and selected_blood_tests_input.strip():
             try:
@@ -1441,16 +1359,11 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                     if id.strip() and id.strip().isdigit()
                 ]
 
-                print(f"  - Parsed test IDs: {test_ids}")
-
                 # Добавляем новые
                 for test_id in test_ids:
                     AppointmentBloodTest.objects.create(
                         appointment=appointment, blood_test_id=test_id
                     )
-                    print(f"  - Added test: {test_id}")
-
-                print(f"  - Added {len(test_ids)} tests")
 
             except (ValueError, TypeError) as e:
                 print(f"ERROR parsing test IDs: {str(e)}")
