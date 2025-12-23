@@ -68,6 +68,76 @@ class CopyScheduleService:
     """Сервис для копирования расписания"""
 
     @staticmethod
+    def copy_weekly_schedule(
+        source_week_start,
+        target_week_start,
+        days_to_copy,
+        copy_type="all",
+        cabinets=None,
+        doctors=None,
+        conflict_resolution="skip",
+        user=None,
+        request=None,
+    ):
+        """
+        Копирует расписание с одной недели на другую по выбранным дням
+
+        Пример:
+        - source_week_start = 2025-12-08 (Пн)
+        - target_week_start = 2026-01-12 (Пн)
+        - days_to_copy = [0, 2, 4] (Пн, Ср, Пт)
+
+        Результат:
+        - Копирует Пн 2025-12-08 → Пн 2026-01-12
+        - Копирует Ср 2025-12-10 → Ср 2026-01-14
+        - Копирует Пт 2025-12-12 → Пт 2026-01-16
+        """
+        try:
+            with transaction.atomic():
+                created_count = 0
+                skipped_count = 0
+                days_copied = 0
+
+                for day_offset in days_to_copy:
+                    # Вычисляем даты для конкретного дня недели
+                    source_date = source_week_start + timedelta(days=day_offset)
+                    target_date = target_week_start + timedelta(days=day_offset)
+
+                    # Проверяем, есть ли расписание на источник
+                    if not TimeSlot.objects.filter(date=source_date).exists():
+                        continue
+
+                    # Копируем с одного дня на другой
+                    day_result = CopyScheduleService.copy_schedule(
+                        source_date=source_date,
+                        target_date=target_date,
+                        copy_type=copy_type,
+                        cabinets=cabinets,
+                        doctors=doctors,
+                        conflict_resolution=conflict_resolution,
+                        user=user,
+                        request=request,
+                    )
+
+                    if day_result["success"]:
+                        created_count += day_result.get("created_count", 0)
+                        skipped_count += day_result.get("skipped_count", 0)
+                        days_copied += 1
+
+                return {
+                    "success": True,
+                    "created_count": created_count,
+                    "skipped_count": skipped_count,
+                    "days_copied": days_copied,
+                    "source_week": source_week_start,
+                    "target_week": target_week_start,
+                    "days_copied_list": days_to_copy,
+                }
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
+    @staticmethod
     def copy_schedule(
         source_date,
         target_date,
@@ -78,9 +148,7 @@ class CopyScheduleService:
         user=None,
         request=None,
     ):
-        """
-        Копирует расписание с одной даты на другую
-        """
+        """Копирует расписание с одной даты на другую"""
         try:
             with transaction.atomic():
                 # Получаем слоты для копирования
@@ -88,34 +156,21 @@ class CopyScheduleService:
 
                 # Фильтруем по типу копирования
                 if copy_type == "by_cabinet" and cabinets:
-                    source_slots = source_slots.filter(cabinet__in=cabinet)
+                    source_slots = source_slots.filter(cabinet__in=cabinets)
                 elif copy_type == "by_doctor" and doctors:
                     source_slots = source_slots.filter(doctor__in=doctors)
 
                 # Обрабатываем конфликты на целевой дате
-                target_slots_count = TimeSlot.objects.filter(date=target_date).count()
-
-                if target_slots_count > 0:
-                    if conflict_resolution == "delete_and_create":
-                        # Удаляем все слоты на целевой дате
-                        deleted_count = TimeSlot.objects.filter(
-                            date=target_date
-                        ).delete()[0]
-                        if request:
-                            messages.info(
-                                request,
-                                f"Удалено {deleted_count} слотов на целевой дате",
-                            )
-                    elif conflict_resolution == "override":
-                        # Удаляем только те слоты, которые будем заменять
-                        for slot in source_slots:
-                            TimeSlot.objects.filter(
-                                date=target_date,
-                                cabinet=slot.cabinet,
-                                doctor=slot.doctor,
-                                start_time=slot.start_time,
-                                end_time=slot.end_time,
-                            ).delete()
+                if conflict_resolution == "override":
+                    # Удаляем существующие слоты для этих врачей/кабинетов
+                    for slot in source_slots:
+                        TimeSlot.objects.filter(
+                            date=target_date,
+                            cabinet=slot.cabinet,
+                            doctor=slot.doctor,
+                            start_time__lt=slot.end_time,
+                            end_time__gt=slot.start_time,
+                        ).delete()
 
                 # Создаем копии слотов
                 created_count = 0
@@ -136,6 +191,19 @@ class CopyScheduleService:
                             skipped_count += 1
                             continue
 
+                    # Проверяем, нет ли пересечений
+                    conflicting_slots = TimeSlot.objects.filter(
+                        date=target_date,
+                        cabinet=source_slot.cabinet,
+                        doctor=source_slot.doctor,
+                        start_time__lt=source_slot.end_time,
+                        end_time__gt=source_slot.start_time,
+                    ).exists()
+
+                    if conflicting_slots:
+                        skipped_count += 1
+                        continue
+
                     # Создаем новый слот
                     new_slot = TimeSlot(
                         date=target_date,
@@ -146,12 +214,6 @@ class CopyScheduleService:
                         slot_type=source_slot.slot_type,
                         description=source_slot.description,
                     )
-
-                    # Проверяем конфликты перед сохранением
-                    if not new_slot.is_time_available(cabinet=new_slot.cabinet):
-                        if conflict_resolution != "override":
-                            skipped_count += 1
-                            continue
 
                     new_slot.save()
                     created_count += 1
@@ -173,46 +235,6 @@ class CopyScheduleService:
                     "skipped_count": skipped_count,
                     "source_slots_count": source_slots.count(),
                 }
-
-        except Exception as e:
-            return {"success": False, "error": str(e)}
-
-    @staticmethod
-    def copy_weekly_pattern(
-        start_date, end_date, pattern_days, user=None, request=None
-    ):
-        """
-        Копирует расписание по шаблону недели
-        pattern_days: список дней недели (0-понедельник, 6-воскресенье)
-        """
-        try:
-            results = []
-            current_date = start_date
-
-            while current_date <= end_date:
-                if current_date.weekday() in pattern_days:
-                    # Копируем с ближайшего понедельника (или другого дня недели)
-                    source_date = current_date - timedelta(days=current_date.weekday())
-
-                    # Проверяем, есть ли расписание на источник
-                    if TimeSlot.objects.filter(date=source_date).exists():
-                        result = CopyScheduleService.copy_schedule(
-                            source_date=source_date,
-                            target_date=current_date,
-                            copy_type="all",
-                            conflict_resolution="skip",
-                            user=user,
-                            request=request,
-                        )
-                        results.append({"date": current_date, "result": result})
-
-                current_date += timedelta(days=1)
-
-            return {
-                "success": True,
-                "results": results,
-                "total_days_processed": len(results),
-            }
 
         except Exception as e:
             return {"success": False, "error": str(e)}
