@@ -178,6 +178,7 @@
                             <thead class="table-info">
                                 <tr>
                                     <th>#</th>
+                                    <th>Дата</th>
                                     <th>Время</th>
                                     <th>Врач</th>
                                     <th>Услуга</th>
@@ -194,6 +195,7 @@
                                         {{ forloop.counter }}
                                         {% endif %}
                                     </td>
+                                    <td>{{ app.date|date:"d.m.Y" }}</td>
                                     <td>{{ app.start_time|time:"H:i" }}</td>
                                     <td>{{ app.doctor.surname }}</td>
                                     <td>{{ app.service.name }}</td>

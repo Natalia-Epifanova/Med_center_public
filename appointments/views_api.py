@@ -272,27 +272,15 @@ def check_procedural_availability(request):
             time_slot_id = data.get("time_slot_id")
             current_appointment_id = data.get("current_appointment_id")
 
-            if not date or not time_slot_id:
-                return JsonResponse(
-                    {"error": "Не указаны date или time_slot_id"}, status=400
-                )
+            # ДОБАВЛЯЕМ: возможность проверить время без time_slot_id
+            start_time = data.get("start_time")
+            end_time = data.get("end_time")
+
+            if not date:
+                return JsonResponse({"error": "Не указана дата"}, status=400)
 
             try:
-                # Получаем слот по ID
-                time_slot = TimeSlot.objects.get(id=time_slot_id)
                 appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
-
-                # Проверяем, что дата слота совпадает
-                if time_slot.date != appointment_date:
-                    return JsonResponse(
-                        {
-                            "is_available": False,
-                            "error": "Дата слота не совпадает с указанной датой",
-                        }
-                    )
-
-                start_time = time_slot.start_time
-                end_time = time_slot.end_time
 
                 # Находим процедурный кабинет (кабинет №6)
                 try:
@@ -301,6 +289,38 @@ def check_procedural_availability(request):
                     return JsonResponse(
                         {"error": "Процедурный кабинет (кабинет №6) не найден"},
                         status=404,
+                    )
+
+                # Если указан time_slot_id, используем его
+                if time_slot_id:
+                    time_slot = TimeSlot.objects.get(id=time_slot_id)
+
+                    # Проверяем, что дата слота совпадает
+                    if time_slot.date != appointment_date:
+                        return JsonResponse(
+                            {
+                                "is_available": False,
+                                "error": "Дата слота не совпадает с указанной датой",
+                            }
+                        )
+
+                    start_time = time_slot.start_time
+                    end_time = time_slot.end_time
+                elif start_time and end_time:
+                    # Или используем переданные время начала и окончания
+                    try:
+                        start_time = datetime.strptime(start_time, "%H:%M").time()
+                        end_time = datetime.strptime(end_time, "%H:%M").time()
+                    except ValueError:
+                        return JsonResponse(
+                            {"error": "Неверный формат времени"}, status=400
+                        )
+                else:
+                    return JsonResponse(
+                        {
+                            "error": "Не указано время (либо time_slot_id, либо start_time и end_time)"
+                        },
+                        status=400,
                     )
 
                 # Ищем занятые слоты в процедурном кабинете в это время

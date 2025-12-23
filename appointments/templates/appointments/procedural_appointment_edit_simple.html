@@ -58,6 +58,19 @@
             <!-- ВАЖНО: ID формы должен быть appointmentForm для работы JavaScript -->
             <form method="post" id="appointmentForm">
                 {% csrf_token %}
+                <!-- Дата -->
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Дата записи</label>
+                        {{ form.procedural_appointment_date }}
+                        {% if form.procedural_appointment_date.errors %}
+                        <div class="text-danger small">{{ form.procedural_appointment_date.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            Текущая дата: {{ appointment.date|date:"d.m.Y" }}
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Время -->
                 <div class="row mb-3">
@@ -226,6 +239,115 @@
             console.error('BloodTestSelection class not found!');
         }
 
+        // Добавляем функцию проверки доступности времени
+        async function checkProceduralTimeAvailability(date, startTime, endTime) {
+            try {
+                console.log('Checking availability:', { date, startTime, endTime });
+
+                const response = await fetch('/appointments/api/check-procedural-availability/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        date: date,
+                        start_time: startTime,
+                        end_time: endTime,
+                        current_appointment_id: {{ appointment.id }}
+                    })
+                });
+
+                if (!response.ok) {
+                    console.error('API response not OK:', response.status);
+                    const errorText = await response.text();
+                    console.error('Error text:', errorText);
+                    throw new Error(`API error ${response.status}: ${errorText}`);
+                }
+
+                const data = await response.json();
+                console.log('Availability check result:', data);
+                return data;
+            } catch (error) {
+                console.error('Ошибка проверки доступности:', error);
+                return { is_available: false, error: error.message };
+            }
+        }
+
+        // Добавляем обработчик изменения даты и времени
+        const dateField = document.getElementById('id_procedural_appointment_date');
+        const startTimeField = document.getElementById('id_procedural_start_time');
+        const endTimeField = document.getElementById('id_procedural_end_time');
+
+        // Флаг для предотвращения множественных проверок
+        let isChecking = false;
+
+        // Функция для проверки при изменении
+        async function validateTimeAvailability() {
+            // Если уже проверяем, пропускаем
+            if (isChecking) {
+                return;
+            }
+
+            const date = dateField?.value;
+            const startTime = startTimeField?.value;
+            const endTime = endTimeField?.value;
+
+            // Проверяем, что все поля заполнены
+            if (!date || !startTime || !endTime) {
+                console.log('Not all fields filled:', { date, startTime, endTime });
+                return;
+            }
+
+            // Проверяем, что время валидно (начало раньше конца)
+            const startDate = new Date(`2000-01-01T${startTime}`);
+            const endDate = new Date(`2000-01-01T${endTime}`);
+            if (startDate >= endDate) {
+                console.log('Invalid time: start >= end');
+                return;
+            }
+
+            try {
+                isChecking = true;
+
+                // Проверяем доступность
+                const result = await checkProceduralTimeAvailability(date, startTime, endTime);
+
+                isChecking = false;
+
+                if (!result.is_available) {
+                    // Показываем предупреждение только если время действительно занято
+                    if (result.error && result.error.includes('занят')) {
+                        alert('Внимание: ' + result.error);
+                    } else if (result.occupied_slots && result.occupied_slots.length > 0) {
+                        const patientName = result.occupied_slots[0].patient || 'пациентом';
+                        alert(`Время ${startTime}-${endTime} ${date} уже занято ${patientName}`);
+                    }
+                } else {
+                    console.log('Time is available');
+                }
+            } catch (error) {
+                isChecking = false;
+                console.error('Error checking availability:', error);
+            }
+        }
+
+        // Добавляем обработчики с задержкой
+        function setupValidationWithDebounce() {
+            let timeoutId;
+
+            function debouncedValidate() {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(validateTimeAvailability, 500); // 500ms задержка
+            }
+
+            if (dateField) dateField.addEventListener('change', debouncedValidate);
+            if (startTimeField) startTimeField.addEventListener('change', debouncedValidate);
+            if (endTimeField) endTimeField.addEventListener('change', debouncedValidate);
+        }
+
+        setupValidationWithDebounce();
+
         // Обработчик отправки формы - ОБЯЗАТЕЛЬНО обновляем скрытые поля
         const form = document.getElementById('appointmentForm');
         if (form) {
@@ -258,16 +380,29 @@
                     }
                 }
 
-                // 5. Добавляем небольшую задержку чтобы JS успел обновить DOM
-                setTimeout(() => {
-                    console.log('Form submission proceeding...');
-                    // Форма отправляется автоматически
-                }, 100);
+                // Проверяем доступность времени перед отправкой
+                const date = dateField?.value;
+                const startTime = startTimeField?.value;
+                const endTime = endTimeField?.value;
+
+                if (!date || !startTime || !endTime) {
+                    e.preventDefault();
+                    alert('Пожалуйста, заполните все поля даты и времени');
+                    return;
+                }
+
+                // Проверяем, что время валидно
+                const startDate = new Date(`2000-01-01T${startTime}`);
+                const endDate = new Date(`2000-01-01T${endTime}`);
+                if (startDate >= endDate) {
+                    e.preventDefault();
+                    alert('Время окончания должно быть позже времени начала');
+                    return;
+                }
             });
         }
     });
 </script>
-
 <!-- Подключаем JavaScript для выбора анализов -->
 <script src="{% static 'js/blood_test_selection.js' %}"></script>
 {% endblock %}
