@@ -79,7 +79,9 @@ class Doctor(models.Model):
         )
         PSYCHOLOGIST = (
             "specialist_in_psychological_support)",
-            _("Специалист по психологическому сопровождению"),
+            _(
+                "Специалист по психологическому сопровождению психосоматических расстройств"
+            ),
         )
         ULTRASOUND_DIAGNOSTICS_DOCTOR = "ultrasound_diagnostics_doctor", _(
             "Врач ультразвуковой диагностики"

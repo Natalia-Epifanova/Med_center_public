@@ -59,7 +59,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
 
         # Теперь передаем в родительский класс
         super().__init__(*args, **kwargs, time_slot=self.time_slot, doctor=self.doctor)
-
+        self.fields["insurance_type"].initial = "paid"
         from appointments.services import AppointmentService
 
         # Инициализируем поля с текущими значениями
@@ -334,6 +334,9 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                     )
 
                     for i, appointment_data in enumerate(appointments_list, start=1):
+                        if "insurance_type" not in appointment_data:
+                            # Установить значение по умолчанию
+                            appointment_data["insurance_type"] = "paid"
                         # Создаем запись
                         additional_appointment = self._create_additional_appointment(
                             main_appointment, appointment_data, i
@@ -370,6 +373,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
             service_id = appointment_data.get("service_id")
             time_slot_id = appointment_data.get("time_slot_id")
             comment = appointment_data.get("comment", "")
+            insurance_type = appointment_data.get("insurance_type", "paid")
 
             if not all([doctor_id, service_id, time_slot_id]):
                 raise ValueError("Не все обязательные поля заполнены")
@@ -437,7 +441,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                 time_slot=time_slot,
                 patient=main_appointment.patient,
                 service=service,
-                insurance_type=main_appointment.insurance_type,
+                insurance_type=insurance_type,
                 status=main_appointment.status,
                 comment=comment
                 or f"Дополнительная запись с основной #{main_appointment.id}",
@@ -518,26 +522,44 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if self.appointment:
+            print(
+                f"DEBUG FORM: Appointment date = {self.appointment.date}"
+            )  # Для отладки
+            print(
+                f"DEBUG FORM: Appointment time_slot id = {self.appointment.time_slot.id if self.appointment.time_slot else 'None'}"
+            )  # Для отладки
 
             # Устанавливаем минимальную дату - сегодня
             from django.utils import timezone
 
             today = timezone.now().date()
 
-            # Инициализируем поле даты
-            self.fields["new_appointment_date"].initial = self.appointment.date
+            # ВАЖНОЕ ИСПРАВЛЕНИЕ: Правильно инициализируем поле даты
+            appointment_date = self.appointment.date
+            print(
+                f"DEBUG FORM: Setting initial date to {appointment_date}"
+            )  # Для отладки
+
+            self.fields["new_appointment_date"].initial = appointment_date
             self.fields["new_appointment_date"].widget.attrs["min"] = today.isoformat()
+
+            # ДОБАВЛЯЕМ: Устанавливаем значение виджета
+            if appointment_date:
+                self.initial["new_appointment_date"] = appointment_date
 
             # Инициализируем поле слота
             if self.appointment.time_slot:
-
                 self.fields["new_time_slot_id"].initial = self.appointment.time_slot.id
                 # Устанавливаем отображение текущего слота
-                self.fields["new_time_slot_display"].initial = (
+                current_slot_display = (
                     f"{self.appointment.start_time.strftime('%H:%M')}-"
                     f"{self.appointment.end_time.strftime('%H:%M')} "
                     f"(Каб. {self.appointment.cabinet.number})"
                 )
+                self.fields["new_time_slot_display"].initial = current_slot_display
+                print(
+                    f"DEBUG FORM: Setting initial slot display to {current_slot_display}"
+                )  # Для отладки
 
             # Ограничиваем услуги только для этого врача
             self.fields["service"].queryset = get_doctor_services(
@@ -549,6 +571,11 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         new_date = cleaned_data.get("new_appointment_date")
         new_time_slot_id = cleaned_data.get("new_time_slot_id")
+
+        # Если слот не выбран, используем текущий слот записи
+        if not new_time_slot_id and self.appointment.time_slot:
+            cleaned_data["new_time_slot_id"] = self.appointment.time_slot.id
+            new_time_slot_id = self.appointment.time_slot.id
 
         if new_date and new_time_slot_id:
             try:
@@ -574,12 +601,13 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     return cleaned_data
 
                 # 3. Проверяем, что слот свободен (кроме текущей записи)
+                current_slot_id = (
+                    self.appointment.time_slot.id
+                    if self.appointment.time_slot
+                    else None
+                )
                 if new_time_slot.appointments.exists():
-                    current_slot_id = (
-                        self.appointment.time_slot.id
-                        if self.appointment.time_slot
-                        else None
-                    )
+                    # Если это не текущий слот записи, показываем ошибку
                     if not (current_slot_id and new_time_slot.id == current_slot_id):
                         # Получаем имя пациента, который занял слот
                         occupied_appointment = new_time_slot.appointments.first()
@@ -604,39 +632,58 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         # Проверяем, что выбран слот
         elif new_date and not new_time_slot_id:
-            self.add_error("new_time_slot_id", "Выберите временной слот")
+            # Если дата выбрана, но слот нет - автоматически выбираем текущий слот
+            if self.appointment.time_slot:
+                cleaned_data["new_time_slot_id"] = self.appointment.time_slot.id
+                cleaned_data["new_time_slot"] = self.appointment.time_slot
+            else:
+                self.add_error("new_time_slot_id", "Выберите временной слот")
 
         return cleaned_data
 
     @transaction.atomic
     def save(self, commit=True):
-
         appointment = super().save(commit=False)
 
         # Получаем новую дату и слот
         new_date = self.cleaned_data["new_appointment_date"]
         new_time_slot = self.cleaned_data["new_time_slot"]
 
-        # Сохраняем старый слот для сообщения
+        # Сохраняем старый слот для сравнения
         old_time_slot = appointment.time_slot
         old_date = appointment.date
 
-        # Обновляем слот (date обновится автоматически через property)
-        appointment.time_slot = new_time_slot
+        # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем, предоставлен ли новый слот
+        if not new_time_slot:
+            # Если слот не предоставлен, используем текущий
+            new_time_slot = old_time_slot
 
-        if commit:
-            appointment.save()
+        # Проверяем, изменились ли дата или время
+        date_changed = new_date != old_date
+        time_changed = new_time_slot.id != old_time_slot.id if new_time_slot else False
 
-            # Переносим процедурную запись если она есть
-            try:
-                self._move_procedural_appointment(
-                    appointment, old_time_slot, new_time_slot, old_date
-                )
-            except forms.ValidationError as e:
-                # Откатываем изменения если процедурную запись нельзя перенести
-                appointment.time_slot = old_time_slot
+        # Обновляем слот только если он изменился
+        if date_changed or time_changed:
+            appointment.time_slot = new_time_slot
+
+            if commit:
                 appointment.save()
-                raise e
+
+                # Переносим процедурную запись только если изменилась дата или время
+                if date_changed or time_changed:
+                    try:
+                        self._move_procedural_appointment(
+                            appointment, old_time_slot, new_time_slot, old_date
+                        )
+                    except forms.ValidationError as e:
+                        # Откатываем изменения если процедурную запись нельзя перенести
+                        appointment.time_slot = old_time_slot
+                        appointment.save()
+                        raise e
+        else:
+            # Если слот не изменился, просто сохраняем другие изменения
+            if commit:
+                appointment.save()
 
         return appointment
 
@@ -648,16 +695,30 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         from appointments.models import AppointmentChain
         from timetable.models import Cabinet, TimeSlot
 
-        # Находим процедурную запись
+        # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем, есть ли вообще процедурная запись
         procedural_chain = AppointmentChain.objects.filter(
             main_appointment=appointment,
             chain_type=AppointmentChain.ChainType.PROCEDURAL,
         ).first()
 
+        # Если нет процедурной записи - ничего не делаем
+        if not procedural_chain:
+            return  # Выходим без ошибки
+
+        # Только теперь безопасно получаем связанную запись
         procedural_appointment = procedural_chain.related_appointment
 
+        if not procedural_appointment:
+            return  # Если по какой-то причине связанной записи нет
+
         # Находим процедурный кабинет (кабинет 6)
-        procedural_cabinet = Cabinet.objects.get(number=6)
+        try:
+            procedural_cabinet = Cabinet.objects.get(number=6)
+        except Cabinet.DoesNotExist:
+            # Если кабинета нет, не можем перенести процедурную запись
+            raise forms.ValidationError(
+                "Процедурный кабинет (кабинет 6) не найден в системе"
+            )
 
         # Проверяем доступность времени в процедурном кабинете на новую дату
         conflicting_slots = TimeSlot.objects.filter(
@@ -1016,6 +1077,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
             service_id = appointment_data.get("service_id")
             time_slot_id = appointment_data.get("time_slot_id")
             comment = appointment_data.get("comment", "")
+            insurance_type = appointment_data.get("insurance_type", "paid")
 
             if not all([doctor_id, service_id, time_slot_id]):
                 raise ValueError("Не все обязательные поля заполнены")
@@ -1035,7 +1097,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                 time_slot=time_slot,
                 patient=main_appointment.patient,
                 service=service,
-                insurance_type=main_appointment.insurance_type,
+                insurance_type=insurance_type,
                 status=Appointment.AppointmentStatus.SCHEDULED,
                 comment=comment
                 or f"Дополнительная запись с основной #{main_appointment.id}",
