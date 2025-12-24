@@ -118,16 +118,14 @@ class PatientFullForm(BasePatientForm):
         widgets = {
             "date_of_birth": forms.DateInput(
                 attrs={
-                    "type": "date",  # Это даст календарь в браузере
+                    "type": "date",
                     "class": "form-control date-input",
-                    "placeholder": "ДД.ММ.ГГГГ",
                 }
             ),
             "passport_issue_date": forms.DateInput(
                 attrs={
                     "type": "date",
                     "class": "form-control date-input",
-                    "placeholder": "ДД.ММ.ГГГГ",
                 }
             ),
             "phone_number": forms.TextInput(
@@ -167,6 +165,21 @@ class PatientFullForm(BasePatientForm):
             "snils": "СНИЛС",
             "insurance_company": "Страховая компания",
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Форматируем даты для HTML5 input type="date"
+        if self.instance and self.instance.date_of_birth:
+            # Конвертируем дату в формат YYYY-MM-DD для HTML5 input
+            self.initial["date_of_birth"] = self.instance.date_of_birth.strftime(
+                "%Y-%m-%d"
+            )
+
+        if self.instance and self.instance.passport_issue_date:
+            self.initial["passport_issue_date"] = (
+                self.instance.passport_issue_date.strftime("%Y-%m-%d")
+            )
 
 
 class PatientSearchForm(forms.Form):

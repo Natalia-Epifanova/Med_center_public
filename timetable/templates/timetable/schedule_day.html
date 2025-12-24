@@ -305,6 +305,10 @@
                                                    target="_blank">
                                                     <strong>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</strong>
                                                 </a>
+                                                <!-- ДОБАВЛЕНО: Отображение номера карты, если он есть -->
+                                                {% if appointment.patient.card_number %}
+                                                    <br><small class="text-muted">(карта {{ appointment.patient.card_number }})</small>
+                                                {% endif %}
                                             </small>
                                             {% else %}
                                             <small class="text-muted">-</small>
