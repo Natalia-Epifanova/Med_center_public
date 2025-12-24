@@ -88,6 +88,7 @@
             {% endif %}
 
             <!-- Форма выбора опций удаления -->
+
             <form method="post">
                 {% csrf_token %}
 
@@ -95,9 +96,22 @@
                     <div class="col-md-12">
                         <h6><i class="fas fa-cog"></i> Выберите способ удаления:</h6>
 
+                        {% if has_related %}
+                        <!-- Если есть связанные записи, по умолчанию выбираем удаление всех -->
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="radio" name="action"
-                                   id="action_single" value="single" checked>
+                                   id="action_with_related" value="with_related" checked>
+                            <label class="form-check-label" for="action_with_related">
+                                <strong>Удалить все связанные записи ({{ related_appointments|length }})</strong><br>
+                                <small class="text-muted">
+                                    Будет удалена вся цепочка записей пациента на этот день.
+                                </small>
+                            </label>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="radio" name="action"
+                                   id="action_single" value="single">
                             <label class="form-check-label" for="action_single">
                                 <strong>Удалить только эту запись</strong><br>
                                 <small class="text-muted">
@@ -105,15 +119,15 @@
                                 </small>
                             </label>
                         </div>
-
-                        {% if has_related %}
+                        {% else %}
+                        <!-- Если нет связанных записей, только одна опция -->
                         <div class="form-check mb-3">
                             <input class="form-check-input" type="radio" name="action"
-                                   id="action_with_related" value="with_related">
-                            <label class="form-check-label" for="action_with_related">
-                                <strong>Удалить все связанные записи ({{ related_appointments|length }})</strong><br>
+                                   id="action_single" value="single" checked>
+                            <label class="form-check-label" for="action_single">
+                                <strong>Удалить запись</strong><br>
                                 <small class="text-muted">
-                                    Будет удалена вся цепочка записей пациента на этот день.
+                                    Запись будет удалена из расписания.
                                 </small>
                             </label>
                         </div>
@@ -149,7 +163,7 @@
 
                             <div>
                                 <button type="submit" class="btn btn-danger"
-                                        onclick="return confirm('Вы уверены, что хотите удалить запись? Это действие необратимо.')">
+                                        id="deleteBtn">
                                     <i class="fas fa-trash"></i> Удалить запись
                                 </button>
                             </div>
@@ -164,7 +178,7 @@
 <!-- JavaScript для изменения текста подтверждения -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const deleteBtn = document.querySelector('button[type="submit"]');
+    const deleteBtn = document.getElementById('deleteBtn');
     const singleRadio = document.getElementById('action_single');
     const relatedRadio = document.getElementById('action_with_related');
 
@@ -187,7 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
         relatedRadio.addEventListener('change', updateConfirmMessage);
     }
 
-    // Инициализируем
+    // Инициализируем - по умолчанию показываем сообщение для удаления всех
     updateConfirmMessage();
 });
 </script>
