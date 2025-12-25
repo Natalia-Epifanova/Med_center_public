@@ -2,11 +2,12 @@ import json
 from datetime import datetime
 
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import require_http_methods, require_POST, require_GET
 
 from appointments.services import AppointmentChainService
 from timetable.models import (
@@ -418,3 +419,28 @@ def get_blood_tests(request):
         )
 
     return JsonResponse({"categories": categories_data})
+
+
+@login_required
+@require_GET
+def check_slot_lock(request, slot_id):
+    """AJAX endpoint для проверки блокировки слота"""
+    try:
+        cache_key = f"slot_lock_{slot_id}"
+        cached_lock = cache.get(cache_key)
+
+        if cached_lock:
+            return JsonResponse(
+                {
+                    "is_locked": True,
+                    "locked_by": cached_lock.get(
+                        "user_display_name", cached_lock.get("user", "неизвестный")
+                    ),
+                    "lock_time": cached_lock.get("time"),
+                }
+            )
+        else:
+            return JsonResponse({"is_locked": False})
+
+    except Exception as e:
+        return JsonResponse({"is_locked": False, "error": str(e)})

@@ -168,77 +168,94 @@ class AppointmentChainManager {
 
     renderInitialTemplate() {
         this.appointmentFormTemplate = `
-            <div class="appointment-form-card card mb-3" data-form-index="{index}">
-                <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h6 class="mb-0">Запись к врачу #{index}</h6>
-                    <button type="button" class="btn btn-outline-danger btn-sm remove-form" data-index="{index}">
-                        <i class="fas fa-times"></i>
-                    </button>
+        <div class="appointment-form-card card mb-3" data-form-index="{index}">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Запись к врачу #{index}</h6>
+                <button type="button" class="btn btn-outline-danger btn-sm remove-form" data-index="{index}">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Врач *</label>
+                        <select class="form-select doctor-select" data-index="{index}" required>
+                            <option value="">Выберите врача...</option>
+                        </select>
+                        <div class="invalid-feedback">Выберите врача</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Услуга *</label>
+                        <select class="form-select service-select" data-index="{index}" disabled required>
+                            <option value="">Сначала выберите врача</option>
+                        </select>
+                        <div class="invalid-feedback">Выберите услугу</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Дата *</label>
+                        <input type="date" class="form-control date-select" data-index="{index}" required>
+                        <div class="invalid-feedback">Выберите дату</div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <label class="form-label">Врач *</label>
-                            <select class="form-select doctor-select" data-index="{index}" required>
-                                <option value="">Выберите врача...</option>
-                            </select>
-                            <div class="invalid-feedback">Выберите врача</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Услуга *</label>
-                            <select class="form-select service-select" data-index="{index}" disabled required>
-                                <option value="">Сначала выберите врача</option>
-                            </select>
-                            <div class="invalid-feedback">Выберите услугу</div>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Дата *</label>
-                            <input type="date" class="form-control date-select" data-index="{index}" required>
-                            <div class="invalid-feedback">Выберите дату</div>
-                        </div>
-                    </div>
-                    <div class="row mt-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Время *</label>
-                            <select class="form-select slot-select" data-index="{index}" disabled required>
-                                <option value="">Сначала выберите врача и дату</option>
-                            </select>
-                            <div class="invalid-feedback">Выберите время</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Комментарий</label>
-                            <textarea class="form-control comment-input" data-index="{index}" rows="2"
-                                      placeholder="Необязательный комментарий"></textarea>
-                        </div>
-                    </div>
 
-                    <div class="row mt-3">
-                        <div class="col-12">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input procedural-checkbox"
-                                       data-index="{index}" id="procedural_{index}">
-                                <label class="form-check-label" for="procedural_{index}">
-                                    <i class="fas fa-syringe"></i> Занять окошко в процедурном кабинете
-                                </label>
-                                <div class="form-text">
-                                    Автоматически займет такое же время в процедурном кабинете
-                                </div>
-                            </div>
-                        </div>
+                <!-- ДОБАВИТЬ ПОЛЕ ТИПА ОПЛАТЫ ЗДЕСЬ -->
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Тип оплаты *</label>
+                        <select class="form-select insurance-select" data-index="{index}" required>
+                            <option value="paid">Платный</option>
+                            <option value="oms">ОМС</option>
+                            <option value="dms">ДМС</option>
+                        </select>
+                        <div class="invalid-feedback">Выберите тип оплаты</div>
                     </div>
+                    <div class="col-md-8">
+                        <label class="form-label">Комментарий</label>
+                        <textarea class="form-control comment-input" data-index="{index}" rows="2"
+                                  placeholder="Необязательный комментарий"></textarea>
+                    </div>
+                </div>
 
-                    <div class="row mt-2">
-                        <div class="col-12">
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Время *</label>
+                        <select class="form-select slot-select" data-index="{index}" disabled required>
+                            <option value="">Сначала выберите врача и дату</option>
+                        </select>
+                        <div class="invalid-feedback">Выберите время</div>
+                    </div>
+                    <div class="col-md-6">
+                        <!-- Оставьте пустым или добавьте другие поля -->
+                    </div>
+                </div>
+
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input procedural-checkbox"
+                                   data-index="{index}" id="procedural_{index}">
+                            <label class="form-check-label" for="procedural_{index}">
+                                <i class="fas fa-syringe"></i> Занять окошко в процедурном кабинете
+                            </label>
                             <div class="form-text">
-                                Врач: <span class="doctor-name text-muted">не выбран</span> |
-                                Дата: <span class="appointment-date text-muted">не выбрана</span> |
-                                Время: <span class="appointment-time text-muted">не выбрано</span>
+                                Автоматически займет такое же время в процедурном кабинете
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <div class="form-text">
+                            Врач: <span class="doctor-name text-muted">не выбран</span> |
+                            Дата: <span class="appointment-date text-muted">не выбрана</span> |
+                            Время: <span class="appointment-time text-muted">не выбрано</span>
                         </div>
                     </div>
                 </div>
             </div>
-        `;
+        </div>
+    `;
     }
 
     addAppointmentForm() {
@@ -388,7 +405,23 @@ class AppointmentChainManager {
                                       placeholder="Необязательный комментарий"></textarea>
                         </div>
                     </div>
-
+                    <!-- ДОБАВИТЬ ТИП ОПЛАТЫ И ЗДЕСЬ -->
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Тип оплаты *</label>
+                            <select class="form-select insurance-select" data-index="single" required>
+                                <option value="paid">Платный</option>
+                                <option value="oms">ОМС</option>
+                                <option value="dms">ДМС</option>
+                            </select>
+                            <div class="invalid-feedback">Выберите тип оплаты</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Комментарий</label>
+                            <textarea class="form-control comment-input" data-index="single" rows="2"
+                                      placeholder="Необязательный комментарий"></textarea>
+                        </div>
+                    </div>
                     <div class="row mt-3">
                         <div class="col-12">
                             <div class="form-check">
@@ -568,59 +601,81 @@ class AppointmentChainManager {
         this.updateHiddenField();
         this.updateProceduralHiddenField();
 
+        // Исправленная логика проверки
         if (chainType === 'another_doctor' || chainType === 'multiple') {
-            const timeOverlapCheck = this.validateTimeOverlap();
-            if (!timeOverlapCheck.valid) {
-                alert(timeOverlapCheck.message);
-                return false;
-            }
-        }
+            // Получаем данные дополнительных записей
+            const hiddenField = document.getElementById('id_additional_appointments_data');
+            let hasValidAdditionalAppointments = false;
 
-        if (chainType === 'another_doctor') {
-            if (!this.validateForm('single')) {
-                alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
-                return false;
-            }
-
-            const formData = this.getFormData('single');
-            if (!formData || !formData.doctor_id || !formData.service_id || !formData.date || !formData.time_slot_id) {
-                alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
-                return false;
-            }
-
-            return true;
-        } else if (chainType === 'multiple') {
-            if (this.appointmentForms.length === 0) {
-                alert('Добавьте хотя бы одну дополнительную запись');
-                return false;
-            }
-
-            let allValid = true;
-            let hasValidAppointment = false;
-
-            this.appointmentForms.forEach(index => {
-                if (this.validateForm(index)) {
-                    const formData = this.getFormData(index);
-                    if (formData && formData.doctor_id && formData.service_id &&
-                        formData.date && formData.time_slot_id) {
-                        hasValidAppointment = true;
+            if (hiddenField && hiddenField.value) {
+                try {
+                    const appointmentsList = JSON.parse(hiddenField.value);
+                    if (appointmentsList && appointmentsList.length > 0) {
+                        // Проверяем каждую запись
+                        for (const appointment of appointmentsList) {
+                            if (appointment.doctor_id && appointment.service_id &&
+                                appointment.date && appointment.time_slot_id) {
+                                hasValidAdditionalAppointments = true;
+                                break;
+                            }
+                        }
                     }
-                } else {
-                    allValid = false;
+                } catch (e) {
+                    console.error('Error parsing additional appointments data:', e);
                 }
-            });
-
-            if (!allValid) {
-                alert('Пожалуйста, заполните все обязательные поля для дополнительных записей');
-                return false;
             }
 
-            if (!hasValidAppointment) {
-                alert('Добавьте хотя бы одну корректно заполненную дополнительную запись');
-                return false;
-            }
+            // Если тип записи требует дополнительных записей, но их нет
+            if (chainType === 'another_doctor') {
+                // Для "Запись к другому врачу" проверяем форму с индексом 'single'
+                if (!this.validateForm('single')) {
+                    alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
+                    return false;
+                }
 
-            return true;
+                const formData = this.getFormData('single');
+                if (!formData || !formData.doctor_id || !formData.service_id ||
+                    !formData.date || !formData.time_slot_id) {
+                    alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
+                    return false;
+                }
+
+                return true;
+
+            } else if (chainType === 'multiple') {
+                // Для "Несколько записей" проверяем все формы
+                if (this.appointmentForms.length === 0) {
+                    alert('Добавьте хотя бы одну дополнительную запись');
+                    return false;
+                }
+
+                let allValid = true;
+                let hasValidAppointment = false;
+
+                this.appointmentForms.forEach(index => {
+                    if (this.validateForm(index)) {
+                        const formData = this.getFormData(index);
+                        if (formData && formData.doctor_id && formData.service_id &&
+                            formData.date && formData.time_slot_id) {
+                            hasValidAppointment = true;
+                        }
+                    } else {
+                        allValid = false;
+                    }
+                });
+
+                if (!allValid) {
+                    alert('Пожалуйста, заполните все обязательные поля для дополнительных записей');
+                    return false;
+                }
+
+                if (!hasValidAppointment) {
+                    alert('Добавьте хотя бы одну корректно заполненную дополнительную запись');
+                    return false;
+                }
+
+                return true;
+            }
         }
 
         return true;
@@ -675,13 +730,15 @@ class AppointmentChainManager {
         const dateInput = formElement.querySelector('.date-select');
         const slotSelect = formElement.querySelector('.slot-select');
         const commentInput = formElement.querySelector('.comment-input');
+        const insuranceSelect = formElement.querySelector('.insurance-select'); // Добавить это
 
         return {
             doctor_id: doctorSelect ? doctorSelect.value : null,
             service_id: serviceSelect ? serviceSelect.value : null,
             date: dateInput ? dateInput.value : null,
             time_slot_id: slotSelect ? slotSelect.value : null,
-            comment: commentInput ? commentInput.value : null
+            comment: commentInput ? commentInput.value : null,
+            insurance_type: insuranceSelect ? insuranceSelect.value : 'paid' // Добавить это
         };
     }
 
@@ -729,6 +786,10 @@ AppointmentChainManager.prototype.bindFormEvents = function(index) {
         });
 
         if (proceduralCheckbox.checked) this.saveProceduralData(index, true);
+    }
+    const insuranceSelect = formElement.querySelector('.insurance-select');
+    if (insuranceSelect) {
+        insuranceSelect.addEventListener('change', (e) => this.saveFormData(index));
     }
 };
 
@@ -1112,6 +1173,7 @@ AppointmentChainManager.prototype.saveFormData = function(index) {
     const dateInput = formElement.querySelector('.date-select');
     const slotSelect = formElement.querySelector('.slot-select');
     const commentInput = formElement.querySelector('.comment-input');
+    const insuranceSelect = formElement.querySelector('.insurance-select');
     const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
 
     const appointmentData = {
@@ -1119,7 +1181,8 @@ AppointmentChainManager.prototype.saveFormData = function(index) {
         service_id: serviceSelect ? serviceSelect.value : null,
         date: dateInput ? dateInput.value : null,
         time_slot_id: slotSelect ? slotSelect.value : null,
-        comment: commentInput ? commentInput.value : null
+        comment: commentInput ? commentInput.value : null,
+        insurance_type: insuranceSelect ? insuranceSelect.value : 'paid'
     };
 
     const isValid = appointmentData.doctor_id &&
