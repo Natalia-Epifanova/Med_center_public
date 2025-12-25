@@ -42,7 +42,13 @@
                         <label for="{{ form.new_appointment_date.id_for_label }}" class="form-label">
                             <i class="fas fa-calendar"></i> Новая дата приема
                         </label>
-                        {{ form.new_appointment_date }}
+                        <!-- ВАЖНОЕ ИСПРАВЛЕНИЕ: Используем value вместо рендеринга виджета -->
+                        <input type="date"
+                               id="{{ form.new_appointment_date.id_for_label }}"
+                               name="{{ form.new_appointment_date.html_name }}"
+                               class="form-control"
+                               value="{{ form.new_appointment_date.value|date:'Y-m-d' }}"
+                               min="{{ form.new_appointment_date.widget.attrs.min }}">
                         {% if form.new_appointment_date.errors %}
                         <div class="text-danger small">{{ form.new_appointment_date.errors }}</div>
                         {% endif %}
@@ -59,7 +65,9 @@
 
                         <!-- Поле для отображения выбранного слота -->
                         <input type="text" id="id_new_time_slot_display" class="form-control mb-2"
-                               readonly placeholder="Выберите слот из списка ниже">
+                               readonly
+                               value="{{ form.new_time_slot_display.value|default:'' }}"
+                               placeholder="Выберите слот из списка ниже">
 
                         <!-- Скрытое поле для ID слота -->
                         {{ form.new_time_slot_id }}
@@ -236,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     timeSlotsList.appendChild(button);
 
-                    // Автоматически выбираем текущий слот
+                    // Автоматически выбираем текущий слот при загрузке
                     if (isCurrentSlot && !slotIdInput.value) {
                         selectSlot(slot.id, slotText);
                     }
@@ -244,11 +252,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 console.log('DEBUG: Loaded', data.slots.length, 'slots');
 
-                // Если слот не выбран, выбираем первый доступный
+                // Если текущий слот не выбран, выбираем первый доступный
                 if (!slotIdInput.value && data.slots.length > 0) {
                     const firstSlot = data.slots[0];
-                    const isCurrent = currentSlotId && parseInt(firstSlot.id) === currentSlotId;
-                    const slotText = `${firstSlot.time} (${firstSlot.cabinet})${isCurrent ? ' (текущий)' : ''}`;
+                    const slotText = `${firstSlot.time} (${firstSlot.cabinet})`;
                     selectSlot(firstSlot.id, slotText);
                 }
             } else {
@@ -268,17 +275,32 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Обработчик изменения даты
     if (dateInput) {
+        // Устанавливаем начальное значение отображения слота
+        if (slotIdInput.value && slotDisplayInput.value) {
+            console.log('DEBUG: Initial slot already set:', slotIdInput.value, slotDisplayInput.value);
+        }
+
         dateInput.addEventListener('change', function() {
             const selectedDate = this.value;
             console.log('DEBUG: Date changed to:', selectedDate);
             loadTimeSlots(selectedDate);
         });
 
-        // Триггерим событие change при загрузке страницы
-        if (dateInput.value) {
-            console.log('DEBUG: Triggering initial date load');
-            loadTimeSlots(dateInput.value);
-        }
+        // Загружаем слоты сразу при загрузке страницы
+        setTimeout(function() {
+            if (dateInput.value) {
+                console.log('DEBUG: Initial date load:', dateInput.value);
+                loadTimeSlots(dateInput.value);
+            } else {
+                // Если дата не установлена в поле, но у нас есть дата записи
+                const appointmentDate = '{{ appointment.date|date:"Y-m-d" }}';
+                if (appointmentDate && appointmentDate !== 'None') {
+                    dateInput.value = appointmentDate;
+                    console.log('DEBUG: Set date from appointment:', appointmentDate);
+                    loadTimeSlots(appointmentDate);
+                }
+            }
+        }, 100);
     }
 
     // Валидация формы перед отправкой
@@ -307,6 +329,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 event.preventDefault();
                 return false;
             }
+
+            // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: Если слот не изменился, все равно позволяем сохранить
+            // (это важно при изменении только услуги или типа оплаты)
+            return true;
         });
     }
 });
