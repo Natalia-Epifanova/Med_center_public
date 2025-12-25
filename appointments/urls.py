@@ -18,6 +18,7 @@ from appointments.views_api import (
     get_blood_tests,
     get_doctor_services_api,
     validate_additional_appointment_api,
+    check_slot_lock,
 )
 
 app_name = AppointmentsConfig.name
@@ -77,4 +78,5 @@ urlpatterns = [
     ),
     path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
     path("api/get-next-slot/", api_get_next_slot, name="api_get_next_slot"),
+    path("check-slot-lock/<int:slot_id>/", check_slot_lock, name="check_slot_lock"),
 ]

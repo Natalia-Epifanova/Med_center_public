@@ -1,6 +1,37 @@
 console.log('=== SCHEDULE_DAY.JS LOADED SUCCESSFULLY ===');
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Проверка блокировки слотов при клике
+    document.querySelectorAll('.check-slot-lock').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const slotId = this.dataset.slotId;
+            const url = this.href;
+
+            // Проверяем блокировку через AJAX
+            fetch(`/appointments/check-slot-lock/${slotId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.is_locked) {
+                    // Слот заблокирован - показываем сообщение
+                    alert(`Этот слот заблокирован администратором ${data.locked_by}.\nПожалуйста, попробуйте позже.`);
+                } else {
+                    // Слот свободен - переходим к созданию записи
+                    window.location.href = url;
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка проверки блокировки:', error);
+                // В случае ошибки все равно переходим
+                window.location.href = url;
+            });
+        });
+    });
     console.log('DOM Content Loaded - Initializing schedule day functionality');
 
     // Инициализируем стили для всех выпадающих списков при загрузке

@@ -296,24 +296,24 @@
                                     <td>
                                         {% if slot.slot_type == 'working' %}
                                         {% get_appointment slot as appointment %}
-                                        {% if appointment %}
-                                            {% if appointment.patient %}
-                                            <small>
-                                                <a href="{% url 'patients:patient_detail' appointment.patient.pk %}"
-                                                   class="text-decoration-none patient-link"
-                                                   title="Нажмите для просмотра карточки пациента"
-                                                   target="_blank">
-                                                    <strong>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</strong>
-                                                </a>
-                                                <!-- ДОБАВЛЕНО: Отображение номера карты, если он есть -->
-                                                {% if appointment.patient.card_number %}
-                                                    <br><small class="text-muted">(карта {{ appointment.patient.card_number }})</small>
+                                            {% if appointment %}
+                                                {% if appointment.patient %}
+                                                <small>
+                                                    <a href="{% url 'patients:patient_detail' appointment.patient.pk %}"
+                                                       class="text-decoration-none patient-link"
+                                                       title="Нажмите для просмотра карточки пациента"
+                                                       target="_blank">
+                                                        <strong>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</strong>
+                                                    </a>
+                                                    <!-- ДОБАВЛЕНО: Отображение номера карты, если он есть -->
+                                                    {% if appointment.patient.card_number %}
+                                                        <br><small class="text-muted">(карта {{ appointment.patient.card_number }})</small>
+                                                    {% endif %}
+                                                </small>
+                                                {% else %}
+                                                <small class="text-muted">-</small>
                                                 {% endif %}
-                                            </small>
                                             {% else %}
-                                            <small class="text-muted">-</small>
-                                            {% endif %}
-                                        {% else %}
                                         <small class="text-muted">-</small>
                                         {% endif %}
                                         {% else %}
@@ -375,8 +375,10 @@
                                             </div>
                                         {% else %}
                                             {% if is_medical_admin or is_admin %}
+                                                <!-- ВОТ СЮДА НУЖНО ДОБАВИТЬ КНОПКУ С ПРОВЕРКОЙ БЛОКИРОВКИ -->
                                                 <a href="{% url 'appointments:appointment_create' slot.id %}"
-                                                   class="btn btn-sm btn-outline-success"
+                                                   class="btn btn-sm btn-outline-success check-slot-lock"
+                                                   data-slot-id="{{ slot.id }}"
                                                    title="Добавить запись пациента">
                                                     <i class="fas fa-plus"></i>
                                                 </a>
