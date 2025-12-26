@@ -267,7 +267,13 @@
                                             <br>
                                             <small class="text-muted fw-bold">Перерыв</small>
                                         {% endif %}
-
+                                         <!-- КОММЕНТАРИЙ РАБОЧЕГО СЛОТА -->
+                                        {% if slot.slot_type == 'working' and slot.description %}
+                                            <br>
+                                            <small class="text-dark fw-bold">
+                                                <i class="fas fa-info-circle"></i> {{ slot.description }}
+                                            </small>
+                                        {% endif %}
                                         <!-- Индикатор типа оплаты -->
                                         {% get_appointment slot as appointment %}
                                         {% if appointment and slot.slot_type == 'working' %}
