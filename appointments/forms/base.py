@@ -96,11 +96,11 @@ class AppointmentChainBaseForm(
         label="Итоговая сумма",
     )
 
-    # Новое: флаг для процедурного кабинета второй услуги
-    needs_procedural_additional = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_needs_procedural_additional"}),
-    )
+    # # Новое: флаг для процедурного кабинета второй услуги
+    # needs_procedural_additional = forms.CharField(
+    #     required=False,
+    #     widget=forms.HiddenInput(attrs={"id": "id_needs_procedural_additional"}),
+    # )
 
     def __init__(self, *args, **kwargs):
         self.time_slot = kwargs.pop("time_slot", None)
