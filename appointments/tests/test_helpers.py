@@ -1,5 +1,3 @@
-# В отдельном файле test_helpers.py или в начале test_forms.py
-from django.test import TestCase
 from django.utils import timezone
 
 from timetable.models import Doctor, MedicalService, TimeSlot

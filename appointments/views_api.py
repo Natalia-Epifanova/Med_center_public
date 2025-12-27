@@ -7,18 +7,17 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods, require_POST, require_GET
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from appointments.services import AppointmentChainService
+from appointments.utils import get_cached_doctor_services, get_procedural_cabinet
 from timetable.models import (
     BloodTest,
-    BloodTestCategory,
-    Cabinet,
     Doctor,
     MedicalService,
     TimeSlot,
+    BloodTestCategory,
 )
-from timetable.utils import get_doctor_services
 
 
 @csrf_exempt
@@ -34,7 +33,7 @@ def get_doctor_services_api(request):
             return JsonResponse({"error": "Не указан doctor_id"}, status=400)
 
         doctor = Doctor.objects.get(id=doctor_id)
-        services = get_doctor_services(doctor)
+        services = get_cached_doctor_services(doctor)
 
         services_data = []
         for service in services:
@@ -78,8 +77,6 @@ def get_available_slots_for_doctor_api(request):
         doctor_id = data.get("doctor_id")
         date = data.get("date")
         booked_slots = data.get("booked_slots", [])  # Сюда придет [currentSlotId]
-        main_appointment_time = data.get("main_appointment_time")
-        main_appointment_date = data.get("main_appointment_date")
 
         if not doctor_id or not date:
             return JsonResponse({"error": "Не указаны doctor_id или date"}, status=400)
@@ -180,8 +177,6 @@ def validate_additional_appointment_api(request):
 def get_available_doctors_api(request):
     """API для получения списка доступных врачей (исключая основного)"""
     try:
-        data = json.loads(request.body)
-        exclude_doctor_id = data.get("exclude_doctor_id")
 
         doctors = Doctor.objects.order_by("surname")
 
@@ -284,13 +279,7 @@ def check_procedural_availability(request):
                 appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
 
                 # Находим процедурный кабинет (кабинет №6)
-                try:
-                    procedural_cabinet = Cabinet.objects.get(number=6)
-                except Cabinet.DoesNotExist:
-                    return JsonResponse(
-                        {"error": "Процедурный кабинет (кабинет №6) не найден"},
-                        status=404,
-                    )
+                procedural_cabinet = get_procedural_cabinet()
 
                 # Если указан time_slot_id, используем его
                 if time_slot_id:

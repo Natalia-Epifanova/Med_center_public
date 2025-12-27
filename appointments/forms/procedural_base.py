@@ -4,8 +4,8 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from appointments.forms.base import AppointmentChainBaseForm
-from patients.services import PatientService
-from timetable.models import BloodTest, MedicalService, MedicalServiceCategory
+from appointments.utils import get_procedural_cabinet
+from timetable.models import MedicalService, MedicalServiceCategory, TimeSlot
 
 
 class ProceduralAppointmentBaseForm(AppointmentChainBaseForm):
@@ -124,7 +124,8 @@ class ProceduralAppointmentBaseForm(AppointmentChainBaseForm):
                     appointments_list = json.loads(additional_data)
                     if not appointments_list:
                         raise ValidationError(
-                            f'При выборе опции "{self.get_appointment_type_display(appointment_chain_type)}" необходимо добавить хотя бы одну дополнительную запись'
+                            f'При выборе опции "{self.get_appointment_type_display(appointment_chain_type)}" '
+                            f"необходимо добавить хотя бы одну дополнительную запись"
                         )
 
                     # Используем существующую логику валидации
@@ -148,9 +149,8 @@ class ProceduralAppointmentBaseForm(AppointmentChainBaseForm):
     def _check_procedural_time_availability(self, start_time, end_time):
         """Проверяет доступность времени в процедурном кабинете (метод для clean)"""
         try:
-            from timetable.models import Cabinet, TimeSlot
 
-            procedural_cabinet = Cabinet.objects.get(number=6)
+            procedural_cabinet = get_procedural_cabinet()
 
             conflicting_slots = TimeSlot.get_conflicting_slots(
                 date=self.selected_date,

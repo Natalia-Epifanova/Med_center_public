@@ -12,6 +12,7 @@ from appointments.services import (
     ConsecutiveAppointmentService,
     ProceduralAppointmentService,
 )
+from appointments.utils import get_procedural_cabinet
 from patients.services import PatientService
 from timetable.models import BloodTest, Doctor, MedicalService, TimeSlot
 from timetable.utils import get_doctor_services
@@ -307,7 +308,8 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
         if appointment_chain_type in ["additional", "two_slots"]:
             try:
                 # Используем сервис для создания последовательной записи
-                consecutive_appointment = ConsecutiveAppointmentService.create_consecutive_appointment(
+
+                ConsecutiveAppointmentService.create_consecutive_appointment(
                     main_appointment=main_appointment,
                     appointment_chain_type=appointment_chain_type,
                     additional_service=self.cleaned_data.get("additional_service"),
@@ -531,15 +533,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         if self.appointment:
 
-            # Проверяем наличие процедурной записи
-            procedural_exists = AppointmentChain.objects.filter(
-                main_appointment=self.appointment,
-                chain_type=AppointmentChain.ChainType.PROCEDURAL,
-            ).exists()
-
-            # Устанавливаем минимальную дату - сегодня
-            from django.utils import timezone
-
             today = timezone.now().date()
 
             # ВАЖНОЕ ИСПРАВЛЕНИЕ: Правильно инициализируем поле даты
@@ -653,7 +646,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
     def _validate_procedural_availability(self, new_time_slot, new_date):
         """Проверяет доступность времени в процедурном кабинете для нового слота"""
-        from timetable.models import Cabinet
 
         # Проверяем, есть ли процедурная запись
         has_procedural = Appointment.objects.filter(
@@ -665,12 +657,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             return True
 
         # Находим процедурный кабинет
-        try:
-            procedural_cabinet = Cabinet.objects.get(number=6)
-        except Cabinet.DoesNotExist:
-            raise forms.ValidationError(
-                "Процедурный кабинет (кабинет 6) не найден в системе"
-            )
+        procedural_cabinet = get_procedural_cabinet()
 
         # Находим процедурную запись для получения ее текущего слота
         procedural_appointment = Appointment.objects.filter(
@@ -752,7 +739,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         self, appointment, old_time_slot, new_time_slot, old_date
     ):
         """Переносит связанную процедурную запись на новое время"""
-        from timetable.models import Cabinet
 
         # Ищем процедурную запись
         procedural_appointment = Appointment.objects.filter(
@@ -764,12 +750,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             return
 
         # Находим процедурный кабинет
-        try:
-            procedural_cabinet = Cabinet.objects.get(number=6)
-        except Cabinet.DoesNotExist:
-            raise forms.ValidationError(
-                "Процедурный кабинет (кабинет 6) не найден в системе"
-            )
+        procedural_cabinet = get_procedural_cabinet()
 
         # Находим или создаем слот в процедурном кабинете на НОВОЕ время
         procedural_time_slot, created = TimeSlot.objects.get_or_create(
@@ -832,7 +813,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             procedural_appointment.price_at_appointment = appointment.service.price
             procedural_appointment.save()
         else:
-            print(f"DEBUG: Appointment has no service, cannot update procedural")
+            print("DEBUG: Appointment has no service, cannot update procedural")
 
 
 class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
@@ -963,7 +944,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
 
                 return appointment
 
-        except forms.ValidationError as e:
+        except forms.ValidationError:
             raise
         except IntegrityError as e:
             if "unique_doctor_time_slot" in str(e):
@@ -975,11 +956,9 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
     def _check_procedural_time_availability(self, start_time, end_time):
         """Проверяет доступность времени в процедурном кабинете"""
         try:
-            from appointments.services import ProceduralAppointmentService
-            from timetable.models import Cabinet
 
             date = self.selected_date or timezone.now().date()
-            procedural_cabinet = Cabinet.objects.get(number=6)
+            procedural_cabinet = get_procedural_cabinet()
 
             # Проверяем конфликтующие слоты в процедурном кабинете
             from timetable.models import TimeSlot
@@ -998,7 +977,6 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
 
     def _create_procedural_slot(self, start_time, end_time):
         """Создает или находит существующий временной слот для процедурного кабинета"""
-        from appointments.services import ProceduralAppointmentService
 
         date = self.selected_date or timezone.now().date()
 
@@ -1064,7 +1042,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                 # Обновляем комментарий с информацией об анализах
                 self._update_appointment_comment(appointment, selected_blood_tests)
 
-            except (ValueError, TypeError) as e:
+            except (ValueError, TypeError):
                 raise forms.ValidationError("Неверный формат выбранных анализов")
 
     def _update_appointment_comment(self, appointment, selected_blood_tests):
@@ -1356,7 +1334,7 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                 total = tests_price + service_price
 
                 cleaned_data["total_sum"] = total
-            except:
+            except Exception:
                 cleaned_data["total_sum"] = 0
 
         return cleaned_data
@@ -1364,9 +1342,8 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
     def _check_procedural_time_availability(self, date, start_time, end_time):
         """Проверяет доступность времени в процедурном кабинете на указанную дату"""
         try:
-            from timetable.models import Cabinet, TimeSlot
 
-            procedural_cabinet = Cabinet.objects.get(number=6)
+            procedural_cabinet = get_procedural_cabinet()
 
             conflicting_slots = TimeSlot.get_conflicting_slots(
                 date=date,

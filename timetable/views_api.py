@@ -1,6 +1,7 @@
+from datetime import datetime, timedelta
+
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
-from datetime import datetime, timedelta
 
 from timetable.models import TimeSlot
 from users.permissions.decorators import admin_required

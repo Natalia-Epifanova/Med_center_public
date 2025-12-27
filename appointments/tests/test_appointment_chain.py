@@ -78,7 +78,7 @@ class AppointmentChainTestCase(TestCase):
         )
 
         # Создаем связь
-        chain = AppointmentChain.objects.create(
+        AppointmentChain.objects.create(
             main_appointment=main_appointment,
             related_appointment=related_appointment,
             chain_type=AppointmentChain.ChainType.ANOTHER_DOCTOR,
