@@ -183,24 +183,16 @@ class TimeSlot(models.Model):
         return f"{self.date} {self.start_time}-{self.end_time} - {self.doctor.surname} ({slot_type_display})"
 
     def is_available(self, exclude_appointment_id=None, exclude_slot_id=None):
-        """Оптимизированная проверка доступности слота"""
+        """Проверка доступности слота"""
         from appointments.models import Appointment
 
         # Быстрая проверка типа слота
         if self.slot_type != "working":
             return False
 
-        # Кэшируем результат проверки наличия записей
-        cache_key = f"timeslot_available_{self.id}"
-        cached_result = cache.get(cache_key)
-
-        if cached_result is None:
-            # Делаем запрос к БД
-            appointments_count = self.appointments.count()
-            cache.set(cache_key, appointments_count == 0, 60)  # Кэшируем на 1 минуту
-            is_available = appointments_count == 0
-        else:
-            is_available = cached_result
+        # Проверяем наличие записей БЕЗ кэширования
+        appointments_count = self.appointments.count()
+        is_available = appointments_count == 0
 
         # Проверка исключений
         if not is_available and exclude_appointment_id:

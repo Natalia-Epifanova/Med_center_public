@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from appointments.services import AppointmentChainService
-from appointments.utils import (
+from appointments.utils_for_caches import (
     get_cached_doctor_services,
     get_procedural_cabinet,
     get_cached_blood_tests,

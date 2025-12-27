@@ -12,7 +12,7 @@ from appointments.services import (
     ConsecutiveAppointmentService,
     ProceduralAppointmentService,
 )
-from appointments.utils import get_procedural_cabinet
+from appointments.utils_for_caches import get_procedural_cabinet
 from patients.services import PatientService
 from timetable.models import BloodTest, Doctor, MedicalService, TimeSlot
 from timetable.utils import get_doctor_services
@@ -388,7 +388,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
             if "пищелев" in doctor.surname.lower():
                 from django.core.exceptions import ValidationError
 
-                from timetable.utils import validate_pishchelev_restrictions
+                from appointments.utils import validate_pishchelev_restrictions
 
                 try:
                     validate_pishchelev_restrictions(doctor, service, time_slot)

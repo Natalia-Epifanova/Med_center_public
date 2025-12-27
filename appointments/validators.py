@@ -53,7 +53,7 @@ class AppointmentValidator:
                 service_obj = service
 
             # Проверяем ограничения
-            from timetable.utils import validate_pishchelev_restrictions
+            from appointments.utils import validate_pishchelev_restrictions
 
             try:
                 validate_pishchelev_restrictions(doctor, service_obj, time_slot)

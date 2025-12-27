@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from appointments.models import Appointment
 from timetable.models import TimeSlot
 
-from appointments.utils import clear_doctor_slots_cache
+from appointments.utils_for_caches import clear_doctor_slots_cache
 
 
 @receiver([post_save, post_delete], sender=Appointment)
