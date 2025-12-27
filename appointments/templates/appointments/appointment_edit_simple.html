@@ -24,6 +24,7 @@
                 Текущее время: {{ appointment.start_time|time:"H:i" }}-{{ appointment.end_time|time:"H:i" }} (Каб. {{ appointment.cabinet.number }})
             </div>
 
+
             {% if messages %}
             <div class="messages mb-4">
                 {% for message in messages %}
@@ -62,6 +63,14 @@
                         <label for="id_new_time_slot_display" class="form-label">
                             <i class="fas fa-clock"></i> Временной слот
                         </label>
+                        <!-- Ошибка будет отображаться здесь -->
+                        {% if form.new_time_slot_id.errors %}
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            {{ form.new_time_slot_id.errors.0 }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endif %}
 
                         <!-- Поле для отображения выбранного слота -->
                         <input type="text" id="id_new_time_slot_display" class="form-control mb-2"
