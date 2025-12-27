@@ -758,6 +758,10 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     self._move_procedural_appointment(
                         appointment, old_time_slot, new_time_slot, old_date
                     )
+
+                # ВАЖНО: Всегда обновляем услугу в процедурной записи
+                self._update_procedural_service(appointment)
+
             except forms.ValidationError as e:
                 # Если возникает ошибка при переносе процедурной записи
                 print(f"DEBUG SAVE: Procedural move error: {str(e)}")
@@ -842,6 +846,32 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             old_procedural_slot.delete()
 
         print(f"DEBUG: Procedural move completed successfully")
+
+    def _update_procedural_service(self, appointment):
+        """Всегда обновляет услугу в процедурной записи на ту же что и в основной записи"""
+        print(f"DEBUG: Updating procedural service for appointment {appointment.id}")
+
+        # Находим процедурную запись
+        procedural_appointment = Appointment.objects.filter(
+            previous_appointment=appointment,
+            time_slot__cabinet__number=6,
+        ).first()
+
+        if not procedural_appointment:
+            print(f"DEBUG: No procedural appointment found to update service")
+            return
+
+        # Всегда обновляем на ту же услугу что и в основной записи
+        if appointment.service:
+            print(f"DEBUG: Appointment service: {appointment.service.name}")
+            procedural_appointment.service = appointment.service
+            procedural_appointment.price_at_appointment = appointment.service.price
+            procedural_appointment.save()
+            print(
+                f"DEBUG: Updated procedural appointment #{procedural_appointment.id} service to: {appointment.service.name}"
+            )
+        else:
+            print(f"DEBUG: Appointment has no service, cannot update procedural")
 
     def check_for_procedural_appointment_debug(self, appointment):
         """Отладочная функция для проверки процедурной записи"""
