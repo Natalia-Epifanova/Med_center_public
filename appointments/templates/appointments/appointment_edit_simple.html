@@ -140,6 +140,23 @@
                         {% endif %}
                     </div>
                 </div>
+                <!-- ДОБАВЛЕННЫЙ БЛОК: Требует перезаписи на более ранний срок -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            {{ form.needs_reschedule }}
+                            <label for="{{ form.needs_reschedule.id_for_label }}" class="form-check-label">
+                                <i class="fas fa-clock"></i> {{ form.needs_reschedule.label }}
+                            </label>
+                            {% if form.needs_reschedule.errors %}
+                            <div class="text-danger small">{{ form.needs_reschedule.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                Отметьте, если пациенту требуется запись на более ранний срок
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Кнопки -->
                 <div class="row mt-4">

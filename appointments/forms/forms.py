@@ -510,10 +510,18 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
     class Meta:
         model = Appointment
-        fields = ["service", "insurance_type", "comment"]
+        fields = [
+            "service",
+            "insurance_type",
+            "needs_reschedule",
+            "comment",
+        ]  # ДОБАВЛЕНО needs_reschedule
         widgets = {
             "service": forms.Select(attrs={"class": "form-select"}),
             "insurance_type": forms.Select(attrs={"class": "form-select"}),
+            "needs_reschedule": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),  # ДОБАВЛЕНО
             "comment": forms.Textarea(attrs={"rows": 3, "class": "form-control"}),
         }
 
