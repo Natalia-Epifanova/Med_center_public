@@ -4,3 +4,7 @@ from django.apps import AppConfig
 class AppointmentsConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "appointments"
+
+    def ready(self):
+        # Импортируем сигналы
+        import appointments.signals  # Убедитесь что файл называется signals.py

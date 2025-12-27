@@ -348,3 +348,160 @@ def get_cached_doctor_by_id(doctor_id):
             return doctor
 
     return None
+
+
+def get_cached_doctor_slots(doctor_id, date, exclude_slot_ids=None):
+    """
+    Получить слоты врача на дату с кэшированием.
+
+    Args:
+        doctor_id: ID врача
+        date: дата в формате YYYY-MM-DD или datetime.date
+        exclude_slot_ids: список ID слотов для исключения
+
+    Returns:
+        QuerySet слотов врача
+    """
+    if exclude_slot_ids is None:
+        exclude_slot_ids = []
+
+    # Приводим дату к строке для ключа кэша
+    if hasattr(date, "strftime"):
+        date_str = date.strftime("%Y-%m-%d")
+    else:
+        date_str = str(date)
+
+    cache_key = CACHE_KEYS["DOCTOR_SLOTS"].format(doctor_id=doctor_id, date=date_str)
+
+    slot_ids = cache.get(cache_key)
+
+    if slot_ids is None:
+        try:
+            # Получаем слоты из БД
+            from timetable.models import TimeSlot
+
+            slots = TimeSlot.objects.filter(
+                doctor_id=doctor_id, date=date_str, slot_type="working"
+            ).order_by("start_time")
+
+            # Кэшируем ID слотов
+            slot_ids = list(slots.values_list("id", flat=True))
+            cache.set(cache_key, slot_ids, CACHE_TIMEOUTS["DOCTOR_SLOTS"])
+
+        except Exception as e:
+            print(f"Error getting doctor slots: {e}")
+            slot_ids = []
+            cache.set(cache_key, slot_ids, 60)  # 1 минута при ошибке
+
+    # Получаем объекты
+    from timetable.models import TimeSlot
+
+    slots = TimeSlot.objects.filter(id__in=slot_ids).order_by("start_time")
+
+    # Исключаем слоты если нужно
+    if exclude_slot_ids:
+        slots = slots.exclude(id__in=exclude_slot_ids)
+
+    return slots
+
+
+def get_cached_doctor_slots_for_api(doctor_id, date, booked_slots=None):
+    """
+    Получить слоты врача в формате для API с кэшированием.
+
+    Args:
+        doctor_id: ID врача
+        date: дата
+        booked_slots: список забронированных слотов (для проверки доступности)
+
+    Returns:
+        Список словарей с данными слотов
+    """
+    if booked_slots is None:
+        booked_slots = []
+
+    # Приводим дату к строке
+    if hasattr(date, "strftime"):
+        date_str = date.strftime("%Y-%m-%d")
+    else:
+        date_str = str(date)
+
+    cache_key = CACHE_KEYS["DOCTOR_SLOTS_DETAILED"].format(
+        doctor_id=doctor_id, date=date_str
+    )
+
+    slots_data = cache.get(cache_key)
+
+    if slots_data is None:
+        # Получаем базовые слоты
+        slots = get_cached_doctor_slots(doctor_id, date_str)
+
+        # Преобразуем в словари
+        slots_data = []
+        for slot in slots:
+            slots_data.append(
+                {
+                    "id": slot.id,
+                    "start_time": slot.start_time.strftime("%H:%M:%S"),
+                    "end_time": slot.end_time.strftime("%H:%M:%S"),
+                    "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
+                    "cabinet": f"Каб. {slot.cabinet.number}",
+                    "cabinet_number": slot.cabinet.number,
+                    "is_available": slot.is_available(),  # Базовая проверка
+                }
+            )
+
+        cache.set(cache_key, slots_data, CACHE_TIMEOUTS["DOCTOR_SLOTS_DETAILED"])
+
+    # Обновляем availability с учетом забронированных слотов
+    for slot in slots_data:
+        slot_id_str = str(slot["id"])
+        # Слот доступен если он свободен ИЛИ это текущий слот в booked_slots
+        slot["is_available"] = slot["is_available"] or slot_id_str in booked_slots
+        slot["is_current"] = slot_id_str in booked_slots
+
+    return slots_data
+
+
+def clear_doctor_slots_cache(doctor_id=None, date=None):
+    """
+    Очистить кэш слотов врача.
+
+    Args:
+        doctor_id: ID врача (если None - очистить все)
+        date: дата (если None - очистить все даты)
+    """
+    if doctor_id and date:
+        # Очистить конкретную дату
+        if hasattr(date, "strftime"):
+            date_str = date.strftime("%Y-%m-%d")
+        else:
+            date_str = str(date)
+
+        cache_key = CACHE_KEYS["DOCTOR_SLOTS"].format(
+            doctor_id=doctor_id, date=date_str
+        )
+        cache.delete(cache_key)
+
+        detailed_key = CACHE_KEYS["DOCTOR_SLOTS_DETAILED"].format(
+            doctor_id=doctor_id, date=date_str
+        )
+        cache.delete(detailed_key)
+
+    elif doctor_id:
+        # Очистить все даты для врача (сложнее)
+        # В реальном приложении используйте паттерн префиксов
+        pass
+    else:
+        # Очистить все (в продакшене не использовать)
+        pass
+
+
+def invalidate_slots_cache_on_appointment_change(sender, instance, **kwargs):
+    """
+    Сигнал для очистки кэша слотов при изменении записи.
+    """
+    if hasattr(instance, "time_slot") and instance.time_slot:
+        doctor_id = instance.time_slot.doctor_id
+        date = instance.time_slot.date
+        clear_doctor_slots_cache(doctor_id, date)
