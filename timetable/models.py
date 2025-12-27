@@ -1,3 +1,4 @@
+from django.core.cache import cache
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
@@ -181,27 +182,37 @@ class TimeSlot(models.Model):
         slot_type_display = "Перерыв" if self.slot_type == "break" else "Слот"
         return f"{self.date} {self.start_time}-{self.end_time} - {self.doctor.surname} ({slot_type_display})"
 
-    def is_available(self, exclude_slot_id=None, exclude_appointment_id=None):
-        """Проверяет, доступен ли слот для записи"""
+    def is_available(self, exclude_appointment_id=None, exclude_slot_id=None):
+        """Оптимизированная проверка доступности слота"""
+        from appointments.models import Appointment
+
+        # Быстрая проверка типа слота
         if self.slot_type != "working":
             return False
 
-        from appointments.models import Appointment
+        # Кэшируем результат проверки наличия записей
+        cache_key = f"timeslot_available_{self.id}"
+        cached_result = cache.get(cache_key)
 
-        # Базовый запрос на наличие записей
-        appointments_query = Appointment.objects.filter(time_slot=self)
+        if cached_result is None:
+            # Делаем запрос к БД
+            appointments_count = self.appointments.count()
+            cache.set(cache_key, appointments_count == 0, 60)  # Кэшируем на 1 минуту
+            is_available = appointments_count == 0
+        else:
+            is_available = cached_result
 
-        # Исключаем определенную запись если нужно
-        if exclude_appointment_id:
-            appointments_query = appointments_query.exclude(id=exclude_appointment_id)
+        # Проверка исключений
+        if not is_available and exclude_appointment_id:
+            # Проверяем, является ли единственная запись исключаемой
+            appointments = self.appointments.all()
+            if (
+                appointments.count() == 1
+                and appointments.first().id == exclude_appointment_id
+            ):
+                return True
 
-        has_appointment = appointments_query.exists()
-
-        # Если проверяем этот же слот (например, при редактировании)
-        if exclude_slot_id and self.id == exclude_slot_id:
-            return not has_appointment or appointments_query.count() == 1
-
-        return not has_appointment
+        return is_available
 
     def get_next_consecutive_slot(self):
         """Получает следующий последовательный слот"""
@@ -212,17 +223,6 @@ class TimeSlot(models.Model):
             start_time=self.end_time,
             slot_type="working",
         ).first()
-
-    def has_time_conflict(self, other_slot):
-        """Проверяет, пересекается ли этот слот с другим слотом"""
-        if self.date != other_slot.date:
-            return False
-
-        # Проверяем пересечение временных интервалов
-        return not (
-            self.end_time <= other_slot.start_time
-            or self.start_time >= other_slot.end_time
-        )
 
     @classmethod
     def get_conflicting_slots(
@@ -244,21 +244,6 @@ class TimeSlot(models.Model):
             queryset = queryset.exclude(id=exclude_slot_id)
 
         return queryset
-
-    def is_time_available(self, cabinet=None):
-        """Проверяет, доступно ли это время в указанном кабинете"""
-        conflicting_slots = TimeSlot.get_conflicting_slots(
-            date=self.date,
-            start_time=self.start_time,
-            end_time=self.end_time,
-            cabinet=cabinet,
-            exclude_slot_id=self.id,
-        )
-        return not conflicting_slots.exists()
-
-    def has_time_overlap(self, other_start, other_end):
-        """Проверяет, пересекается ли этот временной интервал с другим"""
-        return not (self.end_time <= other_start or self.start_time >= other_end)
 
 
 class DayComment(models.Model):

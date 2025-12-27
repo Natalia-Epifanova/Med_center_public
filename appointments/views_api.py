@@ -15,6 +15,7 @@ from appointments.utils import (
     get_procedural_cabinet,
     get_cached_blood_tests,
     get_cached_active_doctors,
+    get_cached_doctor_slots_for_api,
 )
 from timetable.models import (
     BloodTest,
@@ -86,38 +87,9 @@ def get_available_slots_for_doctor_api(request):
         if not doctor_id or not date:
             return JsonResponse({"error": "Не указаны doctor_id или date"}, status=400)
 
-        doctor = Doctor.objects.get(id=doctor_id)
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
-
-        # Получаем все слоты на указанную дату
-        slots = TimeSlot.objects.filter(
-            doctor=doctor, date=target_date, slot_type="working"
-        ).order_by("start_time")
-
-        available_slots = []
-        for slot in slots:
-            # Проверяем, является ли это текущим слотом редактируемой записи
-            is_current_slot = str(slot.id) in booked_slots
-
-            # Проверяем доступность (слот свободен ИЛИ это текущий слот)
-            is_available = slot.is_available() or is_current_slot
-
-            if is_available:
-                available_slots.append(slot)
-
-        slots_data = []
-        for slot in available_slots:
-            slots_data.append(
-                {
-                    "id": slot.id,
-                    "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
-                    "cabinet": f"Каб. {slot.cabinet.number}",
-                    "start_time": slot.start_time.strftime("%H:%M:%S"),
-                    "end_time": slot.end_time.strftime("%H:%M:%S"),
-                    "cabinet_number": slot.cabinet.number,
-                    "is_current": str(slot.id) in booked_slots,
-                }
-            )
+        slots_data = get_cached_doctor_slots_for_api(
+            doctor_id=doctor_id, date=date, booked_slots=booked_slots
+        )
 
         return JsonResponse(
             {
@@ -127,9 +99,8 @@ def get_available_slots_for_doctor_api(request):
             }
         )
 
-    except Doctor.DoesNotExist:
-        return JsonResponse({"error": "Врач не найден"}, status=404)
     except Exception as e:
+        print(f"Error in get_available_slots_for_doctor_api: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
