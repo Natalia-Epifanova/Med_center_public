@@ -180,6 +180,11 @@ class AppointmentSimpleEditView(MedicalAdminOrAdminRequiredMixin, UpdateView):
         context["appointment"] = self.object
         return context
 
+    def form_invalid(self, form):
+        """Обработка невалидной формы - показываем ошибки пользователю"""
+        # Все ошибки уже добавлены в форму, Django их покажет автоматически
+        return super().form_invalid(form)
+
 
 class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView):
     """Удаление с выбором опций"""
