@@ -87,14 +87,12 @@ class AppointmentChainService:
         return created_appointments
 
     @staticmethod
-    def get_available_doctors(exclude_doctor=None):
-        """Получить список доступных врачей (исключая текущего если нужно)"""
-        doctors = Doctor.objects.filter(is_active=True).order_by("surname")
+    def get_available_doctors():
+        """Получить список доступных врачей с кэшированием"""
+        from appointments.utils import get_cached_active_doctors
 
-        if exclude_doctor:
-            doctors = doctors.exclude(id=exclude_doctor.id)
-
-        return doctors
+        doctors_data = get_cached_active_doctors()
+        return doctors_data
 
 
 class AppointmentService:

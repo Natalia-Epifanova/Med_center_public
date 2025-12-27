@@ -1,10 +1,16 @@
 # appointments/utils.py
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 
 from appointments.constants import CACHE_KEYS, CACHE_TIMEOUTS, PROCEDURAL_CABINET_NUMBER
-from timetable.models import Cabinet, MedicalService
+from timetable.models import (
+    Cabinet,
+    MedicalService,
+    BloodTestCategory,
+    BloodTest,
+    Doctor,
+)
 
 
 # 1. Функции для процедурного кабинета (уже есть)
@@ -194,3 +200,151 @@ def clear_all_doctor_caches():
     # В реальном приложении нужно использовать паттерн "префикс" или "версия"
     # Для простоты оставляем так
     pass
+
+
+def get_cached_blood_tests():
+    """
+    Получить анализы крови с категориями с кэшированием.
+    Используется для форм и API.
+    """
+    cache_key = CACHE_KEYS["BLOOD_TESTS"]
+    categories_data = cache.get(cache_key)
+
+    if categories_data is None:
+        # Получаем данные из БД
+        categories = (
+            BloodTestCategory.objects.filter(is_active=True)
+            .prefetch_related(
+                Prefetch("tests", queryset=BloodTest.objects.all().order_by("name"))
+            )
+            .order_by("order")
+        )
+
+        # Преобразуем в структуру для кэширования
+        categories_data = []
+        for category in categories:
+            tests_data = []
+            for test in category.tests.all():
+                tests_data.append(
+                    {
+                        "id": test.id,
+                        "code": test.code,
+                        "name": test.name,
+                        "biomaterial": test.biomaterial,
+                        "biomaterial_display": test.get_biomaterial_display(),
+                        "price": float(test.price),
+                        "execution_time": test.execution_time,
+                        "category_id": category.id,
+                        "category_name": category.name,
+                    }
+                )
+
+            categories_data.append(
+                {"id": category.id, "name": category.name, "tests": tests_data}
+            )
+
+        # Кэшируем на 2 часа
+        cache.set(cache_key, categories_data, CACHE_TIMEOUTS["BLOOD_TESTS"])
+
+    return categories_data
+
+
+def clear_blood_tests_cache():
+    """Очистить кэш анализов крови"""
+    cache_key = CACHE_KEYS["BLOOD_TESTS"]
+    cache.delete(cache_key)
+
+
+def get_cached_blood_test(test_id):
+    """
+    Получить конкретный анализ крови по ID.
+    Использует общий кэш анализов.
+    """
+    all_tests_data = get_cached_blood_tests()
+
+    for category in all_tests_data:
+        for test in category["tests"]:
+            if test["id"] == test_id:
+                return test
+
+    return None
+
+
+def get_cached_active_doctors():
+    """
+    Получить список активных врачей с кэшированием.
+    Возвращает список словарей с основными данными врачей.
+    """
+    cache_key = CACHE_KEYS["ACTIVE_DOCTORS"]
+    doctors_data = cache.get(cache_key)
+
+    if doctors_data is None:
+        try:
+            # Получаем всех врачей
+            from timetable.models import Doctor
+
+            doctors = Doctor.objects.all().order_by("surname")
+
+            # Преобразуем в структуру для кэширования
+            doctors_data = []
+            for doctor in doctors:
+                # Получаем русское название специализации
+                specialization_display = doctor.get_specialization_display()
+
+                # Формируем полное имя для отображения
+                full_name_display = (
+                    f"{doctor.surname} {doctor.first_name[0]}.{doctor.last_name[0]}."
+                )
+
+                # Формируем строку для отображения в выпадающем списке
+                # ТОЧНО ТАК ЖЕ как было раньше в JS:
+                display_name = f"{doctor.surname} {doctor.first_name[0]}.{doctor.last_name[0]}. ({specialization_display})"
+
+                doctors_data.append(
+                    {
+                        "id": doctor.id,
+                        "surname": doctor.surname,
+                        "first_name": doctor.first_name,
+                        "last_name": doctor.last_name,
+                        "full_name": full_name_display,
+                        "display_name": display_name,  # Ключевое поле для отображения
+                        "specialization": doctor.specialization,
+                        "specialization_display": specialization_display,
+                        "provided_services": (
+                            list(doctor.provided_services)
+                            if hasattr(doctor, "provided_services")
+                            else []
+                        ),
+                    }
+                )
+
+            # Кэшируем на 30 минут
+            cache.set(cache_key, doctors_data, CACHE_TIMEOUTS["ACTIVE_DOCTORS"])
+
+            print(f"Cached {len(doctors_data)} doctors")
+
+        except Exception as e:
+            print(f"Error in get_cached_active_doctors: {e}")
+            doctors_data = []
+            cache.set(cache_key, doctors_data, 60)
+
+    return doctors_data
+
+
+def clear_active_doctors_cache():
+    """Очистить кэш списка врачей"""
+    cache_key = CACHE_KEYS["ACTIVE_DOCTORS"]
+    cache.delete(cache_key)
+
+
+def get_cached_doctor_by_id(doctor_id):
+    """
+    Получить данные врача по ID из кэша.
+    """
+    doctors_data = get_cached_active_doctors()
+
+    for doctor in doctors_data:
+        if doctor["id"] == doctor_id:
+            return doctor
+
+    return None
