@@ -530,21 +530,12 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if self.appointment:
-            print(f"DEBUG FORM: Appointment date = {self.appointment.date}")
-            print(
-                f"DEBUG FORM: Appointment time_slot id = {self.appointment.time_slot.id if self.appointment.time_slot else 'None'}"
-            )
 
             # Проверяем наличие процедурной записи
             procedural_exists = AppointmentChain.objects.filter(
                 main_appointment=self.appointment,
                 chain_type=AppointmentChain.ChainType.PROCEDURAL,
             ).exists()
-
-            if procedural_exists:
-                print(
-                    f"DEBUG FORM: Found procedural appointment for appointment {self.appointment.id}"
-                )
 
             # Устанавливаем минимальную дату - сегодня
             from django.utils import timezone
@@ -553,7 +544,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
             # ВАЖНОЕ ИСПРАВЛЕНИЕ: Правильно инициализируем поле даты
             appointment_date = self.appointment.date
-            print(f"DEBUG FORM: Setting initial date to {appointment_date}")
 
             self.fields["new_appointment_date"].initial = appointment_date
             self.fields["new_appointment_date"].widget.attrs["min"] = today.isoformat()
@@ -572,9 +562,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     f"(Каб. {self.appointment.cabinet.number})"
                 )
                 self.fields["new_time_slot_display"].initial = current_slot_display
-                print(
-                    f"DEBUG FORM: Setting initial slot display to {current_slot_display}"
-                )
 
             # Ограничиваем услуги только для этого врача
             self.fields["service"].queryset = get_doctor_services(
@@ -668,10 +655,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         """Проверяет доступность времени в процедурном кабинете для нового слота"""
         from timetable.models import Cabinet
 
-        print(
-            f"DEBUG: Validating procedural availability for new slot {new_time_slot.id}"
-        )
-
         # Проверяем, есть ли процедурная запись
         has_procedural = Appointment.objects.filter(
             previous_appointment=self.appointment,
@@ -679,12 +662,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         ).exists()
 
         if not has_procedural:
-            print(f"DEBUG: No procedural appointment found")
             return True
-
-        print(
-            f"DEBUG: Found procedural appointment for appointment {self.appointment.id}"
-        )
 
         # Находим процедурный кабинет
         try:
@@ -715,8 +693,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             id=procedural_appointment.time_slot_id  # Исключаем текущий слот процедурной записи
         )
 
-        print(f"DEBUG: Found {conflicting_slots.count()} conflicting slots")
-
         if conflicting_slots.exists():
             occupied_slot = conflicting_slots.first()
             patient_name = occupied_slot.appointments.first().patient.get_full_name()
@@ -727,7 +703,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 f"в процедурном кабинете уже занято пациентом {patient_name}. "
                 f"Пожалуйста, выберите другое время или отмените процедурную запись."
             )
-            print(f"ERROR: {error_msg}")
             raise forms.ValidationError(error_msg)
 
         return True
@@ -749,8 +724,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         date_changed = new_date != old_date
         time_changed = new_time_slot.id != old_time_slot.id if new_time_slot else False
 
-        print(f"DEBUG SAVE: Date changed: {date_changed}, Time changed: {time_changed}")
-
         # Обновляем слот только если он изменился
         if date_changed or time_changed:
             appointment.time_slot = new_time_slot
@@ -759,7 +732,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         if commit:
             try:
                 appointment.save()
-                print(f"DEBUG SAVE: Saved appointment {appointment.id}")
 
                 # Переносим процедурную запись если она есть
                 if date_changed or time_changed:
@@ -772,7 +744,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
             except forms.ValidationError as e:
                 # Если возникает ошибка при переносе процедурной записи
-                print(f"DEBUG SAVE: Procedural move error: {str(e)}")
                 raise forms.ValidationError(str(e))
 
         return appointment
@@ -783,8 +754,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         """Переносит связанную процедурную запись на новое время"""
         from timetable.models import Cabinet
 
-        print(f"DEBUG: Starting procedural move for appointment {appointment.id}")
-
         # Ищем процедурную запись
         procedural_appointment = Appointment.objects.filter(
             previous_appointment=appointment,
@@ -792,10 +761,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         ).first()
 
         if not procedural_appointment:
-            print(f"DEBUG: No procedural appointment found")
             return
-
-        print(f"DEBUG: Found procedural appointment: {procedural_appointment.id}")
 
         # Находим процедурный кабинет
         try:
@@ -815,8 +781,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             defaults={"slot_type": "working", "description": "Процедурный кабинет"},
         )
 
-        print(f"DEBUG: Created new procedural time slot? {created}")
-
         # Проверяем, не занят ли этот слот другой записью
         if not created and procedural_time_slot.appointments.exists():
             other_appointment = procedural_time_slot.appointments.exclude(
@@ -828,7 +792,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     f"Невозможно перенести запись: время в процедурном кабинете уже занято записью "
                     f"#{other_appointment.id} для пациента {other_appointment.patient.get_full_name()}."
                 )
-                print(f"ERROR: {error_msg}")
                 raise forms.ValidationError(error_msg)
 
         # Сохраняем старый слот для удаления
@@ -846,18 +809,13 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             procedural_appointment.comment = appointment.doctor.surname
 
         procedural_appointment.save()
-        print(f"DEBUG: Saved procedural appointment {procedural_appointment.id}")
 
         # Удаляем старый пустой слот
         if old_procedural_slot and not old_procedural_slot.appointments.exists():
-            print(f"DEBUG: Deleting old procedural slot {old_procedural_slot.id}")
             old_procedural_slot.delete()
-
-        print(f"DEBUG: Procedural move completed successfully")
 
     def _update_procedural_service(self, appointment):
         """Всегда обновляет услугу в процедурной записи на ту же что и в основной записи"""
-        print(f"DEBUG: Updating procedural service for appointment {appointment.id}")
 
         # Находим процедурную запись
         procedural_appointment = Appointment.objects.filter(
@@ -866,56 +824,15 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         ).first()
 
         if not procedural_appointment:
-            print(f"DEBUG: No procedural appointment found to update service")
             return
 
         # Всегда обновляем на ту же услугу что и в основной записи
         if appointment.service:
-            print(f"DEBUG: Appointment service: {appointment.service.name}")
             procedural_appointment.service = appointment.service
             procedural_appointment.price_at_appointment = appointment.service.price
             procedural_appointment.save()
-            print(
-                f"DEBUG: Updated procedural appointment #{procedural_appointment.id} service to: {appointment.service.name}"
-            )
         else:
             print(f"DEBUG: Appointment has no service, cannot update procedural")
-
-    def check_for_procedural_appointment_debug(self, appointment):
-        """Отладочная функция для проверки процедурной записи"""
-        from appointments.models import AppointmentChain
-
-        print("=== DEBUG: Checking for procedural appointment ===")
-        print(f"Appointment ID: {appointment.id}")
-        print(f"Appointment doctor: {appointment.doctor.surname}")
-        print(f"Appointment cabinet: {appointment.cabinet.number}")
-
-        # Все связанные записи через AppointmentChain
-        chains = AppointmentChain.objects.filter(main_appointment=appointment)
-        print(f"Total chains: {chains.count()}")
-
-        for chain in chains:
-            print(f"  Chain {chain.id}: type={chain.chain_type}")
-            if chain.related_appointment:
-                related = chain.related_appointment
-                print(f"    Related appointment {related.id}:")
-                print(
-                    f"      Doctor: {related.doctor.surname if related.doctor else 'None'}"
-                )
-                print(
-                    f"      Cabinet: {related.cabinet.number if related.cabinet else 'None'}"
-                )
-                print(f"      Time: {related.start_time}-{related.end_time}")
-
-        # Проверяем через is_consecutive
-        consecutive = Appointment.objects.filter(previous_appointment=appointment)
-        print(f"Consecutive appointments: {consecutive.count()}")
-        for app in consecutive:
-            print(f"  Consecutive appointment {app.id}:")
-            print(f"    Doctor: {app.doctor.surname if app.doctor else 'None'}")
-            print(f"    Cabinet: {app.cabinet.number if app.cabinet else 'None'}")
-
-        return chains.exists() or consecutive.exists()
 
 
 class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
