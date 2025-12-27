@@ -7,11 +7,10 @@ from django.utils import timezone
 
 from appointments.forms.base import AppointmentChainBaseForm
 from appointments.forms.procedural_base import ProceduralAppointmentBaseForm
-from appointments.models import Appointment, AppointmentBloodTest, AppointmentChain
-from appointments.services import (
-    ConsecutiveAppointmentService,
-    ProceduralAppointmentService,
-)
+from appointments.models import (Appointment, AppointmentBloodTest,
+                                 AppointmentChain)
+from appointments.services import (ConsecutiveAppointmentService,
+                                   ProceduralAppointmentService)
 from appointments.utils_for_caches import get_procedural_cabinet
 from patients.services import PatientService
 from timetable.models import BloodTest, Doctor, MedicalService, TimeSlot

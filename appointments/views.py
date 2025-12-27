@@ -14,12 +14,10 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from appointments.constants import SLOT_LOCK_TIMEOUT
-from appointments.forms.forms import (
-    AppointmentForm,
-    AppointmentSimpleEditForm,
-    ProceduralAppointmentForm,
-    ProceduralAppointmentUpdateForm,
-)
+from appointments.forms.forms import (AppointmentForm,
+                                      AppointmentSimpleEditForm,
+                                      ProceduralAppointmentForm,
+                                      ProceduralAppointmentUpdateForm)
 from appointments.models import Appointment, AppointmentChain
 from appointments.utils_for_caches import get_procedural_cabinet
 from timetable.models import Doctor, TimeSlot

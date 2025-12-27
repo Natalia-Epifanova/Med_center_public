@@ -11,18 +11,18 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 
 from appointments.services import AppointmentChainService
 from appointments.utils_for_caches import (
-    get_cached_doctor_services,
-    get_procedural_cabinet,
-    get_cached_blood_tests,
     get_cached_active_doctors,
+    get_cached_blood_tests,
+    get_cached_doctor_services,
     get_cached_doctor_slots_for_api,
+    get_procedural_cabinet,
 )
 from timetable.models import (
     BloodTest,
+    BloodTestCategory,
     Doctor,
     MedicalService,
     TimeSlot,
-    BloodTestCategory,
 )
 
 

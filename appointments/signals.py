@@ -1,9 +1,9 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
-from appointments.models import Appointment
-from timetable.models import TimeSlot
 
+from appointments.models import Appointment
 from appointments.utils_for_caches import clear_doctor_slots_cache
+from timetable.models import TimeSlot
 
 
 @receiver([post_save, post_delete], sender=Appointment)
