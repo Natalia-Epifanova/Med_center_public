@@ -1,5 +1,11 @@
 # patients/mixins.py (добавляем метод в класс PatientFieldsMixin)
+import json
+
 from django import forms
+
+from appointments.constants import APPOINTMENT_CHAIN_CHOICES
+from timetable.models import MedicalService, TimeSlot
+from appointments.utils import validate_pishchelev_restrictions
 
 
 class PatientFieldsMixin:
@@ -77,86 +83,21 @@ class PatientFieldsMixin:
 class AppointmentFormMixin:
     """Миксин с общими методами для форм записей"""
 
-    APPOINTMENT_CHOICES = [
-        ("none", "Только одна услуга"),
-        # ("additional", "Добавить вторую услугу к этому же врачу"),
-        ("two_slots", "Занять два окошка для одной услуги"),
-        ("another_doctor", "Добавить запись к этому или другому врачу"),
-        ("multiple", "Несколько записей к этому врачу или разным врачам"),
-    ]
+    APPOINTMENT_CHOICES = APPOINTMENT_CHAIN_CHOICES
 
     def get_appointment_type_display(self, value):
         """Получить отображаемое название типа записи"""
         choices_dict = dict(self.APPOINTMENT_CHOICES)
         return choices_dict.get(value, value)
 
-    def _validate_pishchelev_restrictions(self, cleaned_data):
-        """Проверка ограничений для врача Пищелева П.В. для ВСЕХ записей"""
-        doctor = None
-
-        # Получаем врача в зависимости от контекста
-        if hasattr(self, "time_slot") and self.time_slot:
-            doctor = self.time_slot.doctor
-        elif hasattr(self, "current_appointment") and self.current_appointment:
-            doctor = self.current_appointment.doctor
-        elif hasattr(self, "doctor") and self.doctor:
-            doctor = self.doctor
-
-        # Если это не Пищелев, выходим
-        if not doctor or "пищелев" not in doctor.surname.lower():
-            return
-
-        # Проверяем основную услугу
-        service = cleaned_data.get("service")
-        time_slot = getattr(self, "time_slot", None)
-
-        from django.core.exceptions import ValidationError
-
-        from timetable.utils import validate_pishchelev_restrictions
-
-        try:
-            validate_pishchelev_restrictions(doctor, service, time_slot)
-        except ValidationError as e:
-            # Перевыбрасываем исключение с более понятным сообщением
-            raise ValidationError(
-                f"Врач Пищелев П.В.: {str(e)}\n"
-                f"Услуга: {service.name if service else 'не указана'}\n"
-                f"Время: {time_slot.start_time if time_slot else 'не указано'}"
-            )
-
-        # Проверяем дополнительные услуги в цепочке
-        self._validate_pishchelev_for_chain(doctor, cleaned_data)
-
     def _validate_pishchelev_for_chain(self, doctor, cleaned_data):
         """Проверка ограничений Пищелева для записей в цепочке"""
         appointment_chain_type = cleaned_data.get("appointment_chain_type")
-
-        # Проверяем дополнительную услугу для того же врача
-        if appointment_chain_type == "additional":
-            additional_service = cleaned_data.get("additional_service")
-            time_slot = getattr(self, "time_slot", None)
-
-            if additional_service and time_slot:
-                next_slot = time_slot.get_next_consecutive_slot()
-                if next_slot:
-                    from django.core.exceptions import ValidationError
-
-                    from timetable.utils import validate_pishchelev_restrictions
-
-                    try:
-                        validate_pishchelev_restrictions(
-                            doctor, additional_service, next_slot
-                        )
-                    except ValidationError as e:
-                        raise ValidationError(
-                            f"Ошибка для второй услуги ({additional_service.name}): {str(e)}"
-                        )
 
         # Проверяем дополнительные записи к другим врачам/тому же врачу
         if appointment_chain_type in ["another_doctor", "multiple"]:
             additional_data = cleaned_data.get("additional_appointments_data")
             if additional_data:
-                import json
 
                 try:
                     appointments_list = json.loads(additional_data)
@@ -167,15 +108,10 @@ class AppointmentFormMixin:
                             time_slot_id = appointment_data.get("time_slot_id")
 
                             if service_id and time_slot_id:
-                                from timetable.models import MedicalService, TimeSlot
 
                                 try:
                                     service = MedicalService.objects.get(id=service_id)
                                     time_slot = TimeSlot.objects.get(id=time_slot_id)
-
-                                    from timetable.utils import (
-                                        validate_pishchelev_restrictions,
-                                    )
 
                                     validate_pishchelev_restrictions(
                                         doctor, service, time_slot

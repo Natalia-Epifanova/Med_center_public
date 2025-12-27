@@ -4,7 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from appointments.forms.base import AppointmentChainBaseForm
-from appointments.utils import get_procedural_cabinet
+from appointments.utils_for_caches import get_procedural_cabinet
 from timetable.models import MedicalService, MedicalServiceCategory, TimeSlot
 
 

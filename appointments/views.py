@@ -21,7 +21,7 @@ from appointments.forms.forms import (
     ProceduralAppointmentUpdateForm,
 )
 from appointments.models import Appointment, AppointmentChain
-from appointments.utils import get_procedural_cabinet
+from appointments.utils_for_caches import get_procedural_cabinet
 from timetable.models import Doctor, TimeSlot
 from timetable.utils import get_status_badge_class
 from users.permissions.decorators import medical_admin_or_admin_required

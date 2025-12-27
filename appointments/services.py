@@ -3,7 +3,10 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from appointments.models import Appointment, AppointmentChain
-from appointments.utils import get_cached_doctor_services, get_procedural_cabinet
+from appointments.utils_for_caches import (
+    get_cached_doctor_services,
+    get_procedural_cabinet,
+)
 from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
@@ -89,7 +92,7 @@ class AppointmentChainService:
     @staticmethod
     def get_available_doctors():
         """Получить список доступных врачей с кэшированием"""
-        from appointments.utils import get_cached_active_doctors
+        from appointments.utils_for_caches import get_cached_active_doctors
 
         doctors_data = get_cached_active_doctors()
         return doctors_data
