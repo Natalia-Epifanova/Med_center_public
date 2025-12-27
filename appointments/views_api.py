@@ -10,7 +10,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from appointments.services import AppointmentChainService
-from appointments.utils import get_cached_doctor_services, get_procedural_cabinet
+from appointments.utils import (
+    get_cached_doctor_services,
+    get_procedural_cabinet,
+    get_cached_blood_tests,
+    get_cached_active_doctors,
+)
 from timetable.models import (
     BloodTest,
     Doctor,
@@ -175,28 +180,19 @@ def validate_additional_appointment_api(request):
 @require_http_methods(["POST"])
 @login_required
 def get_available_doctors_api(request):
-    """API для получения списка доступных врачей (исключая основного)"""
+    """API для получения списка доступных врачей"""
     try:
-
-        doctors = Doctor.objects.order_by("surname")
-
-        doctors_data = []
-        for doctor in doctors:
-            doctors_data.append(
-                {
-                    "id": doctor.id,
-                    "surname": doctor.surname,
-                    "first_name": doctor.first_name,
-                    "last_name": doctor.last_name,
-                    "specialization": doctor.get_specialization_display(),
-                }
-            )
+        doctors_data = get_cached_active_doctors()
 
         return JsonResponse(
             {"success": True, "doctors": doctors_data, "count": len(doctors_data)}
         )
 
     except Exception as e:
+        print(f"ERROR in get_available_doctors_api: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -379,34 +375,7 @@ def check_procedural_availability(request):
 
 def get_blood_tests(request):
     """API для получения анализов крови с категориями"""
-    categories = (
-        BloodTestCategory.objects.filter(is_active=True)
-        .prefetch_related(Prefetch("tests", queryset=BloodTest.objects.all()))
-        .order_by("order")
-    )
-
-    categories_data = []
-    for category in categories:
-        tests_data = []
-        for test in category.tests.all():
-            tests_data.append(
-                {
-                    "id": test.id,
-                    "code": test.code,
-                    "name": test.name,
-                    "biomaterial": test.biomaterial,
-                    "biomaterial_display": test.get_biomaterial_display(),
-                    "price": float(test.price),
-                    "execution_time": test.execution_time,
-                    "category_id": category.id,  # ДОБАВЛЯЕМ ЭТО ПОЛЕ
-                    "category_name": category.name,  # И ЭТО ТОЖЕ
-                }
-            )
-
-        categories_data.append(
-            {"id": category.id, "name": category.name, "tests": tests_data}
-        )
-
+    categories_data = get_cached_blood_tests()
     return JsonResponse({"categories": categories_data})
 
 
