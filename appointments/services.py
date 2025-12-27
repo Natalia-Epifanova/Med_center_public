@@ -3,10 +3,8 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from appointments.models import Appointment, AppointmentChain
-from appointments.utils_for_caches import (
-    get_cached_doctor_services,
-    get_procedural_cabinet,
-)
+from appointments.utils_for_caches import (get_cached_doctor_services,
+                                           get_procedural_cabinet)
 from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 

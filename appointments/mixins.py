@@ -1,11 +1,9 @@
-# patients/mixins.py (добавляем метод в класс PatientFieldsMixin)
+# patients/mixins.py
 import json
 
 from django import forms
 
 from appointments.constants import APPOINTMENT_CHAIN_CHOICES
-from timetable.models import MedicalService, TimeSlot
-from appointments.utils import validate_pishchelev_restrictions
 
 
 class PatientFieldsMixin:
@@ -89,37 +87,3 @@ class AppointmentFormMixin:
         """Получить отображаемое название типа записи"""
         choices_dict = dict(self.APPOINTMENT_CHOICES)
         return choices_dict.get(value, value)
-
-    def _validate_pishchelev_for_chain(self, doctor, cleaned_data):
-        """Проверка ограничений Пищелева для записей в цепочке"""
-        appointment_chain_type = cleaned_data.get("appointment_chain_type")
-
-        # Проверяем дополнительные записи к другим врачам/тому же врачу
-        if appointment_chain_type in ["another_doctor", "multiple"]:
-            additional_data = cleaned_data.get("additional_appointments_data")
-            if additional_data:
-
-                try:
-                    appointments_list = json.loads(additional_data)
-                    for i, appointment_data in enumerate(appointments_list):
-                        # Если это запись к тому же врачу
-                        if appointment_data.get("doctor_id") == doctor.id:
-                            service_id = appointment_data.get("service_id")
-                            time_slot_id = appointment_data.get("time_slot_id")
-
-                            if service_id and time_slot_id:
-
-                                try:
-                                    service = MedicalService.objects.get(id=service_id)
-                                    time_slot = TimeSlot.objects.get(id=time_slot_id)
-
-                                    validate_pishchelev_restrictions(
-                                        doctor, service, time_slot
-                                    )
-                                except (
-                                    MedicalService.DoesNotExist,
-                                    TimeSlot.DoesNotExist,
-                                ):
-                                    continue
-                except (json.JSONDecodeError, KeyError):
-                    pass
