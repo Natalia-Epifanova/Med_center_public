@@ -21,10 +21,10 @@ from django.views.generic import (
 from appointments.models import Appointment
 from timetable.forms import (
     CopyScheduleForm,
+    CopyWeeklyScheduleForm,
     DayCommentForm,
     TimeSlotForm,
     TimeSlotUpdateForm,
-    CopyWeeklyScheduleForm,
 )
 from timetable.models import Cabinet, DayComment, Doctor, TimeSlot
 from timetable.services import CopyScheduleService, TimeSlotService

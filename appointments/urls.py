@@ -13,12 +13,12 @@ from appointments.views import (
 from appointments.views_api import (
     api_get_next_slot,
     check_procedural_availability,
+    check_slot_lock,
     get_available_doctors_api,
     get_available_slots_for_doctor_api,
     get_blood_tests,
     get_doctor_services_api,
     validate_additional_appointment_api,
-    check_slot_lock,
 )
 
 app_name = AppointmentsConfig.name

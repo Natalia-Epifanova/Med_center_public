@@ -5,8 +5,8 @@ from django.core.exceptions import ValidationError
 
 from appointments.mixins import AppointmentFormMixin, PatientFieldsMixin
 from appointments.models import Appointment
+from appointments.utils import get_cached_doctor_services
 from appointments.validators import AppointmentValidator
-from patients.services import PatientService
 from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
 from timetable.models import MedicalService
 
@@ -141,10 +141,6 @@ class AppointmentChainBaseForm(
         """Общая валидация для всех форм с цепочками"""
         cleaned_data = super().clean()
 
-        # Валидация данных пациента
-        patient_data = self.get_patient_data()
-        cleaned_patient_data = PatientService.clean_patient_data(patient_data)
-
         # Валидация дополнительной услуги для того же врача
         appointment_chain_type = cleaned_data.get("appointment_chain_type")
         additional_service = cleaned_data.get("additional_service")
@@ -192,9 +188,6 @@ class AppointmentChainBaseForm(
 
             try:
                 from timetable.models import Doctor, MedicalService, TimeSlot
-                from timetable.utils import (
-                    get_doctor_services,
-                )  # ИМПОРТИРУЕМ СУЩЕСТВУЮЩУЮ ФУНКЦИЮ
 
                 doctor = Doctor.objects.get(id=doctor_id)
                 service = MedicalService.objects.get(id=service_id)
@@ -209,7 +202,7 @@ class AppointmentChainBaseForm(
 
                 # ИСПРАВЛЕНИЕ: Используем существующую функцию вместо can_perform_service
                 # Проверяем, что услуга доступна врачу через get_doctor_services
-                available_services = get_doctor_services(doctor)
+                available_services = get_cached_doctor_services(doctor)
                 if not available_services.filter(id=service.id).exists():
                     raise ValidationError(
                         f"Ошибка в дополнительной записи #{i}: "
