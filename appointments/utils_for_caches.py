@@ -3,10 +3,15 @@ from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch, Q
 
-from appointments.constants import (CACHE_KEYS, CACHE_TIMEOUTS,
-                                    PROCEDURAL_CABINET_NUMBER)
-from timetable.models import (BloodTest, BloodTestCategory, Cabinet, Doctor,
-                              MedicalService, TimeSlot)
+from appointments.constants import CACHE_KEYS, CACHE_TIMEOUTS, PROCEDURAL_CABINET_NUMBER
+from timetable.models import (
+    BloodTest,
+    BloodTestCategory,
+    Cabinet,
+    Doctor,
+    MedicalService,
+    TimeSlot,
+)
 
 
 # 1. Функции для процедурного кабинета (уже есть)
@@ -277,7 +282,6 @@ def get_cached_active_doctors():
     if doctors_data is None:
         try:
             # Получаем всех врачей
-            from timetable.models import Doctor
 
             doctors = Doctor.objects.all().order_by("surname")
 

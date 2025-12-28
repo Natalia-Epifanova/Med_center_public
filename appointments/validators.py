@@ -1,7 +1,5 @@
 from django.core.exceptions import ValidationError
 
-from timetable.models import MedicalService
-
 
 class AppointmentValidator:
     """Валидатор записей на прием"""
