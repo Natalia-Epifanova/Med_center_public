@@ -8,13 +8,8 @@ from django.db import models
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse_lazy
-from django.views.generic import (
-    CreateView,
-    DeleteView,
-    DetailView,
-    ListView,
-    UpdateView,
-)
+from django.views.generic import (CreateView, DeleteView, DetailView, ListView,
+                                  UpdateView)
 from docxtpl import DocxTemplate
 
 from appointments.models import Appointment
@@ -79,14 +74,29 @@ class PatientCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
 
 
 class PatientUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
-    """Редактирование существующего пациента"""
-
     model = Patient
     form_class = PatientFullForm
     template_name = "patients/patient_form.html"
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Определяем группы полей
+        context["address_fields"] = [
+            "area",
+            "locality",
+            "city",
+            "district",
+            "street",
+            "home",
+            "building",
+            "apartment",
+        ]
+        context["insurance_fields"] = ["polis_oms", "snils", "insurance_company"]
+
+        return context
+
     def get_success_url(self):
-        """Перенаправление после успешного редактирования"""
         return reverse_lazy("patients:patient_detail", kwargs={"pk": self.object.pk})
 
 

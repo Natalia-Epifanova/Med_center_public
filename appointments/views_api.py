@@ -1,23 +1,19 @@
 import json
-from datetime import datetime
 
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Prefetch
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods, require_POST
+from django.views.decorators.http import (require_GET, require_http_methods,
+                                          require_POST)
 
 from appointments.services import AppointmentChainService
-from timetable.models import (
-    BloodTest,
-    BloodTestCategory,
-    Cabinet,
-    Doctor,
-    MedicalService,
-    TimeSlot,
-)
-from timetable.utils import get_doctor_services
+from appointments.utils_for_caches import (get_cached_active_doctors,
+                                           get_cached_blood_tests,
+                                           get_cached_doctor_services,
+                                           get_cached_doctor_slots_for_api)
+from timetable.models import Doctor, MedicalService, TimeSlot
 
 
 @csrf_exempt
@@ -33,7 +29,7 @@ def get_doctor_services_api(request):
             return JsonResponse({"error": "Не указан doctor_id"}, status=400)
 
         doctor = Doctor.objects.get(id=doctor_id)
-        services = get_doctor_services(doctor)
+        services = get_cached_doctor_services(doctor)
 
         services_data = []
         for service in services:
@@ -77,44 +73,13 @@ def get_available_slots_for_doctor_api(request):
         doctor_id = data.get("doctor_id")
         date = data.get("date")
         booked_slots = data.get("booked_slots", [])  # Сюда придет [currentSlotId]
-        main_appointment_time = data.get("main_appointment_time")
-        main_appointment_date = data.get("main_appointment_date")
 
         if not doctor_id or not date:
             return JsonResponse({"error": "Не указаны doctor_id или date"}, status=400)
 
-        doctor = Doctor.objects.get(id=doctor_id)
-        target_date = datetime.strptime(date, "%Y-%m-%d").date()
-
-        # Получаем все слоты на указанную дату
-        slots = TimeSlot.objects.filter(
-            doctor=doctor, date=target_date, slot_type="working"
-        ).order_by("start_time")
-
-        available_slots = []
-        for slot in slots:
-            # Проверяем, является ли это текущим слотом редактируемой записи
-            is_current_slot = str(slot.id) in booked_slots
-
-            # Проверяем доступность (слот свободен ИЛИ это текущий слот)
-            is_available = slot.is_available() or is_current_slot
-
-            if is_available:
-                available_slots.append(slot)
-
-        slots_data = []
-        for slot in available_slots:
-            slots_data.append(
-                {
-                    "id": slot.id,
-                    "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
-                    "cabinet": f"Каб. {slot.cabinet.number}",
-                    "start_time": slot.start_time.strftime("%H:%M:%S"),
-                    "end_time": slot.end_time.strftime("%H:%M:%S"),
-                    "cabinet_number": slot.cabinet.number,
-                    "is_current": str(slot.id) in booked_slots,
-                }
-            )
+        slots_data = get_cached_doctor_slots_for_api(
+            doctor_id=doctor_id, date=date, booked_slots=booked_slots
+        )
 
         return JsonResponse(
             {
@@ -124,9 +89,8 @@ def get_available_slots_for_doctor_api(request):
             }
         )
 
-    except Doctor.DoesNotExist:
-        return JsonResponse({"error": "Врач не найден"}, status=404)
     except Exception as e:
+        print(f"Error in get_available_slots_for_doctor_api: {str(e)}")
         return JsonResponse({"success": False, "error": str(e)}, status=500)
 
 
@@ -177,30 +141,19 @@ def validate_additional_appointment_api(request):
 @require_http_methods(["POST"])
 @login_required
 def get_available_doctors_api(request):
-    """API для получения списка доступных врачей (исключая основного)"""
+    """API для получения списка доступных врачей"""
     try:
-        data = json.loads(request.body)
-        exclude_doctor_id = data.get("exclude_doctor_id")
-
-        doctors = Doctor.objects.order_by("surname")
-
-        doctors_data = []
-        for doctor in doctors:
-            doctors_data.append(
-                {
-                    "id": doctor.id,
-                    "surname": doctor.surname,
-                    "first_name": doctor.first_name,
-                    "last_name": doctor.last_name,
-                    "specialization": doctor.get_specialization_display(),
-                }
-            )
+        doctors_data = get_cached_active_doctors()
 
         return JsonResponse(
             {"success": True, "doctors": doctors_data, "count": len(doctors_data)}
         )
 
     except Exception as e:
+        print(f"ERROR in get_available_doctors_api: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
         return JsonResponse({"error": str(e)}, status=500)
 
 
@@ -261,160 +214,32 @@ def api_get_next_slot(request):
         )
 
 
-@csrf_exempt
-@login_required
-def check_procedural_availability(request):
-    """API для проверки доступности процедурного кабинета"""
-    if request.method == "POST":
-        try:
-            data = json.loads(request.body)
-            date = data.get("date")
-            time_slot_id = data.get("time_slot_id")
-            current_appointment_id = data.get("current_appointment_id")
-
-            # ДОБАВЛЯЕМ: возможность проверить время без time_slot_id
-            start_time = data.get("start_time")
-            end_time = data.get("end_time")
-
-            if not date:
-                return JsonResponse({"error": "Не указана дата"}, status=400)
-
-            try:
-                appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
-
-                # Находим процедурный кабинет (кабинет №6)
-                try:
-                    procedural_cabinet = Cabinet.objects.get(number=6)
-                except Cabinet.DoesNotExist:
-                    return JsonResponse(
-                        {"error": "Процедурный кабинет (кабинет №6) не найден"},
-                        status=404,
-                    )
-
-                # Если указан time_slot_id, используем его
-                if time_slot_id:
-                    time_slot = TimeSlot.objects.get(id=time_slot_id)
-
-                    # Проверяем, что дата слота совпадает
-                    if time_slot.date != appointment_date:
-                        return JsonResponse(
-                            {
-                                "is_available": False,
-                                "error": "Дата слота не совпадает с указанной датой",
-                            }
-                        )
-
-                    start_time = time_slot.start_time
-                    end_time = time_slot.end_time
-                elif start_time and end_time:
-                    # Или используем переданные время начала и окончания
-                    try:
-                        start_time = datetime.strptime(start_time, "%H:%M").time()
-                        end_time = datetime.strptime(end_time, "%H:%M").time()
-                    except ValueError:
-                        return JsonResponse(
-                            {"error": "Неверный формат времени"}, status=400
-                        )
-                else:
-                    return JsonResponse(
-                        {
-                            "error": "Не указано время (либо time_slot_id, либо start_time и end_time)"
-                        },
-                        status=400,
-                    )
-
-                # Ищем занятые слоты в процедурном кабинете в это время
-                occupied_conflicting_slots = (
-                    TimeSlot.objects.filter(
-                        date=appointment_date,
-                        cabinet=procedural_cabinet,
-                        appointments__isnull=False,  # Только занятые слоты
-                    )
-                    .filter(
-                        # Проверяем пересечение времени
-                        start_time__lt=end_time,  # начало слота < конец нашего времени
-                        end_time__gt=start_time,  # конец слота > начало нашего времени
-                    )
-                    .distinct()
-                )
-
-                # Если есть текущая запись, исключаем ее из проверки
-                if current_appointment_id:
-                    occupied_conflicting_slots = occupied_conflicting_slots.exclude(
-                        appointments__id=current_appointment_id
-                    )
-
-                is_available = not occupied_conflicting_slots.exists()
-
-                return JsonResponse(
-                    {
-                        "is_available": is_available,
-                        "occupied_slots": (
-                            [
-                                {
-                                    "id": slot.id,
-                                    "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
-                                    "patient": (
-                                        slot.appointments.first().patient.full_name()
-                                        if slot.appointments.exists()
-                                        else "Неизвестно"
-                                    ),
-                                }
-                                for slot in occupied_conflicting_slots
-                            ]
-                            if not is_available
-                            else []
-                        ),
-                    }
-                )
-
-            except TimeSlot.DoesNotExist:
-                return JsonResponse({"error": "Слот не найден"}, status=404)
-            except ValueError as e:
-                return JsonResponse(
-                    {"error": f"Неверный формат даты: {str(e)}"}, status=400
-                )
-            except Exception as e:
-                return JsonResponse(
-                    {"error": f"Внутренняя ошибка: {str(e)}"}, status=500
-                )
-
-        except json.JSONDecodeError:
-            return JsonResponse({"error": "Неверный формат JSON"}, status=400)
-        except Exception as e:
-            return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
-
-    return JsonResponse({"error": "Метод не разрешен"}, status=405)
-
-
 def get_blood_tests(request):
     """API для получения анализов крови с категориями"""
-    categories = (
-        BloodTestCategory.objects.filter(is_active=True)
-        .prefetch_related(Prefetch("tests", queryset=BloodTest.objects.all()))
-        .order_by("order")
-    )
+    categories_data = get_cached_blood_tests()
+    return JsonResponse({"categories": categories_data})
 
-    categories_data = []
-    for category in categories:
-        tests_data = []
-        for test in category.tests.all():
-            tests_data.append(
+
+@login_required
+@require_GET
+def check_slot_lock(request, slot_id):
+    """AJAX endpoint для проверки блокировки слота"""
+    try:
+        cache_key = f"slot_lock_{slot_id}"
+        cached_lock = cache.get(cache_key)
+
+        if cached_lock:
+            return JsonResponse(
                 {
-                    "id": test.id,
-                    "code": test.code,
-                    "name": test.name,
-                    "biomaterial": test.biomaterial,
-                    "biomaterial_display": test.get_biomaterial_display(),
-                    "price": float(test.price),
-                    "execution_time": test.execution_time,
-                    "category_id": category.id,  # ДОБАВЛЯЕМ ЭТО ПОЛЕ
-                    "category_name": category.name,  # И ЭТО ТОЖЕ
+                    "is_locked": True,
+                    "locked_by": cached_lock.get(
+                        "user_display_name", cached_lock.get("user", "неизвестный")
+                    ),
+                    "lock_time": cached_lock.get("time"),
                 }
             )
+        else:
+            return JsonResponse({"is_locked": False})
 
-        categories_data.append(
-            {"id": category.id, "name": category.name, "tests": tests_data}
-        )
-
-    return JsonResponse({"categories": categories_data})
+    except Exception as e:
+        return JsonResponse({"is_locked": False, "error": str(e)})

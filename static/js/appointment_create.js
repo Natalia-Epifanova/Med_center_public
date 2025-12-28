@@ -41,6 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 12. Инициализация поиска пациента
     initializePatientSearch();
+
+
 });
 
 // НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ВРАЧА
