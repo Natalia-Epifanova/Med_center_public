@@ -3,6 +3,10 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from appointments.models import Appointment, AppointmentChain
+from appointments.utils_for_caches import (
+    get_cached_doctor_services,
+    get_procedural_cabinet,
+)
 from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
@@ -16,10 +20,7 @@ class AppointmentChainService:
         """Валидация данных дополнительной записи"""
         errors = []
 
-        # Проверка, что услуга доступна врачу
-        from timetable.utils import get_doctor_services
-
-        available_services = get_doctor_services(doctor)
+        available_services = get_cached_doctor_services(doctor)
         if not available_services.filter(id=service.id).exists():
             errors.append(f"Услуга '{service.name}' недоступна врачу {doctor.surname}")
 
@@ -89,14 +90,12 @@ class AppointmentChainService:
         return created_appointments
 
     @staticmethod
-    def get_available_doctors(exclude_doctor=None):
-        """Получить список доступных врачей (исключая текущего если нужно)"""
-        doctors = Doctor.objects.filter(is_active=True).order_by("surname")
+    def get_available_doctors():
+        """Получить список доступных врачей с кэшированием"""
+        from appointments.utils_for_caches import get_cached_active_doctors
 
-        if exclude_doctor:
-            doctors = doctors.exclude(id=exclude_doctor.id)
-
-        return doctors
+        doctors_data = get_cached_active_doctors()
+        return doctors_data
 
 
 class AppointmentService:
@@ -106,7 +105,7 @@ class AppointmentService:
     @transaction.atomic
     def create_procedural_appointment(main_appointment):
         """Создание записи в процедурном кабинете"""
-        procedural_cabinet = Cabinet.objects.get(number=6)
+        procedural_cabinet = get_procedural_cabinet()
         nurse_doctor = (
             Doctor.objects.filter(specialization="nurse").first()
             or main_appointment.doctor
@@ -155,7 +154,7 @@ class AppointmentService:
     def can_create_procedural_appointment(main_appointment):
         """Проверка возможности создания процедурной записи"""
         try:
-            procedural_cabinet = Cabinet.objects.get(number=6)
+            procedural_cabinet = get_procedural_cabinet()
 
             occupied_conflicting_slots = TimeSlot.get_conflicting_slots(
                 date=main_appointment.time_slot.date,
@@ -221,10 +220,9 @@ class AppointmentService:
     @staticmethod
     def initialize_service_queryset(form, doctor, current_service=None):
         """Инициализирует queryset услуг для формы с учетом врача"""
-        from timetable.utils import get_doctor_services
 
         if doctor:
-            services = get_doctor_services(doctor, current_service)
+            services = get_cached_doctor_services(doctor, current_service)
             form.fields["service"].queryset = services
 
             # Также обновляем queryset для additional_service если есть такое поле
@@ -522,14 +520,6 @@ class ConsecutiveAppointmentService:
 
                 # СОЗДАЕМ ПРОЦЕДУРНУЮ ЗАПИСЬ ЕСЛИ НУЖНО
                 if needs_procedural_additional:
-                    # Создаем временный объект для процедурной записи
-                    temp_appointment_for_procedural = Appointment(
-                        time_slot=main_appointment.time_slot,  # Используем то же время что и основная
-                        patient=main_appointment.patient,
-                        service=additional_service,
-                        insurance_type=main_appointment.insurance_type,
-                        status=main_appointment.status,
-                    )
 
                     # Создаем процедурную запись через сервис
                     procedural_appointment = (
@@ -613,7 +603,6 @@ class CommonAppointmentService:
     @staticmethod
     def validate_additional_appointments(appointments_list, exclude_doctor_id=None):
         """Валидация дополнительных записей (общий метод)"""
-        from timetable.utils import get_doctor_services  # ИМПОРТИРУЕМ
 
         errors = []
 
@@ -624,7 +613,7 @@ class CommonAppointmentService:
                 time_slot = TimeSlot.objects.get(id=appointment_data["time_slot_id"])
 
                 # ИСПРАВЛЕНИЕ: Используем существующую функцию
-                available_services = get_doctor_services(doctor)
+                available_services = get_cached_doctor_services(doctor)
                 if not available_services.filter(id=service.id).exists():
                     errors.append(
                         f"Ошибка в записи #{i}: Услуга '{service.name}' недоступна врачу {doctor.surname}"
