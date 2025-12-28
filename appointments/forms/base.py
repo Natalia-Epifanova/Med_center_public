@@ -5,16 +5,16 @@ from django.core.exceptions import ValidationError
 
 from appointments.mixins import AppointmentFormMixin, PatientFieldsMixin
 from appointments.models import Appointment
+from appointments.utils_for_caches import get_cached_doctor_services
 from appointments.validators import AppointmentValidator
-from patients.services import PatientService
-from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
+from timetable.mixins import StyleFormMixin  # ServiceBasedFormMixin,
 from timetable.models import MedicalService
 
 
 class AppointmentChainBaseForm(
     StyleFormMixin,
     PatientFieldsMixin,
-    ServiceBasedFormMixin,
+    # ServiceBasedFormMixin,
     AppointmentFormMixin,
     forms.ModelForm,
 ):
@@ -96,12 +96,6 @@ class AppointmentChainBaseForm(
         label="Итоговая сумма",
     )
 
-    # Новое: флаг для процедурного кабинета второй услуги
-    needs_procedural_additional = forms.CharField(
-        required=False,
-        widget=forms.HiddenInput(attrs={"id": "id_needs_procedural_additional"}),
-    )
-
     def __init__(self, *args, **kwargs):
         self.time_slot = kwargs.pop("time_slot", None)
         self.doctor = kwargs.pop("doctor", None)
@@ -119,8 +113,6 @@ class AppointmentChainBaseForm(
             elif self.instance.chain_type == Appointment.ChainType.SAME_DOCTOR:
                 if self.instance.occupies_two_slots:
                     self.fields["appointment_chain_type"].initial = "two_slots"
-                else:
-                    self.fields["appointment_chain_type"].initial = "additional"
             else:
                 self.fields["appointment_chain_type"].initial = "none"
 
@@ -134,25 +126,13 @@ class AppointmentChainBaseForm(
         if doctor_to_use:
             services = doctor_to_use.get_available_services()
             self.fields["service"].queryset = services
-            if "additional_service" in self.fields:
-                self.fields["additional_service"].queryset = services
 
     def clean(self):
         """Общая валидация для всех форм с цепочками"""
         cleaned_data = super().clean()
 
-        # Валидация данных пациента
-        patient_data = self.get_patient_data()
-        cleaned_patient_data = PatientService.clean_patient_data(patient_data)
-
         # Валидация дополнительной услуги для того же врача
         appointment_chain_type = cleaned_data.get("appointment_chain_type")
-        additional_service = cleaned_data.get("additional_service")
-
-        if appointment_chain_type == "additional" and not additional_service:
-            raise ValidationError(
-                'При выборе опции "Добавить вторую услугу к этому же врачу" необходимо указать вторую услугу'
-            )
 
         # Валидация для записей к другим врачам
         if appointment_chain_type in ["another_doctor", "multiple"]:
@@ -175,7 +155,7 @@ class AppointmentChainBaseForm(
                     )
 
         # Валидация последовательных записей
-        if appointment_chain_type in ["additional", "two_slots"] and self.time_slot:
+        if appointment_chain_type == "two_slots" and self.time_slot:
             AppointmentValidator.validate_consecutive_slot(self.time_slot)
 
         return cleaned_data
@@ -192,9 +172,6 @@ class AppointmentChainBaseForm(
 
             try:
                 from timetable.models import Doctor, MedicalService, TimeSlot
-                from timetable.utils import (
-                    get_doctor_services,
-                )  # ИМПОРТИРУЕМ СУЩЕСТВУЮЩУЮ ФУНКЦИЮ
 
                 doctor = Doctor.objects.get(id=doctor_id)
                 service = MedicalService.objects.get(id=service_id)
@@ -209,7 +186,7 @@ class AppointmentChainBaseForm(
 
                 # ИСПРАВЛЕНИЕ: Используем существующую функцию вместо can_perform_service
                 # Проверяем, что услуга доступна врачу через get_doctor_services
-                available_services = get_doctor_services(doctor)
+                available_services = get_cached_doctor_services(doctor)
                 if not available_services.filter(id=service.id).exists():
                     raise ValidationError(
                         f"Ошибка в дополнительной записи #{i}: "

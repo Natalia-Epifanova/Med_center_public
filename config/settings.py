@@ -111,3 +111,11 @@ USE_L10N = True
 DATE_FORMAT = "d.m.Y"
 DATETIME_FORMAT = "d.m.Y H:i"
 TIME_FORMAT = "H:i"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        "LOCATION": "unique-snowflake",
+        "TIMEOUT": 300,  # 5 минут по умолчанию для всех кэшей
+    }
+}

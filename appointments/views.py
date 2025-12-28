@@ -2,6 +2,7 @@ import json
 from datetime import datetime
 
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
@@ -12,14 +13,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
-from appointments.forms.forms import (
-    AppointmentForm,
-    AppointmentSimpleEditForm,
-    ProceduralAppointmentForm,
-    ProceduralAppointmentUpdateForm,
-)
+from appointments.constants import SLOT_LOCK_TIMEOUT
+from appointments.forms.forms import (AppointmentForm,
+                                      AppointmentSimpleEditForm,
+                                      ProceduralAppointmentForm,
+                                      ProceduralAppointmentUpdateForm)
 from appointments.models import Appointment, AppointmentChain
-from timetable.models import Cabinet, Doctor, TimeSlot
+from appointments.utils_for_caches import get_procedural_cabinet
+from timetable.models import Doctor, TimeSlot
 from timetable.utils import get_status_badge_class
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
@@ -34,38 +35,84 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
         kwargs = super().get_form_kwargs()
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
         kwargs["time_slot"] = time_slot
-        kwargs["doctor"] = time_slot.doctor  # Убедитесь, что передается doctor
+        kwargs["doctor"] = time_slot.doctor
         return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
-
-        # Получаем следующий слот для отображения в форме
         next_slot = time_slot.get_next_consecutive_slot()
 
         context.update(
             {
                 "time_slot": time_slot,
-                "doctor": time_slot.doctor,  # Убедитесь, что передается в шаблон
+                "doctor": time_slot.doctor,
                 "next_slot": next_slot,
             }
         )
         return context
 
+    def get(self, request, *args, **kwargs):
+        """Проверяем блокировку при открытии формы"""
+        time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+
+        # Проверяем, не заблокирован ли слот другим пользователем
+        cache_key = f"slot_lock_{time_slot.id}"
+        cached_lock = cache.get(cache_key)
+
+        if cached_lock:
+            # Проверяем, не наша ли это блокировка
+            if cached_lock.get("session_key") != request.session.session_key:
+                messages.error(
+                    request,
+                    f"Этот слот в данный момент редактируется другим администратором "
+                    f"({cached_lock.get('user', 'неизвестный')}). "
+                    "Пожалуйста, попробуйте позже или выберите другой слот.",
+                )
+                return redirect(
+                    reverse("timetable:schedule_day") + f"?date={time_slot.date}"
+                )
+
+        # Блокируем слот на 10 минут
+        cache.set(
+            cache_key,
+            {
+                "session_key": request.session.session_key,
+                "user": request.user.username,
+                "time": timezone.now().isoformat(),
+                "user_display_name": f"{request.user.first_name} {request.user.last_name}",
+            },
+            SLOT_LOCK_TIMEOUT,
+        )
+
+        return super().get(request, *args, **kwargs)
+
     @transaction.atomic
     def form_valid(self, form):
+        time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+        cache_key = f"slot_lock_{time_slot.id}"
+
         try:
-            # ВАЖНОЕ ИСПРАВЛЕНИЕ: Проверяем форму еще раз перед сохранением
-            if not form.is_valid():
-                # Если есть ошибки, показываем их пользователю
-                for field, errors in form.errors.items():
-                    for error in errors:
-                        messages.error(self.request, f"Ошибка в поле {field}: {error}")
+            # Проверяем, что слот все еще заблокирован нами
+            cached_lock = cache.get(cache_key)
+
+            if (
+                cached_lock
+                and cached_lock.get("session_key") != self.request.session.session_key
+            ):
+                messages.error(
+                    self.request,
+                    "Слот был заблокирован другим пользователем. "
+                    "Пожалуйста, выберите другой слот.",
+                )
                 return self.form_invalid(form)
 
-            # Сохраняем результат form.save() в self.object
+            # Сохраняем запись
             self.object = form.save()
+
+            # Разблокируем слот после успешного сохранения
+            cache.delete(cache_key)
+
             messages.success(self.request, "Запись успешно создана!")
             return HttpResponseRedirect(self.get_success_url())
 
@@ -74,40 +121,21 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
             messages.error(self.request, str(e))
             return self.form_invalid(form)
         except Exception as e:
+            # В случае ошибки тоже разблокируем слот
+            cache.delete(cache_key)
             messages.error(self.request, f"Ошибка при создании записи: {str(e)}")
             return self.form_invalid(form)
 
+    def form_invalid(self, form):
+        # При невалидной форме тоже разблокируем слот
+        time_slot = TimeSlot.objects.get(pk=self.kwargs["time_slot_id"])
+        cache_key = f"slot_lock_{time_slot.id}"
+        cache.delete(cache_key)
+
+        return super().form_invalid(form)
+
     def get_success_url(self):
-        # Теперь self.object будет доступен
         return reverse("timetable:schedule_day") + f"?date={self.object.time_slot.date}"
-
-    @staticmethod
-    def create_additional_appointment(main_appointment, appointment_data):
-        """Создание дополнительной записи с проверкой пересечения времени"""
-
-        # Получаем время основной записи
-        main_time_slot = main_appointment.time_slot
-        main_start = main_time_slot.start_time
-        main_end = main_time_slot.end_time
-        main_date = main_time_slot.date
-
-        # Получаем время дополнительной записи
-        additional_time_slot = TimeSlot.objects.get(id=appointment_data["time_slot_id"])
-        additional_start = additional_time_slot.start_time
-        additional_end = additional_time_slot.end_time
-        additional_date = additional_time_slot.date
-
-        # Проверяем, что даты совпадают (если это важно)
-        if main_date != additional_date:
-            # Разные даты - нет пересечения
-            pass
-        else:
-            # Проверяем пересечение времени
-            if additional_start < main_end and main_start < additional_end:
-                raise ValidationError(
-                    f"Время дополнительной записи ({additional_start.strftime('%H:%M')}-{additional_end.strftime('%H:%M')}) "
-                    f"пересекается с временем основной записи ({main_start.strftime('%H:%M')}-{main_end.strftime('%H:%M')})"
-                )
 
 
 class AppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):
@@ -143,6 +171,11 @@ class AppointmentSimpleEditView(MedicalAdminOrAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["appointment"] = self.object
         return context
+
+    def form_invalid(self, form):
+        """Обработка невалидной формы - показываем ошибки пользователю"""
+        # Все ошибки уже добавлены в форму, Django их покажет автоматически
+        return super().form_invalid(form)
 
 
 class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView):
@@ -300,7 +333,7 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
             self.selected_date = timezone.now().date()
 
         # Находим процедурный кабинет и врача-медсестру
-        self.procedural_cabinet = Cabinet.objects.get(number=6)
+        self.procedural_cabinet = get_procedural_cabinet()
         self.nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
 
         # Передаем selected_date в форму
