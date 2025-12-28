@@ -8,15 +8,15 @@ class StyleFormMixin:
                 field.widget.attrs["class"] = "form-control"
 
 
-class ServiceBasedFormMixin:
-    """Миксин для форм, зависящих от услуг врача"""
-
-    def __init__(self, *args, **kwargs):
-        self.doctor = kwargs.pop("doctor", None)
-        super().__init__(*args, **kwargs)
-
-        if self.doctor:
-            services = self.doctor.get_available_services()
-            self.fields["service"].queryset = services
-            if "additional_service" in self.fields:
-                self.fields["additional_service"].queryset = services
+# class ServiceBasedFormMixin:
+#     """Миксин для форм, зависящих от услуг врача"""
+#
+#     def __init__(self, *args, **kwargs):
+#         self.doctor = kwargs.pop("doctor", None)
+#         super().__init__(*args, **kwargs)
+#
+#         if self.doctor:
+#             services = self.doctor.get_available_services()
+#             self.fields["service"].queryset = services
+#             if "additional_service" in self.fields:
+#                 self.fields["additional_service"].queryset = services

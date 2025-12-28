@@ -3,8 +3,10 @@ from django.core.exceptions import ValidationError
 from django.db import transaction
 
 from appointments.models import Appointment, AppointmentChain
-from appointments.utils_for_caches import (get_cached_doctor_services,
-                                           get_procedural_cabinet)
+from appointments.utils_for_caches import (
+    get_cached_doctor_services,
+    get_procedural_cabinet,
+)
 from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
 
 
@@ -218,10 +220,9 @@ class AppointmentService:
     @staticmethod
     def initialize_service_queryset(form, doctor, current_service=None):
         """Инициализирует queryset услуг для формы с учетом врача"""
-        from timetable.utils import get_doctor_services
 
         if doctor:
-            services = get_doctor_services(doctor, current_service)
+            services = get_cached_doctor_services(doctor, current_service)
             form.fields["service"].queryset = services
 
             # Также обновляем queryset для additional_service если есть такое поле
