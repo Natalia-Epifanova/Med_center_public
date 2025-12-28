@@ -1,6 +1,7 @@
 # appointments/utils_for_caches.py
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import models
 from django.db.models import Prefetch, Q
 
 from appointments.constants import CACHE_KEYS, CACHE_TIMEOUTS, PROCEDURAL_CABINET_NUMBER
@@ -52,19 +53,12 @@ def is_procedural_cabinet(cabinet):
 # 2. Функции для кэширования услуг врача
 def get_cached_doctor_services(doctor, include_current_service=None):
     """
-    Получить QuerySet услуг врача с кэшированием.
-
-    Args:
-        doctor: объект врача
-        include_current_service: текущая услуга (для включения в queryset)
-
-    Returns:
-        QuerySet услуг врача
+    Получить QuerySet услуг врача с кэшированием В АЛФАВИТНОМ ПОРЯДКЕ.
     """
     if not doctor:
-        return MedicalService.objects.filter(is_active=True)
+        return MedicalService.objects.filter(is_active=True).order_by("name")
 
-    # Ключ кэша: либо обычный, либо с включением текущей услуги
+    # Ключ кэша
     if include_current_service:
         cache_key = (
             CACHE_KEYS["DOCTOR_SERVICES"].format(doctor_id=doctor.id)
@@ -76,19 +70,18 @@ def get_cached_doctor_services(doctor, include_current_service=None):
     service_ids = cache.get(cache_key)
 
     if service_ids is None:
-        # Используем существующую логику из Doctor.get_available_services()
-        # Получаем категории услуг, которые оказывает врач
         provided_categories = doctor.provided_services
-
-        # Получаем исключенные услуги
         excluded_service_ids = doctor.excluded_services.values_list("id", flat=True)
 
-        # Фильтруем услуги по категориям врача и исключаем недоступные
-        services_queryset = MedicalService.objects.filter(
-            category__in=provided_categories, is_active=True
-        ).exclude(id__in=excluded_service_ids)
+        # СОРТИРОВКА В ЗАПРОСЕ
+        services_queryset = (
+            MedicalService.objects.filter(
+                category__in=provided_categories, is_active=True
+            )
+            .exclude(id__in=excluded_service_ids)
+            .order_by("name")  # ← ВАЖНО: сортировка здесь
+        )
 
-        # Включаем текущую услугу если указана
         if include_current_service:
             services_queryset = (
                 MedicalService.objects.filter(
@@ -99,14 +92,23 @@ def get_cached_doctor_services(doctor, include_current_service=None):
                     Q(id__in=excluded_service_ids) & ~Q(id=include_current_service.id)
                 )
                 .distinct()
+                .order_by("name")  # ← И здесь тоже
             )
 
-        # Кэшируем ID услуг
         service_ids = list(services_queryset.values_list("id", flat=True))
         cache.set(cache_key, service_ids, CACHE_TIMEOUTS["DOCTOR_SERVICES"])
 
-    # Получаем объекты по ID
-    services = MedicalService.objects.filter(id__in=service_ids, is_active=True)
+    # КРИТИЧЕСКИ ВАЖНО: сохранить порядок из БД
+    # Используем Django's Field Lookup для сохранения порядка
+    preserved_order = models.Case(
+        *[models.When(id=id_val, then=pos) for pos, id_val in enumerate(service_ids)]
+    )
+
+    services = MedicalService.objects.filter(
+        id__in=service_ids, is_active=True
+    ).order_by(
+        preserved_order
+    )  # ← Сохраняем порядок из кэша
 
     return services
 

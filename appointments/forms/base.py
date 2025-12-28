@@ -7,14 +7,14 @@ from appointments.mixins import AppointmentFormMixin, PatientFieldsMixin
 from appointments.models import Appointment
 from appointments.utils_for_caches import get_cached_doctor_services
 from appointments.validators import AppointmentValidator
-from timetable.mixins import ServiceBasedFormMixin, StyleFormMixin
+from timetable.mixins import StyleFormMixin  # ServiceBasedFormMixin,
 from timetable.models import MedicalService
 
 
 class AppointmentChainBaseForm(
     StyleFormMixin,
     PatientFieldsMixin,
-    ServiceBasedFormMixin,
+    # ServiceBasedFormMixin,
     AppointmentFormMixin,
     forms.ModelForm,
 ):

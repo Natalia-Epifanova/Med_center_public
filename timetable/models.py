@@ -127,9 +127,13 @@ class Doctor(models.Model):
 
     def get_available_services(self):
         """Получить все услуги, доступные врачу с учетом исключений"""
-        services = MedicalService.objects.filter(
-            category__in=self.provided_services, is_active=True
-        ).exclude(id__in=self.excluded_services.values_list("id", flat=True))
+        services = (
+            MedicalService.objects.filter(
+                category__in=self.provided_services, is_active=True
+            )
+            .exclude(id__in=self.excluded_services.values_list("id", flat=True))
+            .order_by("name")
+        )  # ДОБАВЛЕНО: сортировка по названию
         return services
 
     class Meta:

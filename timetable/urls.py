@@ -2,13 +2,21 @@ from django.urls import path
 
 from appointments.views import update_appointment_status
 from timetable.apps import TimetableConfig
-from timetable.views import (CopyScheduleView, CopyWeeklyScheduleView,
-                             DoctorReportView, EmergencySlotCreateView,
-                             HomeView, RescheduleRequestsView, ScheduleDayView,
-                             TimeSlotCreateView, TimeSlotDeleteView,
-                             TimeSlotDetailView, TimeSlotUpdateView,
-                             save_day_comment)
-from timetable.views_api import week_schedule_preview
+from timetable.views import (
+    CopyScheduleView,
+    CopyWeeklyScheduleView,
+    DoctorReportView,
+    EmergencySlotCreateView,
+    HomeView,
+    RescheduleRequestsView,
+    ScheduleDayView,
+    TimeSlotCreateView,
+    TimeSlotDeleteView,
+    TimeSlotDetailView,
+    TimeSlotUpdateView,
+    save_day_comment,
+)
+from timetable.views_api import week_schedule_preview, delete_all_doctor_slots
 
 app_name = TimetableConfig.name
 urlpatterns = [
@@ -49,5 +57,10 @@ urlpatterns = [
         "api/week-schedule-preview/",
         week_schedule_preview,
         name="week_schedule_preview",
+    ),
+    path(
+        "delete-all-doctor-slots/",
+        delete_all_doctor_slots,
+        name="delete_all_doctor_slots",
     ),
 ]
