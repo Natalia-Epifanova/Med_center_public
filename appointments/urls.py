@@ -1,25 +1,17 @@
 from django.urls import path
 
 from appointments.apps import AppointmentsConfig
-from appointments.views import (
-    AppointmentCreateView,
-    AppointmentDeleteOptionsView,
-    AppointmentDetailView,
-    AppointmentSimpleEditView,
-    ProceduralAppointmentCreateView,
-    ProceduralAppointmentUpdateView,
-    update_appointment_status,
-)
-from appointments.views_api import (
-    api_get_next_slot,
-    check_procedural_availability,
-    get_available_doctors_api,
-    get_available_slots_for_doctor_api,
-    get_blood_tests,
-    get_doctor_services_api,
-    validate_additional_appointment_api,
-    check_slot_lock,
-)
+from appointments.views import (AppointmentCreateView,
+                                AppointmentDeleteOptionsView,
+                                AppointmentDetailView,
+                                AppointmentSimpleEditView,
+                                ProceduralAppointmentCreateView,
+                                ProceduralAppointmentUpdateView,
+                                update_appointment_status)
+from appointments.views_api import (  # check_procedural_availability,
+    api_get_next_slot, check_slot_lock, get_available_doctors_api,
+    get_available_slots_for_doctor_api, get_blood_tests,
+    get_doctor_services_api, validate_additional_appointment_api)
 
 app_name = AppointmentsConfig.name
 
@@ -70,11 +62,6 @@ urlpatterns = [
         "api/available-doctors/",
         get_available_doctors_api,
         name="api_available_doctors",
-    ),
-    path(
-        "api/check-procedural-availability/",
-        check_procedural_availability,
-        name="api_check_procedural_availability",
     ),
     path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
     path("api/get-next-slot/", api_get_next_slot, name="api_get_next_slot"),

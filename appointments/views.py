@@ -1,37 +1,28 @@
 import json
 from datetime import datetime
 
-
-from django.urls import reverse, reverse_lazy
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
-
-from appointments.forms.forms import (
-    AppointmentForm,
-    AppointmentSimpleEditForm,
-    ProceduralAppointmentForm,
-    ProceduralAppointmentUpdateForm,
-)
-from appointments.models import Appointment, AppointmentChain
-from timetable.models import Cabinet, Doctor, TimeSlot
-from timetable.utils import get_status_badge_class
-from users.permissions.decorators import medical_admin_or_admin_required
-from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
-
-from django.core.cache import cache
-from django.utils import timezone
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
-from django.urls import reverse
-from django.views.generic import CreateView
+from django.urls import reverse, reverse_lazy
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
-from appointments.forms.forms import AppointmentForm
-from appointments.models import Appointment
-from timetable.models import TimeSlot
+from appointments.constants import SLOT_LOCK_TIMEOUT
+from appointments.forms.forms import (AppointmentForm,
+                                      AppointmentSimpleEditForm,
+                                      ProceduralAppointmentForm,
+                                      ProceduralAppointmentUpdateForm)
+from appointments.models import Appointment, AppointmentChain
+from appointments.utils_for_caches import get_procedural_cabinet
+from timetable.models import Doctor, TimeSlot
+from timetable.utils import get_status_badge_class
+from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
 
 
@@ -74,7 +65,8 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
             if cached_lock.get("session_key") != request.session.session_key:
                 messages.error(
                     request,
-                    f"Этот слот в данный момент редактируется другим администратором ({cached_lock.get('user', 'неизвестный')}). "
+                    f"Этот слот в данный момент редактируется другим администратором "
+                    f"({cached_lock.get('user', 'неизвестный')}). "
                     "Пожалуйста, попробуйте позже или выберите другой слот.",
                 )
                 return redirect(
@@ -90,7 +82,7 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
                 "time": timezone.now().isoformat(),
                 "user_display_name": f"{request.user.first_name} {request.user.last_name}",
             },
-            600,  # 10 минут в секундах
+            SLOT_LOCK_TIMEOUT,
         )
 
         return super().get(request, *args, **kwargs)
@@ -179,6 +171,11 @@ class AppointmentSimpleEditView(MedicalAdminOrAdminRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context["appointment"] = self.object
         return context
+
+    def form_invalid(self, form):
+        """Обработка невалидной формы - показываем ошибки пользователю"""
+        # Все ошибки уже добавлены в форму, Django их покажет автоматически
+        return super().form_invalid(form)
 
 
 class AppointmentDeleteOptionsView(MedicalAdminOrAdminRequiredMixin, DeleteView):
@@ -336,7 +333,7 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
             self.selected_date = timezone.now().date()
 
         # Находим процедурный кабинет и врача-медсестру
-        self.procedural_cabinet = Cabinet.objects.get(number=6)
+        self.procedural_cabinet = get_procedural_cabinet()
         self.nurse_doctor = Doctor.objects.filter(specialization="nurse").first()
 
         # Передаем selected_date в форму

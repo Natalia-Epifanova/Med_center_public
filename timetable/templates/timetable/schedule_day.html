@@ -225,6 +225,21 @@
                                         {{ doctor_data.comment|linebreaks }}
                                     </strong>
                                 </div>
+                                <!-- НОВАЯ КНОПКА УДАЛЕНИЯ ВСЕХ СЛОТОВ -->
+                                {% if is_admin and doctor_data.slots %}
+                                <div class="mt-2">
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger delete-all-slots-btn"
+                                            data-doctor-id="{{ doctor_data.doctor.id }}"
+                                            data-cabinet-id="{{ cabinet.id }}"
+                                            data-date="{{ selected_date|date:'Y-m-d' }}"
+                                            data-doctor-name="{{ doctor_data.doctor.surname }} {{ doctor_data.doctor.first_name.0 }}.{{ doctor_data.doctor.last_name.0 }}."
+                                            data-cabinet-number="{{ cabinet.number }}"
+                                            title="Удалить все слоты этого врача в этом кабинете">
+                                        <i class="fas fa-trash-alt"></i> Удалить все слоты
+                                    </button>
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endif %}
@@ -267,7 +282,13 @@
                                             <br>
                                             <small class="text-muted fw-bold">Перерыв</small>
                                         {% endif %}
-
+                                         <!-- КОММЕНТАРИЙ РАБОЧЕГО СЛОТА -->
+                                        {% if slot.slot_type == 'working' and slot.description %}
+                                            <br>
+                                            <small class="text-dark fw-bold">
+                                                <i class="fas fa-info-circle"></i> {{ slot.description }}
+                                            </small>
+                                        {% endif %}
                                         <!-- Индикатор типа оплаты -->
                                         {% get_appointment slot as appointment %}
                                         {% if appointment and slot.slot_type == 'working' %}
@@ -527,6 +548,31 @@
         </div>
     </div>
 </div>
+<!-- Модальное окно для подтверждения удаления всех слотов -->
+<div class="modal fade" id="deleteAllSlotsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle"></i> Подтверждение удаления
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы действительно хотите удалить <strong>ВСЕ</strong> слоты врача <span id="doctorNameDisplay"></span> в кабинете №<span id="cabinetNumberDisplay"></span> на <span id="dateDisplay"></span>?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-circle"></i> Это действие нельзя отменить! Будут удалены все слоты врача в этом кабинете.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteAllBtn">
+                    <i class="fas fa-trash-alt"></i> Удалить все слоты
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -537,6 +583,6 @@
     const selectedDate = "{{ selected_date|date:'d.m.Y' }}";
     console.log('Selected date for printing:', selectedDate);
 </script>
-<script src="/static/js/schedule_day.js?v=1.4"></script>
-<script src="/static/js/print.js?v=1.3"></script>
+<script src="/static/js/schedule_day.js?v={% now 'U' %}"></script>
+<script src="/static/js/print.js?v={% now 'U' %}"></script>
 {% endblock %}

@@ -339,7 +339,9 @@ class AppointmentChainManager {
             data.doctors.forEach(doctor => {
                 const option = document.createElement('option');
                 option.value = doctor.id;
-                option.textContent = `${doctor.surname} ${doctor.first_name[0]}.${doctor.last_name[0]}. (${doctor.specialization})`;
+                // Используем display_name вместо самостоятельной сборки
+                option.textContent = doctor.display_name ||
+                                     `${doctor.surname} ${doctor.first_name[0]}.${doctor.last_name[0]}. (${doctor.specialization_display})`;
                 doctorSelect.appendChild(option);
             });
         } catch (error) {
