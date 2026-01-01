@@ -18,6 +18,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Инициализация формы комментария дня
     initDayCommentForm();
+
+    // Инициализация управления прокруткой
+    initScrollControls(); // <-- ДОБАВЛЕНО
 });
 
 // ============ ИНИЦИАЛИЗАЦИЯ КНОПОК УДАЛЕНИЯ ВСЕХ СЛОТОВ ============
@@ -481,6 +484,78 @@ function showAlert(message, type) {
             alertDiv.remove();
         }
     }, 5000);
+}
+// ============ УПРАВЛЕНИЕ ПРОКРУТКОЙ КАБИНЕТОВ ============
+function initScrollControls() {
+    console.log('Initializing scroll controls...');
+
+    const scrollContainer = document.querySelector('.timetable-cards-scroll-container');
+    const scrollLeftBtn = document.querySelector('.scroll-left-btn');
+    const scrollRightBtn = document.querySelector('.scroll-right-btn');
+
+    if (!scrollContainer || !scrollLeftBtn || !scrollRightBtn) {
+        console.log('Scroll controls not found');
+        return;
+    }
+
+    const scrollAmount = 400; // Количество пикселей для прокрутки
+
+    // Кнопка "Влево"
+    scrollLeftBtn.addEventListener('click', function() {
+        scrollContainer.scrollBy({
+            left: -scrollAmount,
+            behavior: 'smooth'
+        });
+    });
+
+    // Кнопка "Вправо"
+    scrollRightBtn.addEventListener('click', function() {
+        scrollContainer.scrollBy({
+            left: scrollAmount,
+            behavior: 'smooth'
+        });
+    });
+
+    // Обновление состояния кнопок при прокрутке
+    scrollContainer.addEventListener('scroll', function() {
+        updateScrollButtonsState(scrollContainer);
+    });
+
+    // Инициализируем состояние кнопок
+    updateScrollButtonsState(scrollContainer);
+
+    console.log('Scroll controls initialized');
+}
+
+function updateScrollButtonsState(scrollContainer) {
+    const scrollLeftBtn = document.querySelector('.scroll-left-btn');
+    const scrollRightBtn = document.querySelector('.scroll-right-btn');
+
+    if (!scrollLeftBtn || !scrollRightBtn) return;
+
+    // Кнопка "Влево" активна, если есть прокрутка слева
+    scrollLeftBtn.disabled = scrollContainer.scrollLeft <= 0;
+
+    // Кнопка "Вправо" активна, если есть прокрутка справа
+    scrollRightBtn.disabled =
+        scrollContainer.scrollLeft + scrollContainer.clientWidth >= scrollContainer.scrollWidth - 1;
+
+    // Обновляем стили
+    if (scrollLeftBtn.disabled) {
+        scrollLeftBtn.classList.add('disabled');
+        scrollLeftBtn.style.opacity = '0.5';
+    } else {
+        scrollLeftBtn.classList.remove('disabled');
+        scrollLeftBtn.style.opacity = '1';
+    }
+
+    if (scrollRightBtn.disabled) {
+        scrollRightBtn.classList.add('disabled');
+        scrollRightBtn.style.opacity = '0.5';
+    } else {
+        scrollRightBtn.classList.remove('disabled');
+        scrollRightBtn.style.opacity = '1';
+    }
 }
 
 console.log('=== SCHEDULE_DAY.JS INITIALIZATION COMPLETE ===');
