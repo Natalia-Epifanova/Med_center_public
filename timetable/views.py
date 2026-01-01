@@ -197,7 +197,7 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
             "cabinet", "doctor"
         )
         # Желаемый порядок кабинетов
-        desired_order = [4, 6, 1, 2, 3, 25, 26]
+        desired_order = [4, 6, 5, 1, 2, 3, 25, 26]
 
         # Получаем уникальные кабинеты
         all_cabinets = list(set(slot.cabinet for slot in slots))
