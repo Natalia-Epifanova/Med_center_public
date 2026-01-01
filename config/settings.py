@@ -22,11 +22,11 @@ ALLOWED_HOSTS = [
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.8.180:8080",  # IP вашего сервера
-    "http://192.168.8.180",  # Без порта
-    "http://192.168.8.122" "http://медцентр.local",  # Локальное доменное имя
+    'http://192.168.8.180:8080',  # IP вашего сервера
+    'http://192.168.8.180',       # Без порта
+    'http://192.168.8.122'
+    'http://медцентр.local',      # Локальное доменное имя
 ]
-
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -109,6 +109,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = (BASE_DIR / "static",)
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # для сбора статики
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
