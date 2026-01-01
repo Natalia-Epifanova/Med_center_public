@@ -1,0 +1,217 @@
+/* Стили для печати расписания */
+@media print {
+    /* Сбрасываем все стили для печати */
+    * {
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+
+    /* Скрываем все ненужные элементы */
+    .navbar,
+    .pricing-header,
+    .timetable-day-navigation,
+    .timetable-form-card,
+    .btn,
+    .alert,
+    .row.mb-4,
+    .row.mb-3,
+    .modal,
+    .test-styles,
+    .appointment-status-select,
+    .btn-group,
+    .fa-edit, .fa-clock, .fa-link, .fa-plus,
+    .timetable-cards-scroll-container,
+    .row.mb-3:last-child /* Легенда */ {
+        display: none !important;
+    }
+
+    /* Основные настройки страницы */
+    body {
+        background: white !important;
+        color: black !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+    }
+
+    .container, .container-fluid {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* ОСНОВНОЙ КОНТЕНТ ДЛЯ ПЕЧАТИ */
+    .timetable-container-fluid {
+        display: block !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* ГОРИЗОНТАЛЬНАЯ СЕТКА - 4 карточки в ряд */
+    .timetable-cards-grid {
+        display: grid !important;
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 3mm !important;
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    /* Карточки кабинетов */
+    .timetable-cards-grid > div {
+        width: 100% !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .card {
+        border: 1px solid #000 !important;
+        margin: 0 !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        height: auto !important;
+        min-height: 80mm !important;
+    }
+
+    .card-header {
+        background: #f8f9fa !important;
+        color: #000 !important;
+        border-bottom: 1px solid #000 !important;
+        padding: 2px 3px !important;
+    }
+
+    .card-header h6 {
+        font-size: 8px !important;
+        margin: 0 !important;
+        font-weight: bold;
+    }
+
+    .card-body {
+        padding: 2px !important;
+    }
+
+    /* Таблицы */
+    .table-responsive {
+        overflow: visible !important;
+    }
+
+    .table {
+        font-size: 6px !important;
+        margin-bottom: 0 !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    .table th,
+    .table td {
+        border: 0.5px solid #ccc !important;
+        padding: 1px 2px !important;
+        text-align: left;
+        line-height: 1 !important;
+    }
+
+    .table th {
+        background: #f8f9fa !important;
+        font-weight: bold;
+    }
+
+    /* Скрываем колонку "Действия" */
+    .timetable-table-sm th:nth-child(5),
+    .timetable-table-sm td:nth-child(5) {
+        display: none !important;
+    }
+
+    /* Ширины колонок */
+    .timetable-table-sm th:nth-child(1),
+    .timetable-table-sm td:nth-child(1) {
+        width: 25% !important;
+    }
+
+    .timetable-table-sm th:nth-child(2),
+    .timetable-table-sm td:nth-child(2) {
+        width: 25% !important;
+    }
+
+    .timetable-table-sm th:nth-child(3),
+    .timetable-table-sm td:nth-child(3) {
+        width: 30% !important;
+    }
+
+    .timetable-table-sm th:nth-child(4),
+    .timetable-table-sm td:nth-child(4) {
+        width: 20% !important;
+    }
+
+    /* Убираем цветовые стили слотов */
+    .timetable-slot-dms,
+    .timetable-slot-oms,
+    .timetable-slot-working,
+    .timetable-slot-break {
+        background: white !important;
+        color: black !important;
+        border-left: none !important;
+    }
+
+    /* Убираем все ссылки и делаем обычным текстом */
+    a {
+        color: black !important;
+        text-decoration: none !important;
+    }
+
+    /* Скрываем ссылки во времени слотов */
+    .timetable-table-sm td:nth-child(1) a {
+        display: none !important;
+    }
+
+    /* Бейджи */
+    .badge {
+        padding: 0.5px 1px !important;
+        font-size: 5px !important;
+        border: 0.5px solid #ccc !important;
+        background: #f8f9fa !important;
+        color: black !important;
+        line-height: 1 !important;
+    }
+
+    /* Заголовки врачей */
+    .doctor-header {
+        background: #ffffcc !important;
+        border: 0.5px solid #ccc !important;
+        padding: 1px !important;
+        margin-bottom: 2px !important;
+        font-size: 6px !important;
+        line-height: 1 !important;
+    }
+
+    .doctor-header strong {
+        font-size: 6px !important;
+    }
+
+    /* Убираем лишние элементы */
+    .table td br {
+        margin: 0 !important;
+    }
+
+    .table td small {
+        font-size: 5px !important;
+    }
+
+    /* Управление разрывами страниц */
+    .timetable-cards-grid {
+        page-break-after: always !important;
+    }
+
+    .timetable-cards-grid:last-child {
+        page-break-after: auto !important;
+    }
+}
+
+/* Настройки страницы - ГОРИЗОНТАЛЬНЫЙ ФОРМАТ */
+@page {
+    size: A4 landscape;
+    margin: 8mm;
+}
