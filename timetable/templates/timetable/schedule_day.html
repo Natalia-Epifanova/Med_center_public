@@ -186,11 +186,29 @@
 
 <!-- Карточки расписания -->
 {% if schedule_data %}
-<div class="container-fluid timetable-container-fluid timetable-fade-in">
+<div class="container-fluid timetable-container-fluid timetable-fade-in timetable-print-container">
+    <!-- ПРОКРУТКА НАД КАРТОЧКАМИ -->
+    <div class="timetable-scroll-controls mb-3 no-print">
+        <div class="d-flex justify-content-between align-items-center">
+            <button type="button" class="btn btn-sm btn-outline-secondary scroll-left-btn">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="flex-grow-1 mx-3">
+                <div class="timetable-scroll-indicator">
+                    <small class="text-muted">Используйте прокрутку для просмотра всех кабинетов</small>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-secondary scroll-right-btn">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ОСНОВНОЙ КОНТЕЙНЕР С ПРОКРУТКОЙ -->
     <div class="timetable-cards-scroll-container">
         <div class="timetable-cards-grid">
             {% for cabinet, doctor_slots in schedule_data.items %}
-            <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-3">
+            <div class="timetable-cabinet-column">
                 <div class="card timetable-card timetable-cabinet-card d-flex flex-column h-100">
                     <div class="card-header bg-primary text-white py-2 timetable-cabinet-header">
                         <h6 class="card-title mb-0">
@@ -329,6 +347,9 @@
                                                     <!-- ДОБАВЛЕНО: Отображение номера карты, если он есть -->
                                                     {% if appointment.patient.card_number %}
                                                         <br><small class="text-muted">(карта {{ appointment.patient.card_number }})</small>
+                                                    {% endif %}
+                                                    {% if is_medical_admin or is_admin and appointment.patient.phone_number %}
+                                                        <br><small class="text-muted"> {{ appointment.patient.phone_number }} </small>
                                                     {% endif %}
                                                 </small>
                                                 {% else %}
