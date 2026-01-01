@@ -1,17 +1,25 @@
 from django.urls import path
 
 from appointments.apps import AppointmentsConfig
-from appointments.views import (AppointmentCreateView,
-                                AppointmentDeleteOptionsView,
-                                AppointmentDetailView,
-                                AppointmentSimpleEditView,
-                                ProceduralAppointmentCreateView,
-                                ProceduralAppointmentUpdateView,
-                                update_appointment_status)
+from appointments.views import (
+    AppointmentCreateView,
+    AppointmentDeleteOptionsView,
+    AppointmentDetailView,
+    AppointmentSimpleEditView,
+    ProceduralAppointmentCreateView,
+    ProceduralAppointmentUpdateView,
+    update_appointment_status,
+)
 from appointments.views_api import (  # check_procedural_availability,
-    api_get_next_slot, check_slot_lock, get_available_doctors_api,
-    get_available_slots_for_doctor_api, get_blood_tests,
-    get_doctor_services_api, validate_additional_appointment_api)
+    api_get_next_slot,
+    check_slot_lock,
+    get_available_doctors_api,
+    get_available_slots_for_doctor_api,
+    get_blood_tests,
+    get_doctor_services_api,
+    validate_additional_appointment_api,
+    check_procedural_availability,
+)
 
 app_name = AppointmentsConfig.name
 
@@ -66,4 +74,9 @@ urlpatterns = [
     path("api/blood-tests/", get_blood_tests, name="api_blood_tests"),
     path("api/get-next-slot/", api_get_next_slot, name="api_get_next_slot"),
     path("check-slot-lock/<int:slot_id>/", check_slot_lock, name="check_slot_lock"),
+    path(
+        "api/check-procedural-availability/",
+        check_procedural_availability,
+        name="api_check_procedural_availability",
+    ),
 ]
