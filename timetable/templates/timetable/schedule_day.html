@@ -186,9 +186,10 @@
 
 <!-- Карточки расписания -->
 {% if schedule_data %}
-<div class="container-fluid timetable-container-fluid timetable-fade-in">
+<div class="container-fluid timetable-container-fluid timetable-fade-in timetable-print-container">
     <!-- ПРОКРУТКА НАД КАРТОЧКАМИ -->
     <div class="timetable-scroll-controls mb-3">
+
         <div class="d-flex justify-content-between align-items-center">
             <button type="button" class="btn btn-sm btn-outline-secondary scroll-left-btn">
                 <i class="fas fa-chevron-left"></i>
@@ -347,6 +348,9 @@
                                                     <!-- ДОБАВЛЕНО: Отображение номера карты, если он есть -->
                                                     {% if appointment.patient.card_number %}
                                                         <br><small class="text-muted">(карта {{ appointment.patient.card_number }})</small>
+                                                    {% endif %}
+                                                    {% if is_medical_admin or is_admin and appointment.patient.phone_number %}
+                                                        <br><small class="text-muted"> {{ appointment.patient.phone_number }} </small>
                                                     {% endif %}
                                                 </small>
                                                 {% else %}

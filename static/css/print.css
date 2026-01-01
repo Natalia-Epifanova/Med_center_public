@@ -215,3 +215,72 @@
     size: A4 landscape;
     margin: 8mm;
 }
+
+/* Добавьте в ваш CSS файл (print.css или основной) */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    /* Скрываем панель управления прокруткой */
+    .timetable-scroll-controls,
+    .timetable-scroll-indicator,
+    .scroll-left-btn,
+    .scroll-right-btn {
+        display: none !important;
+    }
+
+    /* Убираем горизонтальную прокрутку */
+    .timetable-cards-scroll-container {
+        overflow: visible !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Преобразуем горизонтальную прокрутку в многостраничную печать */
+    .timetable-cards-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 3mm !important;
+        width: 100% !important;
+    }
+
+    /* Карточки для печати */
+    .timetable-cabinet-column {
+        width: 100% !important;
+        min-width: auto !important;
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+
+    /* Убираем кнопки действий */
+    .btn-group-sm,
+    .appointment-status-select,
+    .timetable-table-sm td:nth-child(5),
+    .timetable-table-sm th:nth-child(5) {
+        display: none !important;
+    }
+
+    /* Увеличиваем шрифт для печати */
+    .timetable-table-sm th,
+    .timetable-table-sm td {
+        font-size: 8pt !important;
+        padding: 2px 3px !important;
+    }
+
+    /* Убираем ссылки */
+    .timetable-table-sm a {
+        color: black !important;
+        text-decoration: none !important;
+    }
+}
+
+/* Стили для предпросмотра печати */
+@media screen {
+    .print-preview-mode .timetable-cards-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, 1fr) !important;
+        gap: 10px !important;
+    }
+}
