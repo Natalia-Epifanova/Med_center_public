@@ -30,10 +30,10 @@ class Migration(migrations.Migration):
                     "status",
                     models.CharField(
                         choices=[
-                            ("scheduled", "Запланирован"),
+                            ("scheduled", "Записан"),
                             ("confirmed", "Подтвержден"),
                             ("completed", "Завершен"),
-                            ("cancelled", "Отменен пациентом"),
+                            ("cancelled", "Подошел"),
                             ("no_show", "Не явился"),
                         ],
                         default="scheduled",
