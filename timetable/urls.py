@@ -15,6 +15,7 @@ from timetable.views import (
     TimeSlotDetailView,
     TimeSlotUpdateView,
     save_day_comment,
+    save_cabinet_day_comment,
 )
 from timetable.views_api import week_schedule_preview, delete_all_doctor_slots
 
@@ -62,5 +63,8 @@ urlpatterns = [
         "delete-all-doctor-slots/",
         delete_all_doctor_slots,
         name="delete_all_doctor_slots",
+    ),
+    path(
+        "save-cabinet-comment/", save_cabinet_day_comment, name="save_cabinet_comment"
     ),
 ]
