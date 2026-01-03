@@ -174,7 +174,7 @@
                     </div>
 
                     <div class="table-responsive">
-                        <table class="table table-sm table-bordered">
+                        <table class="table table-sm table-bordered table-hover">
                             <thead class="table-info">
                                 <tr>
                                     <th>#</th>
@@ -184,6 +184,7 @@
                                     <th>Услуга</th>
                                     <th>Цена</th>
                                     <th>Кабинет</th>
+                                    <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -191,17 +192,51 @@
                                 <tr class="{% if app.id == appointment.id %}table-primary{% endif %}">
                                     <td>
                                         {% if app.id == appointment.id %}
-                                        <strong><i class="fas fa-star"></i> Эта запись</strong>
+                                        <strong><i class="fas fa-star text-warning"></i> Текущая</strong>
                                         {% else %}
                                         {{ forloop.counter }}
                                         {% endif %}
                                     </td>
                                     <td>{{ app.date|date:"d.m.Y" }}</td>
                                     <td>{{ app.start_time|time:"H:i" }}</td>
-                                    <td>{{ app.doctor.surname }}</td>
-                                    <td>{{ app.service.name }}</td>
-                                    <td>{{ app.service.price }}</td>
-                                    <td>Каб. {{ app.cabinet.number }}</td>
+                                    <td>
+                                        {{ app.doctor.surname }}
+                                        {{ app.doctor.first_name.0 }}.{{ app.doctor.last_name.0 }}.
+                                    </td>
+                                    <td>
+                                        <small>{{ app.service.name|truncatechars:30 }}</small>
+                                    </td>
+                                    <td>{{ app.service.price }} руб.</td>
+                                    <td>
+                                        Каб. {{ app.cabinet.number }}
+                                        {% if app.cabinet.name_of_cabinet %}
+                                        <br><small class="text-muted">{{ app.cabinet.name_of_cabinet }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            {% if app.id == appointment.id %}
+                                            <span class="btn btn-outline-primary disabled">
+                                                <i class="fas fa-eye"></i> Текущая
+                                            </span>
+                                            {% else %}
+                                            <!-- Кнопка просмотра записи -->
+                                            <a href="{% url 'appointments:appointment_detail' app.pk %}"
+                                               class="btn btn-outline-info"
+                                               title="Просмотр записи"
+                                               target="_blank">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <!-- Кнопка перехода к расписанию -->
+                                            <a href="{% url 'timetable:schedule_day' %}?date={{ app.date|date:'Y-m-d' }}"
+                                               class="btn btn-outline-secondary"
+                                               title="Перейти к расписанию на этот день"
+                                               target="_blank">
+                                                <i class="fas fa-calendar-alt"></i>
+                                            </a>
+                                            {% endif %}
+                                        </div>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

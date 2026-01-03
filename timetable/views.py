@@ -1,8 +1,10 @@
+from collections import defaultdict
 from datetime import datetime, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.cache import cache
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
@@ -25,10 +27,11 @@ from timetable.forms import (
     DayCommentForm,
     TimeSlotForm,
     TimeSlotUpdateForm,
+    CabinetDayCommentForm,
 )
-from timetable.models import Cabinet, DayComment, Doctor, TimeSlot
+from timetable.models import Cabinet, DayComment, Doctor, TimeSlot, CabinetDayComment
 from timetable.services import CopyScheduleService, TimeSlotService
-from users.permissions.decorators import admin_required
+from users.permissions.decorators import admin_required, medical_admin_or_admin_required
 from users.permissions.mixins import (
     AdminRequiredMixin,
     MedicalAdminOrAdminRequiredMixin,
@@ -189,22 +192,26 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
         context["prev_date"] = prev_date
         context["next_date"] = next_date
 
+        # Получаем комментарий дня (всегда показываем форму если админ)
         try:
             day_comment = DayComment.objects.get(date=selected_date)
             context["day_comment"] = day_comment
             context["day_comment_form"] = DayCommentForm(instance=day_comment)
         except DayComment.DoesNotExist:
+            # Создаем пустой комментарий для формы
             context["day_comment"] = None
             context["day_comment_form"] = DayCommentForm(
                 initial={"date": selected_date}
             )
 
-            # Проверяем права пользователя
-        context["user_can_edit_comments"] = (
+        # ВСЕГДА показываем комментарий дня если пользователь админ
+        context["show_day_comment"] = (
             self.request.user.groups.filter(name="Admin").exists()
-            if self.request.user.is_authenticated
-            else False
+            or context["day_comment"] is not None
         )
+
+        # Получаем даты приема врачей для текущего месяца
+        context["doctor_schedule_dates"] = self.get_doctor_schedule_dates(selected_date)
 
         # Получаем слоты на выбранную дату
         slots = TimeSlot.objects.filter(date=selected_date).select_related(
@@ -255,7 +262,97 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
         context["schedule_data"] = schedule_data
         context["cabinets"] = Cabinet.objects.all().order_by("number")
         context["doctors"] = Doctor.objects.all().order_by("surname", "first_name")
+        cabinet_comments = {}
+        for cabinet in cabinets_sorted:
+            try:
+                comment = CabinetDayComment.objects.get(
+                    date=selected_date, cabinet=cabinet
+                )
+                cabinet_comments[cabinet.id] = {
+                    "comment": comment,
+                    "form": CabinetDayCommentForm(instance=comment),
+                }
+            except CabinetDayComment.DoesNotExist:
+                cabinet_comments[cabinet.id] = {
+                    "comment": None,
+                    "form": CabinetDayCommentForm(
+                        initial={"date": selected_date, "cabinet": cabinet.id}
+                    ),
+                }
+
+        context["cabinet_comments"] = cabinet_comments
+
+        # Проверка прав для отображения формы
+        user = self.request.user
+        context["can_edit_cabinet_comments"] = user.groups.filter(
+            name__in=["Admin", "MedicalAdmin"]
+        ).exists()
+
         return context
+
+    @staticmethod
+    def get_doctor_schedule_dates(current_date):
+        """Получает даты приема врачей на текущий месяц с кэшированием"""
+        cache_key = f"doctor_schedule_dates_{current_date.year}_{current_date.month}"
+        cached_data = cache.get(cache_key)
+
+        if cached_data:
+            return cached_data
+
+        # Определяем начало и конец текущего месяца
+        month_start = current_date.replace(day=1)
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1)
+
+        # Получаем уникальные даты приема врачей
+        slots_this_month = (
+            TimeSlot.objects.filter(
+                date__gte=month_start,
+                date__lt=month_end,
+            )
+            .exclude(doctor__specialization="nurse")
+            .values(
+                "doctor__surname",
+                "doctor__first_name",
+                "doctor__last_name",
+                "doctor__specialization",
+                "date",
+            )
+            .distinct()
+            .order_by("doctor__surname", "date")
+        )
+
+        # Группируем по врачам
+        doctor_dates = defaultdict(list)
+        doctor_specializations = {}
+
+        for slot in slots_this_month:
+            doctor_key = f"{slot['doctor__surname']} {slot['doctor__first_name'][0]}.{slot['doctor__last_name'][0]}."
+            if slot["date"] not in doctor_dates[doctor_key]:
+                doctor_dates[doctor_key].append(slot["date"])
+            if doctor_key not in doctor_specializations:
+                # Получаем отображаемое название специализации
+                doctor_specializations[doctor_key] = dict(
+                    Doctor.DoctorSpecialization.choices
+                ).get(slot["doctor__specialization"], slot["doctor__specialization"])
+
+        # Преобразуем в список
+        result = []
+        for doctor_name in sorted(doctor_dates.keys()):
+            result.append(
+                {
+                    "name": doctor_name,
+                    "dates": sorted(doctor_dates[doctor_name]),
+                    "specialization": doctor_specializations.get(doctor_name, ""),
+                }
+            )
+
+        # Кэшируем на 1 час
+        cache.set(cache_key, result, 3600)
+
+        return result
 
 
 class EmergencySlotCreateView(MedicalAdminOrAdminRequiredMixin, View):
@@ -377,6 +474,41 @@ def save_day_comment(request):
 
         return JsonResponse(
             {"success": True, "message": "Комментарий сохранен", "created": created}
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@login_required
+@require_POST
+@medical_admin_or_admin_required
+def save_cabinet_day_comment(request):
+    """Сохранение комментария кабинета"""
+    date_str = request.POST.get("date")
+    cabinet_id = request.POST.get("cabinet_id")
+    comment_text = request.POST.get("comment", "").strip()
+
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        cabinet = Cabinet.objects.get(id=cabinet_id)
+
+        # Создаем или обновляем комментарий
+        comment_obj, created = CabinetDayComment.objects.update_or_create(
+            date=date,
+            cabinet=cabinet,
+            defaults={
+                "comment": comment_text,
+            },
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Комментарий сохранен",
+                "created": created,
+                "comment_id": comment_obj.id,
+            }
         )
 
     except Exception as e:
