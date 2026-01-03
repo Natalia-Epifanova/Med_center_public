@@ -27,7 +27,7 @@ class PatientListView(LoginRequiredMixin, ListView):
     model = Patient
     template_name = "patients/patient_list.html"
     context_object_name = "patients"
-    paginate_by = 20
+    paginate_by = 100
 
     def get_queryset(self):
         """Получение и фильтрация queryset"""
@@ -275,6 +275,7 @@ class DocumentGenerator:
 
         context = {
             # Данные пациента
+            "patient_id": patient.pk,
             "surname": patient.surname,
             "first_name": patient.first_name,
             "last_name": patient.last_name or "",

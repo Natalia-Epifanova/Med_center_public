@@ -124,7 +124,8 @@ class TimeSlotUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     template_name = "timetable/timeslot_form.html"
 
     def get_success_url(self):
-        return reverse_lazy("timetable:timeslot_detail", kwargs={"pk": self.object.pk})
+        slot_date = self.object.date
+        return reverse_lazy("timetable:schedule_day") + f"?date={slot_date}"
 
     def form_valid(self, form):
         messages.success(self.request, "Слот успешно обновлен.")

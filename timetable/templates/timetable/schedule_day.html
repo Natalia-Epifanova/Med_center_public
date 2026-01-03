@@ -227,20 +227,20 @@
                         <div class="doctor-header mb-2 p-2 border rounded text-center" style="background-color: #ffff99;">
                             <div class="d-flex flex-column align-items-center">
                                 <!-- ФИО врача -->
-                                <strong class="text-primary mb-1">
+                                <strong class="text-primary mb-1" style="font-size: 1.3rem !important;">
                                     {{ doctor_data.doctor.surname }} {{ doctor_data.doctor.first_name.0 }}.{{doctor_data.doctor.last_name.0 }}.
                                 </strong>
 
                                 <!-- Специализация -->
                                 <div class="mb-1">
-                                    <strong class="text-dark">
+                                    <strong class="text-dark" style="font-size: 1.3rem !important;">
                                         {{ doctor_data.doctor.get_specialization_display }}
                                     </strong>
                                 </div>
 
                                 <!-- Комментарий красным жирным шрифтом -->
                                 <div class="mt-1">
-                                    <strong class="text-danger ">
+                                    <strong class="text-danger" style="font-size: 1.3rem !important;">
                                         {{ doctor_data.comment|linebreaks }}
                                     </strong>
                                 </div>

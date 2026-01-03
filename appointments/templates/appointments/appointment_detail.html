@@ -182,6 +182,7 @@
                                     <th>Время</th>
                                     <th>Врач</th>
                                     <th>Услуга</th>
+                                    <th>Цена</th>
                                     <th>Кабинет</th>
                                 </tr>
                             </thead>
@@ -199,6 +200,7 @@
                                     <td>{{ app.start_time|time:"H:i" }}</td>
                                     <td>{{ app.doctor.surname }}</td>
                                     <td>{{ app.service.name }}</td>
+                                    <td>{{ app.service.price }}</td>
                                     <td>Каб. {{ app.cabinet.number }}</td>
                                 </tr>
                                 {% endfor %}
