@@ -702,6 +702,8 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
         if not self.selected_date:
             self.selected_date = timezone.now().date()
 
+        # Устанавливаем тип оплаты по умолчанию как "платный"
+        self.fields["insurance_type"].initial = "paid"
         # Обновляем queryset для услуги
         self._update_service_queryset()
 
