@@ -260,6 +260,31 @@ class DayComment(models.Model):
         return f"Комментарий на {self.date}: {self.comment[:50]}..."
 
 
+class CabinetDayComment(models.Model):
+    """Комментарий для кабинета на определенную дату"""
+
+    date = models.DateField(verbose_name="Дата")
+    cabinet = models.ForeignKey(
+        Cabinet,
+        on_delete=models.CASCADE,
+        verbose_name="Кабинет",
+        related_name="day_comments",
+    )
+    comment = models.TextField(verbose_name="Комментарий", blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Комментарий кабинета"
+        verbose_name_plural = "Комментарии кабинетов"
+        unique_together = ["date", "cabinet"]  # Один комментарий на кабинет в день
+        ordering = ["date", "cabinet__number"]
+
+    def __str__(self):
+        return f"Комментарий кабинета {self.cabinet.number} на {self.date}"
+
+
 class BloodTestCategory(models.Model):
     """Категории анализов крови"""
 

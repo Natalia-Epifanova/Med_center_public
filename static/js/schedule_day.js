@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Инициализация управления прокруткой
     initScrollControls(); // <-- ДОБАВЛЕНО
+
+    initCabinetComments(); // <-- Добавьте эту строку
 });
 
 // ============ ИНИЦИАЛИЗАЦИЯ КНОПОК УДАЛЕНИЯ ВСЕХ СЛОТОВ ============
@@ -557,5 +559,150 @@ function updateScrollButtonsState(scrollContainer) {
         scrollRightBtn.style.opacity = '1';
     }
 }
+// ============ КОММЕНТАРИИ КАБИНЕТОВ ============
+function initCabinetComments() {
+    console.log('Initializing cabinet comments...');
 
+    // Обработка кнопок редактирования
+    document.querySelectorAll('.edit-cabinet-comment-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const cabinetId = this.dataset.cabinetId;
+            const cabinetNumber = this.dataset.cabinetNumber;
+            const date = this.dataset.date;
+
+            // Получаем текущий комментарий
+            const commentSection = this.closest('.cabinet-comment-section');
+            const commentContent = commentSection.querySelector('.cabinet-comment-content');
+            let currentComment = '';
+
+            if (commentContent && !commentContent.querySelector('.fst-italic')) {
+                // Убираем HTML-разметку для текстового поля
+                const commentText = commentContent.textContent;
+                // Ищем первое вхождение "(записал" и обрезаем до него
+                const createdByIndex = commentText.indexOf('(записал');
+                if (createdByIndex !== -1) {
+                    currentComment = commentText.substring(0, createdByIndex).trim();
+                } else {
+                    currentComment = commentText.trim();
+                }
+            }
+
+            // Заполняем модальное окно
+            const modal = document.getElementById('cabinetCommentModal');
+            if (modal) {
+                modal.querySelector('#cabinetNumberModal').textContent = cabinetNumber;
+                modal.querySelector('#cabinetIdInput').value = cabinetId;
+                modal.querySelector('#cabinetCommentTextarea').value = currentComment;
+
+                // Сохраняем данные для отправки
+                modal.dataset.cabinetId = cabinetId;
+                modal.dataset.cabinetNumber = cabinetNumber;
+                modal.dataset.currentComment = currentComment;
+
+                // Показываем модальное окно
+                try {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } catch (error) {
+                    console.error('Error showing modal:', error);
+                    showNotification('Ошибка открытия окна', 'error');
+                }
+            }
+        });
+    });
+
+    // Обработка формы сохранения
+    const cabinetCommentForm = document.getElementById('cabinetCommentForm');
+    if (cabinetCommentForm) {
+        cabinetCommentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const cabinetId = formData.get('cabinet_id');
+            const comment = formData.get('comment');
+
+            fetch('/timetable/save-cabinet-comment/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Закрываем модальное окно
+                    const modal = document.getElementById('cabinetCommentModal');
+                    if (modal) {
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                    }
+
+                    showNotification('Комментарий сохранен', 'success');
+                    // Перезагружаем страницу через 1 секунду
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showNotification('Ошибка: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Save cabinet comment error:', error);
+                showNotification('Ошибка при сохранении', 'error');
+            });
+        });
+    }
+
+    // Обработка удаления комментария
+    const deleteCabinetCommentBtn = document.getElementById('deleteCabinetCommentBtn');
+    if (deleteCabinetCommentBtn) {
+        deleteCabinetCommentBtn.addEventListener('click', function() {
+            const modal = document.getElementById('cabinetCommentModal');
+            if (modal) {
+                const cabinetId = modal.querySelector('#cabinetIdInput').value;
+                const date = modal.querySelector('[name="date"]').value;
+
+                if (confirm('Удалить комментарий для этого кабинета?')) {
+                    // Отправляем пустой комментарий для удаления
+                    const formData = new FormData();
+                    formData.append('cabinet_id', cabinetId);
+                    formData.append('date', date);
+                    formData.append('comment', '');
+                    formData.append('csrfmiddlewaretoken', getCSRFToken());
+
+                    fetch('/timetable/save-cabinet-comment/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Закрываем модальное окно
+                            const bsModal = bootstrap.Modal.getInstance(modal);
+                            if (bsModal) bsModal.hide();
+
+                            showNotification('Комментарий удален', 'success');
+                            // Перезагружаем страницу через 1 секунду
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            showNotification('Ошибка удаления: ' + data.error, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Delete cabinet comment error:', error);
+                        showNotification('Ошибка при удалении', 'error');
+                    });
+                }
+            }
+        });
+    }
+}
 console.log('=== SCHEDULE_DAY.JS INITIALIZATION COMPLETE ===');
