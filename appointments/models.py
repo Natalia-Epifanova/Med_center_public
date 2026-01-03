@@ -60,10 +60,10 @@ class AppointmentChain(models.Model):
 class Appointment(models.Model):
     # Статусы записи
     class AppointmentStatus(models.TextChoices):
-        SCHEDULED = "scheduled", _("Запланирован")
+        SCHEDULED = "scheduled", _("Записан")
         CONFIRMED = "confirmed", _("Подтвержден")
         COMPLETED = "completed", _("Завершен")
-        CANCELLED = "cancelled", _("Отменен пациентом")
+        CANCELLED = "cancelled", _("Подошел")
         NO_SHOW = "no_show", _("Не явился")
 
     # Типы оплаты
@@ -268,8 +268,9 @@ class Appointment(models.Model):
 
     def get_chain_appointments(self):
         """Получить все записи в цепочке (как основные, так и связанные)"""
-        from .models import \
-            AppointmentChain  # Импорт внутри метода чтобы избежать циклического импорта
+        from .models import (
+            AppointmentChain,
+        )  # Импорт внутри метода чтобы избежать циклического импорта
 
         appointments = []
 
