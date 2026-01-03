@@ -1,6 +1,6 @@
 {% extends "timetable/base.html" %}
 {% load appointment_tags %}
-
+{% load cabinet_filters %}
 {% block extra_css %}
 {{ block.super }}
 <!-- Подключаем стили для печати -->
@@ -155,6 +155,7 @@
     </div>
 </div>
 {% endif %}
+
 <!-- БЛОК ДАТ ПРИЕМА ВРАЧЕЙ -->
 {% if doctor_schedule_dates %}
 <div class="row mb-4">
@@ -162,47 +163,57 @@
         <div class="card">
             <div class="card-header bg-light d-flex justify-content-between align-items-center py-2">
                 <h6 class="mb-0">
-                    <i class="fas fa-calendar-alt"></i> Даты приема врачей {{ selected_date|date:"F Y"|lower }}
+                    <i class="fas fa-calendar-alt"></i>
+                    Даты приема врачей в {{ selected_date|date:"F Y"|lower }}
+                    <small class="text-muted ms-2">({{ doctor_schedule_dates|length }} врачей)</small>
                 </h6>
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#doctorDatesCollapse">
-                    <i class="fas fa-chevron-down"></i>
+                <button type="button" class="btn btn-sm btn-outline-secondary collapsed"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#doctorDatesCollapse"
+                        aria-expanded="false"
+                        aria-controls="doctorDatesCollapse">
+                    <i class="fas fa-chevron-down collapse-icon"></i>
                 </button>
             </div>
-            <div class="collapse show" id="doctorDatesCollapse">
+            <div class="collapse" id="doctorDatesCollapse">
                 <div class="card-body py-2">
                     <div class="row">
                         {% for doctor in doctor_schedule_dates %}
-                        <div class="col-md-3 col-lg-2 mb-2">
-                            <div class="border rounded p-2 h-100">
-                                <div class="doctor-schedule-info">
-                                    <!-- ФИО врача -->
-                                    <div class="mb-1">
-                                        <strong class="text-primary" style="font-size: 0.85rem;">
-                                            {{ doctor.name }}
-                                        </strong>
-                                    </div>
+                        <div class="col-6 col-sm-4 col-md-3 col-lg-2 mb-2">
+                            <div class="doctor-date-card border rounded p-2 h-100">
+                                <!-- ФИО врача -->
+                                <div class="doctor-name mb-1">
+                                    <strong class="text-primary" style="font-size: 0.85rem;">
+                                        {{ doctor.name|truncatechars:20 }}
+                                    </strong>
+                                </div>
 
-                                    <!-- Специализация -->
-                                    {% if doctor.specialization %}
-                                    <div class="mb-1">
-                                        <small class="text-muted" style="font-size: 0.75rem;">
-                                            {{ doctor.specialization }}
-                                        </small>
+                                <!-- Специализация -->
+                                {% if doctor.specialization %}
+                                <div class="doctor-specialization mb-1">
+                                    <small class="text-muted" style="font-size: 0.75rem;">
+                                        {{ doctor.specialization|truncatewords:2 }}
+                                    </small>
+                                </div>
+                                {% endif %}
+
+                                <!-- Даты приема -->
+                                <div class="dates-container">
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for date in doctor.dates %}
+                                        <a href="?date={{ date|date:'Y-m-d' }}"
+                                           class="date-badge badge {% if date == selected_date %}bg-primary{% else %}bg-light text-dark border{% endif %} text-decoration-none"
+                                           style="font-size: 0.75rem; padding: 0.2em 0.4em;"
+                                           title="Перейти к расписанию на {{ date|date:'d.m.Y' }}">
+                                            {{ date|date:"d" }}
+                                        </a>
+                                        {% endfor %}
                                     </div>
+                                    {% if doctor.dates|length > 6 %}
+                                    <small class="text-muted d-block mt-1" style="font-size: 0.65rem;">
+                                        и ещё {{ doctor.dates|length|add:"-6" }} дней
+                                    </small>
                                     {% endif %}
-
-                                    <!-- Даты приема -->
-                                    <div class="dates-container">
-                                        <small class="text-dark" style="font-size: 0.75rem;">
-                                            {% for date in doctor.dates %}
-                                            <a href="?date={{ date|date:'Y-m-d' }}"
-                                               class="badge {% if date == selected_date %}bg-primary{% else %}bg-light text-dark border{% endif %} me-1 mb-1 text-decoration-none"
-                                               title="Перейти к расписанию на {{ date|date:'d.m.Y' }}">
-                                                {{ date|date:"d" }}
-                                            </a>
-                                            {% endfor %}
-                                        </small>
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -493,6 +504,38 @@
                                 {% endfor %}
                                 </tbody>
                             </table>
+                            <!-- Комментарий кабинета -->
+                            {% with cabinet_comment_data=cabinet_comments|get_by_key:cabinet.id %}
+                            {% if can_edit_cabinet_comments or cabinet_comment_data.comment %}
+                            <div class="cabinet-comment-section mt-2 border-top pt-2">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <small class="text-muted">
+                                        <i class="fas fa-sticky-note"></i> Комментарий кабинета
+                                    </small>
+                                    {% if can_edit_cabinet_comments %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-secondary edit-cabinet-comment-btn"
+                                            data-cabinet-id="{{ cabinet.id }}"
+                                            data-cabinet-number="{{ cabinet.number }}"
+                                            data-date="{{ selected_date|date:'Y-m-d' }}"
+                                            title="Редактировать комментарий">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+
+                                <!-- Отображение комментария -->
+                                <div class="cabinet-comment-content">
+                                    {% if cabinet_comment_data.comment and cabinet_comment_data.comment.comment %}
+                                        <small class="text-muted">{{ cabinet_comment_data.comment.comment|linebreaks }}</small>
+                                    {% else %}
+                                        <small class="text-muted fst-italic">Комментарий отсутствует</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endwith %}
+
                         </div>
                         {% endfor %}
                         {% else %}
@@ -649,6 +692,47 @@
                     <i class="fas fa-trash-alt"></i> Удалить все слоты
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+<!-- Модальное окно для редактирования комментария кабинета -->
+<div class="modal fade" id="cabinetCommentModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-sticky-note"></i>
+                    Комментарий кабинета
+                    <span id="cabinetNumberModal"></span>
+                    на {{ selected_date|date:"d.m.Y" }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" id="cabinetCommentForm">
+                {% csrf_token %}
+                <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+                <input type="hidden" name="cabinet_id" id="cabinetIdInput">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Комментарий:</label>
+                        <textarea name="comment"
+                                  class="form-control"
+                                  rows="4"
+                                  id="cabinetCommentTextarea"
+                                  placeholder="Введите комментарий для этого кабинета..."></textarea>
+                        <div class="form-text">
+                            Комментарий будет виден всем сотрудникам с доступом к расписанию.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="button" class="btn btn-danger" id="deleteCabinetCommentBtn">
+                        <i class="fas fa-trash-alt"></i> Удалить
+                    </button>
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
