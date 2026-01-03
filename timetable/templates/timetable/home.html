@@ -1,0 +1,12 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+</div>
+{% endblock %}
+{% block content %}
+{% if is_admin %}<a class="nav-link" href="{% url 'timetable:schedule_create' %}">Добавить расписание (доступно администратору) </a>{% endif %}
+<a class="nav-link" href="{% url 'timetable:schedule_day' %}">Посмотреть добавленное расписание</a>
+
+{% endblock %}

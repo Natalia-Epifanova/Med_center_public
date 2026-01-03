@@ -1,0 +1,434 @@
+<!-- templates/appointments/appointment_edit_simple.html -->
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-edit"></i> Изменение записи #{{ appointment.id }}
+            </h5>
+            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+               class="btn btn-sm btn-outline-dark">
+                <i class="fas fa-times"></i> Отмена
+            </a>
+        </div>
+
+        <div class="card-body">
+            <!-- Информация о текущей записи -->
+            <div class="alert alert-info mb-4" id="original-slot-info">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Текущая информация:</strong><br>
+                        Пациент: {{ appointment.patient.get_full_name }}<br>
+                        Врач: {{ appointment.doctor.surname }} {{ appointment.doctor.first_name.0 }}.{{ appointment.doctor.last_name.0 }}.<br>
+                        Дата: <span id="original-date">{{ appointment.date|date:"d.m.Y" }}</span><br>
+                        Время: <span id="original-time">{{ appointment.start_time|time:"H:i" }}-{{ appointment.end_time|time:"H:i" }}</span><br>
+                        Кабинет: <span id="original-cabinet">{{ appointment.cabinet.number }}{% if appointment.cabinet.name_of_cabinet %} ({{ appointment.cabinet.name_of_cabinet }}){% endif %}</span>
+                    </div>
+                    <div>
+                        <button type="button"
+                                class="btn btn-outline-warning btn-sm"
+                                id="change-time-btn">
+                            <i class="fas fa-clock"></i> Изменить время
+                        </button>
+                    </div>
+                </div>
+                <!-- Скрытые поля для JavaScript -->
+                <input type="hidden" id="js-original-date" value="{{ appointment.date|date:'Y-m-d' }}">
+                <input type="hidden" id="js-original-time" value="{{ appointment.start_time|time:'H:i' }}-{{ appointment.end_time|time:'H:i' }}">
+                <input type="hidden" id="js-current-slot-id" value="{{ appointment.time_slot.id }}">
+                <input type="hidden" id="js-doctor-id" value="{{ appointment.doctor.id }}">
+                <input type="hidden" id="js-doctor-name" value="{{ appointment.doctor.surname }} {{ appointment.doctor.first_name.0 }}.{{ appointment.doctor.last_name.0 }}.">
+            </div>
+
+            <!-- Кнопки подтверждения/отмены изменения времени -->
+            <div id="time-change-buttons" class="mb-3" style="display: none;">
+                <button type="button" class="btn btn-success btn-sm" id="confirm-time-change-btn">
+                    <i class="fas fa-check"></i> Подтвердить изменение времени
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm ms-2" id="cancel-time-change-btn">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+            </div>
+
+            <!-- Контейнер для выбора нового времени -->
+            <div id="timeslot-selector-container" style="display: none;"></div>
+
+            {% if messages %}
+            <div class="messages mb-4">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="post" id="appointmentEditForm">
+                {% csrf_token %}
+
+                <!-- Hidden поля для изменения времени -->
+                {{ form.allow_time_change }}
+                {{ form.new_time_slot_id }}
+                {{ form.new_appointment_date }}
+
+                <!-- Услуга -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.service.id_for_label }}" class="form-label">
+                            <i class="fas fa-stethoscope"></i> {{ form.service.label }}
+                        </label>
+                        {{ form.service }}
+                        {% if form.service.errors %}
+                        <div class="text-danger small">{{ form.service.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">
+                            Текущая услуга: {{ appointment.service.name }} ({{ appointment.actual_price }} руб.)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Тип оплаты -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.insurance_type.id_for_label }}" class="form-label">
+                            <i class="fas fa-money-bill"></i> {{ form.insurance_type.label }}
+                        </label>
+                        {{ form.insurance_type }}
+                        {% if form.insurance_type.errors %}
+                        <div class="text-danger small">{{ form.insurance_type.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Комментарий -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <label for="{{ form.comment.id_for_label }}" class="form-label">
+                            <i class="fas fa-comment"></i> {{ form.comment.label }}
+                        </label>
+                        {{ form.comment }}
+                        {% if form.comment.errors %}
+                        <div class="text-danger small">{{ form.comment.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ДОБАВЛЕННЫЙ БЛОК: Требует перезаписи на более ранний срок -->
+                <div class="row mb-3">
+                    <div class="col-md-12">
+                        <div class="form-check">
+                            {{ form.needs_reschedule }}
+                            <label for="{{ form.needs_reschedule.id_for_label }}" class="form-check-label">
+                                <i class="fas fa-clock"></i> {{ form.needs_reschedule.label }}
+                            </label>
+                            {% if form.needs_reschedule.errors %}
+                            <div class="text-danger small">{{ form.needs_reschedule.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">
+                                Отметьте, если пациенту требуется запись на более ранний срок
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Кнопки -->
+                <div class="row mt-4">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Назад к просмотру
+                            </a>
+
+                            <div>
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-save"></i> Сохранить изменения
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Подключаем общие утилиты -->
+<script src="/static/js/utils.js?v={% now 'U' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const changeTimeBtn = document.getElementById('change-time-btn');
+    const selectorContainer = document.getElementById('timeslot-selector-container');
+    const originalInfo = document.getElementById('original-slot-info');
+    const timeChangeButtons = document.getElementById('time-change-buttons');
+    const confirmBtn = document.getElementById('confirm-time-change-btn');
+    const cancelBtn = document.getElementById('cancel-time-change-btn');
+    const form = document.getElementById('appointmentEditForm');
+
+    if (!changeTimeBtn || !selectorContainer || !originalInfo || !timeChangeButtons || !form) return;
+
+    // Создаем контейнер для выбора времени, если его нет
+    if (!selectorContainer.querySelector('.timeslot-selector')) {
+        selectorContainer.innerHTML = `
+            <div class="timeslot-selector card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">Выбор нового времени приема</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="timeslot-date" class="form-label">
+                                Дата приема *
+                            </label>
+                            <input type="date" id="timeslot-date" class="form-control" required>
+                            <div class="form-text">Выберите новую дату приема</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="timeslot-select" class="form-label">
+                                Временной слот *
+                            </label>
+                            <select id="timeslot-select" class="form-select" disabled>
+                                <option value="">Сначала выберите дату</option>
+                            </select>
+                            <div class="form-text">Выберите доступное время</div>
+                        </div>
+                    </div>
+                    <div id="timeslot-info" class="alert alert-info mt-3" style="display: none;">
+                        <i class="fas fa-check-circle"></i>
+                        <strong>Выбрано новое время:</strong>
+                        <span id="timeslot-display"></span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    let timeSlotSelector = null;
+    let isChangingTime = false;
+    let originalSlotData = {
+        date: document.getElementById('js-original-date').value,
+        time: document.getElementById('js-original-time').value,
+        cabinet: document.getElementById('original-cabinet').textContent.trim()
+    };
+    let selectedSlot = null;
+
+    // Константы для JavaScript
+    const csrfToken = "{{ csrf_token }}";
+    const doctorId = parseInt(document.getElementById('js-doctor-id').value);
+    const currentSlotId = parseInt(document.getElementById('js-current-slot-id').value);
+    const originalDate = document.getElementById('js-original-date').value;
+    const availableSlotsUrl = "{% url 'appointments:api_available_slots_for_doctor' %}";
+
+    if (!window.AppointmentUtils || !window.AppointmentUtils.TimeSlotSelector) {
+        console.error('TimeSlotSelector not found');
+        return;
+    }
+
+    function formatDate(dateString) {
+        try {
+            const date = new Date(dateString + 'T00:00:00');
+            return date.toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (error) {
+            return dateString;
+        }
+    }
+
+    function updateOriginalDisplay(slotData) {
+        const originalDateSpan = document.getElementById('original-date');
+        const originalTimeSpan = document.getElementById('original-time');
+        const originalCabinetSpan = document.getElementById('original-cabinet');
+
+        if (slotData) {
+            if (originalDateSpan && slotData.date) {
+                originalDateSpan.textContent = formatDate(slotData.date);
+            }
+
+            if (originalTimeSpan && slotData.display) {
+                const timeMatch = slotData.display.match(/(\d{1,2}:\d{2}-\d{1,2}:\d{2})/);
+                if (timeMatch) {
+                    originalTimeSpan.textContent = timeMatch[1];
+                } else {
+                    originalTimeSpan.textContent = slotData.display;
+                }
+            }
+
+            if (originalCabinetSpan && slotData.display) {
+                const cabinetMatch = slotData.display.match(/\(([^)]+)\)/);
+                if (cabinetMatch) {
+                    originalCabinetSpan.textContent = cabinetMatch[1];
+                }
+            }
+        } else {
+            // Возвращаем исходные значения
+            if (originalDateSpan) {
+                originalDateSpan.textContent = formatDate(originalSlotData.date);
+            }
+            if (originalTimeSpan) {
+                originalTimeSpan.textContent = originalSlotData.time;
+            }
+            if (originalCabinetSpan) {
+                originalCabinetSpan.textContent = originalSlotData.cabinet;
+            }
+        }
+    }
+
+    function resetTimeSelection() {
+        const allowTimeChangeInput = document.getElementById('id_allow_time_change');
+        const newTimeSlotIdInput = document.getElementById('id_new_time_slot_id');
+        const newAppointmentDateInput = document.getElementById('id_new_appointment_date');
+
+        if (allowTimeChangeInput) allowTimeChangeInput.value = 'false';
+        if (newTimeSlotIdInput) newTimeSlotIdInput.value = '';
+        if (newAppointmentDateInput) newAppointmentDateInput.value = '';
+
+        selectedSlot = null;
+
+        if (timeSlotSelector) {
+            const dateInput = document.getElementById('timeslot-date');
+            const slotSelect = document.getElementById('timeslot-select');
+            const infoDiv = document.getElementById('timeslot-info');
+
+            if (dateInput) dateInput.value = '';
+            if (slotSelect) {
+                slotSelect.innerHTML = '<option value="">Сначала выберите дату</option>';
+                slotSelect.disabled = true;
+            }
+            if (infoDiv) infoDiv.style.display = 'none';
+        }
+    }
+
+    function saveSelectedTime() {
+        if (!selectedSlot) return false;
+
+        const allowTimeChangeInput = document.getElementById('id_allow_time_change');
+        const newTimeSlotIdInput = document.getElementById('id_new_time_slot_id');
+        const newAppointmentDateInput = document.getElementById('id_new_appointment_date');
+
+        if (!allowTimeChangeInput || !newTimeSlotIdInput || !newAppointmentDateInput) {
+            return false;
+        }
+
+        allowTimeChangeInput.value = 'true';
+        newTimeSlotIdInput.value = selectedSlot.id;
+        newAppointmentDateInput.value = selectedSlot.date;
+
+        return true;
+    }
+
+    function toggleTimeChangeMode(enabled) {
+        isChangingTime = enabled;
+
+        if (enabled) {
+            selectorContainer.style.display = 'block';
+            originalInfo.style.display = 'none';
+            timeChangeButtons.style.display = 'block';
+            changeTimeBtn.innerHTML = '<i class="fas fa-times"></i> Отменить изменение';
+            changeTimeBtn.classList.remove('btn-outline-warning');
+            changeTimeBtn.classList.add('btn-outline-danger');
+
+            if (confirmBtn) confirmBtn.disabled = true;
+            if (cancelBtn) cancelBtn.disabled = false;
+
+            resetTimeSelection();
+
+            if (!timeSlotSelector) {
+                timeSlotSelector = window.AppointmentUtils.TimeSlotSelector.create({
+                    containerId: 'timeslot-selector-container',
+                    apiUrl: availableSlotsUrl,
+                    csrfToken: csrfToken,
+                    doctorId: doctorId,
+                    currentSlotId: currentSlotId,
+                    currentAppointmentId: {{ appointment.id }},
+                    initialDate: originalDate,
+                    onSlotSelect: function(slotData) {
+                        selectedSlot = slotData;
+
+                        if (confirmBtn) confirmBtn.disabled = false;
+
+                        const infoDiv = document.getElementById('timeslot-info');
+                        const displaySpan = document.getElementById('timeslot-display');
+                        if (infoDiv && displaySpan) {
+                            displaySpan.textContent = slotData.display || 'Неизвестное время';
+                            infoDiv.style.display = 'block';
+                        }
+                    }
+                });
+            }
+        } else {
+            selectorContainer.style.display = 'none';
+            originalInfo.style.display = 'block';
+            timeChangeButtons.style.display = 'none';
+            changeTimeBtn.innerHTML = '<i class="fas fa-clock"></i> Изменить время';
+            changeTimeBtn.classList.remove('btn-outline-danger');
+            changeTimeBtn.classList.add('btn-outline-warning');
+        }
+    }
+
+    changeTimeBtn.addEventListener('click', function() {
+        if (!isChangingTime) {
+            toggleTimeChangeMode(true);
+        } else {
+            toggleTimeChangeMode(false);
+            updateOriginalDisplay(null);
+        }
+    });
+
+    if (confirmBtn) {
+        confirmBtn.addEventListener('click', function() {
+            if (!isChangingTime) return;
+
+            if (!selectedSlot || !selectedSlot.id) {
+                alert('Пожалуйста, выберите временной слот');
+                return;
+            }
+
+            if (!saveSelectedTime()) {
+                alert('Ошибка сохранения выбранного времени');
+                return;
+            }
+
+            toggleTimeChangeMode(false);
+            updateOriginalDisplay(selectedSlot);
+        });
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            if (!isChangingTime) return;
+
+            toggleTimeChangeMode(false);
+            updateOriginalDisplay(null);
+        });
+    }
+
+    // Валидация формы перед отправкой
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            const allowTimeChange = document.getElementById('id_allow_time_change').value === 'true';
+            const newTimeSlotId = document.getElementById('id_new_time_slot_id').value;
+            const newAppointmentDate = document.getElementById('id_new_appointment_date').value;
+
+            // Если время было изменено, проверяем что все поля заполнены
+            if (allowTimeChange) {
+                if (!newTimeSlotId || !newAppointmentDate) {
+                    alert('Ошибка: не заполнены поля для изменения времени. Пожалуйста, нажмите "Подтвердить изменение времени".');
+                    event.preventDefault();
+                    return false;
+                }
+            }
+
+            return true;
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,270 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">{% if object %}Редактирование пациента{% else %}Добавление пациента{% endif %}</h1>
+    <p class="lead">{% if object %}Изменение данных пациента{% else %}Введите данные нового пациента{% endif %}</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card timetable-form-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user{% if object %}-edit{% else %}-plus{% endif %}"></i>
+                        {% if object %}Редактирование пациента{% else %}Добавление пациента{% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="patientForm">
+                        {% csrf_token %}
+
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Личные данные</h5>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.surname.id_for_label }}">{{ form.surname.label }}</label>
+                                    {{ form.surname }}
+                                    {% if form.surname.errors %}
+                                    <div class="text-danger small">{{ form.surname.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.first_name.id_for_label }}">{{ form.first_name.label }}</label>
+                                    {{ form.first_name }}
+                                    {% if form.first_name.errors %}
+                                    <div class="text-danger small">{{ form.first_name.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.last_name.id_for_label }}">{{ form.last_name.label }}</label>
+                                    {{ form.last_name }}
+                                    {% if form.last_name.errors %}
+                                    <div class="text-danger small">{{ form.last_name.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.date_of_birth.id_for_label }}">{{ form.date_of_birth.label }}</label>
+                                    <!-- Ручной рендеринг поля даты -->
+                                    <input type="date"
+                                           name="{{ form.date_of_birth.html_name }}"
+                                           id="{{ form.date_of_birth.id_for_label }}"
+                                           class="form-control"
+                                           value="{{ form.date_of_birth.value|date:'Y-m-d'|default:'' }}">
+                                    {% if form.date_of_birth.errors %}
+                                    <div class="text-danger small">{{ form.date_of_birth.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.gender.id_for_label }}">{{ form.gender.label }}</label>
+                                    {{ form.gender }}
+                                    {% if form.gender.errors %}
+                                    <div class="text-danger small">{{ form.gender.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.phone_number.id_for_label }}">{{ form.phone_number.label }}</label>
+                                    {{ form.phone_number }}
+                                    {% if form.phone_number.errors %}
+                                    <div class="text-danger small">{{ form.phone_number.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Номера карт</h5>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.card_number.id_for_label }}">{{ form.card_number.label }}</label>
+                                    {{ form.card_number }}
+                                    {% if form.card_number.errors %}
+                                    <div class="text-danger small">{{ form.card_number.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.card_number_IP.id_for_label }}">{{ form.card_number_IP.label }}</label>
+                                    {{ form.card_number_IP }}
+                                    {% if form.card_number_IP.errors %}
+                                    <div class="text-danger small">{{ form.card_number_IP.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.card_number_OMS.id_for_label }}">{{ form.card_number_OMS.label }}</label>
+                                    {{ form.card_number_OMS }}
+                                    {% if form.card_number_OMS.errors %}
+                                    <div class="text-danger small">{{ form.card_number_OMS.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Остальные поля формы (адрес, паспорт, страховка) -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Адрес</h5>
+                            </div>
+                            {% for field in form %}
+                                {% if field.name in address_fields %}
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                        <div class="text-danger small">{{ field.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Паспортные данные</h5>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.passport_series.id_for_label }}">{{ form.passport_series.label }}</label>
+                                    {{ form.passport_series }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.passport_number.id_for_label }}">{{ form.passport_number.label }}</label>
+                                    {{ form.passport_number }}
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.passport_issue_date.id_for_label }}">{{ form.passport_issue_date.label }}</label>
+                                    <!-- Ручной рендеринг поля даты выдачи паспорта -->
+                                    <input type="date"
+                                           name="{{ form.passport_issue_date.html_name }}"
+                                           id="{{ form.passport_issue_date.id_for_label }}"
+                                           class="form-control"
+                                           value="{{ form.passport_issue_date.value|date:'Y-m-d'|default:'' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="form-group">
+                                    <label for="{{ form.who_issued_the_passport.id_for_label }}">{{ form.who_issued_the_passport.label }}</label>
+                                    {{ form.who_issued_the_passport }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Страхование</h5>
+                            </div>
+                            {% for field in form %}
+                                {% if field.name in insurance_fields %}
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                                        {{ field }}
+                                        {% if field.errors %}
+                                        <div class="text-danger small">{{ field.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn timetable-btn-success">
+                                {% if object %}<i class="fas fa-save"></i> Сохранить{% else %}<i class="fas fa-plus"></i> Создать{% endif %}
+                            </button>
+                            <a href="{% url 'patients:patient_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Добавим JavaScript для форматирования дат -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Функция для преобразования даты в формат YYYY-MM-DD
+    function formatDateForInput(dateStr) {
+        if (!dateStr) return '';
+
+        // Пытаемся распарсить разные форматы дат
+        const formats = [
+            /(\d{2})\.(\d{2})\.(\d{4})/, // DD.MM.YYYY
+            /(\d{4})-(\d{2})-(\d{2})/    // YYYY-MM-DD
+        ];
+
+        for (const format of formats) {
+            const match = dateStr.match(format);
+            if (match) {
+                if (format.source === formats[0].source) {
+                    // DD.MM.YYYY -> YYYY-MM-DD
+                    return `${match[3]}-${match[2]}-${match[1]}`;
+                } else {
+                    // Уже YYYY-MM-DD
+                    return dateStr;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    // Принудительно устанавливаем формат дат при загрузке страницы
+    const dateOfBirthInput = document.getElementById('{{ form.date_of_birth.id_for_label }}');
+    const passportIssueDateInput = document.getElementById('{{ form.passport_issue_date.id_for_label }}');
+
+    if (dateOfBirthInput && !dateOfBirthInput.value) {
+        // Пробуем получить значение из data-value или textContent
+        const originalDate = '{{ form.date_of_birth.value }}';
+        if (originalDate) {
+            const formattedDate = formatDateForInput(originalDate);
+            if (formattedDate) {
+                dateOfBirthInput.value = formattedDate;
+            }
+        }
+    }
+
+    if (passportIssueDateInput && !passportIssueDateInput.value) {
+        const originalDate = '{{ form.passport_issue_date.value }}';
+        if (originalDate) {
+            const formattedDate = formatDateForInput(originalDate);
+            if (formattedDate) {
+                passportIssueDateInput.value = formattedDate;
+            }
+        }
+    }
+});
+</script>
+{% endblock %}
