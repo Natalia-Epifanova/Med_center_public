@@ -151,6 +151,7 @@
     <div class="row mt-4">
         <div class="col-12">
             <div class="btn-group" role="group">
+                {% if is_medical_admin or is_admin %}
                 <a href="{% url 'patients:patient_update' patient.pk %}"
                    class="btn btn-outline-primary">
                     <i class="fas fa-edit"></i> Редактировать
@@ -159,13 +160,16 @@
                    class="btn btn-outline-danger">
                     <i class="fas fa-trash"></i> Удалить пациента
                 </a>
+                {% endif %}
                 <a href="{% url 'patients:patient_list' %}"
                    class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left"></i> Назад к списку пациентов
                 </a>
+
             </div>
         </div>
     </div>
+    {% if is_medical_admin or is_admin %}
     <!-- Печать документов -->
     <div class="row mt-4">
         <div class="col-12">
@@ -234,9 +238,7 @@
                                 <button type="button" class="btn btn-outline-success" onclick="generateDocument('card_paid')">
                                     <i class="fas fa-address-card"></i> Карта (платно)
                                 </button>
-                                <button type="button" class="btn btn-outline-success" onclick="generateDocument('card_xray')">
-                                    <i class="fas fa-address-card"></i> Карта (рентген)
-                                </button>
+
                             </div>
                         </div>
 
@@ -262,6 +264,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
     <!-- История обращений -->
     <div class="row mt-4">
         <div class="col-md-12">

@@ -377,7 +377,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                 insurance_type=insurance_type,
                 status=main_appointment.status,
                 comment=comment
-                or f"Дополнительная запись с основной #{main_appointment.id}",
+                or f"Дополнительная запись!",
                 chain_type=Appointment.ChainType.MULTIPLE_DOCTORS,
                 is_chain_main=False,
             )
@@ -702,6 +702,8 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
         if not self.selected_date:
             self.selected_date = timezone.now().date()
 
+        # Устанавливаем тип оплаты по умолчанию как "платный"
+        self.fields["insurance_type"].initial = "paid"
         # Обновляем queryset для услуги
         self._update_service_queryset()
 
@@ -1071,7 +1073,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                 insurance_type=insurance_type,
                 status=Appointment.AppointmentStatus.SCHEDULED,
                 comment=comment
-                or f"Дополнительная запись с основной #{main_appointment.id}",
+                or f"Дополнительная запись!",
                 chain_type=Appointment.ChainType.MULTIPLE_DOCTORS,
                 is_chain_main=False,
             )

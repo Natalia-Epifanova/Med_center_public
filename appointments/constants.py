@@ -2,7 +2,7 @@
 
 # Константы для записей на прием
 PROCEDURAL_CABINET_NUMBER = 6  # Номер процедурного кабинета
-SLOT_LOCK_TIMEOUT = 300  # 10 минут в секундах
+SLOT_LOCK_TIMEOUT = 150  # 2,5 минуты в секундах
 
 # Ключи кэша
 CACHE_KEYS = {
@@ -19,7 +19,7 @@ CACHE_KEYS = {
 # Типы цепочек записей
 APPOINTMENT_CHAIN_CHOICES = [
     ("none", "Только одна услуга"),
-    ("two_slots", "Запись на два последовательных слота"),
+    ("two_slots", "Запись на два последовательных слота (ДЛЯ КОНС К О.Е.!!!)"),
     ("another_doctor", "Добавить запись к этому или другому врачу"),
     ("multiple", "Несколько записей к разным врачам"),
 ]
@@ -29,7 +29,7 @@ CACHE_TIMEOUTS = {
     "DOCTOR_SERVICES": 3600,  # 1 час
     "BLOOD_TESTS": 7200,  # 2 часа
     "ACTIVE_DOCTORS": 1800,  # 30 минут
-    "DOCTOR_SLOTS": 300,  # 5 минут
+    "DOCTOR_SLOTS": 150,  # 2,5 минуты
     "PROCEDURAL_CABINET": 86400,  # 24 часа (редко меняется)
-    "DOCTOR_SLOTS_DETAILED": 180,  # 3 минуты для детализированных данных
+    "DOCTOR_SLOTS_DETAILED": 90,  # 1,5 минуты для детализированных данных
 }

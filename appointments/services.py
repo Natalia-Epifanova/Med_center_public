@@ -133,7 +133,7 @@ class AppointmentService:
             start_time=main_appointment.time_slot.start_time,
             end_time=main_appointment.time_slot.end_time,
             slot_type="working",
-            description="Процедурный кабинет",
+            description="",
         )
 
         # Создание записи
@@ -194,7 +194,7 @@ class AppointmentService:
                 is_consecutive=True,
                 previous_appointment=main_appointment,
                 occupies_two_slots=True,
-                comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
+                comment=f"Продолжение услуги, (занято 2 слота)",
             )
         return None
 
@@ -294,7 +294,7 @@ class ProceduralAppointmentService:
                 start_time=start_time,
                 end_time=end_time,
                 slot_type="working",
-                description="Процедурный кабинет - индивидуальная запись",
+                description="",
             )
 
         return time_slot
@@ -331,7 +331,7 @@ class ProceduralAppointmentService:
             start_time=main_appointment.time_slot.start_time,
             end_time=main_appointment.time_slot.end_time,
             slot_type="working",
-            description="Процедурный кабинет",
+            description="",
         )
 
         # Создание записи
@@ -546,7 +546,7 @@ class ConsecutiveAppointmentService:
                     status=main_appointment.status,
                     is_consecutive=True,
                     occupies_two_slots=True,
-                    comment=f"Продолжение услуги {main_appointment.service.name} (занято 2 слота)",
+                    comment=f"Продолжение услуги, (занято 2 слота)",
                     chain_type=Appointment.ChainType.SAME_DOCTOR,
                 )
 

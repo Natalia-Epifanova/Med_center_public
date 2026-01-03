@@ -546,3 +546,125 @@
     background-color: #f8f9fa;
 }
 }
+/* ===== ГОРИЗОНТАЛЬНАЯ ПРОКРУТКА КАБИНЕТОВ С КОНТРОЛЛЕРАМИ НАД КАРТОЧКАМИ ===== */
+
+/* Контейнеры для управления прокруткой */
+.timetable-scroll-controls {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.timetable-scroll-indicator {
+    text-align: center;
+    padding: 5px;
+}
+
+.scroll-left-btn,
+.scroll-right-btn {
+    min-width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50% !important;
+}
+
+.scroll-left-btn:hover,
+.scroll-right-btn:hover {
+    background-color: #28a745 !important;
+    color: white !important;
+    border-color: #28a745 !important;
+}
+
+/* Основной контейнер с горизонтальной прокруткой */
+.timetable-cards-scroll-container {
+    overflow-x: auto; /* Горизонтальная прокрутка */
+    padding-bottom: 12px; /* Отступ для скроллбара */
+    margin-bottom: 16px;
+    margin-top: 10px;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    background-color: #fdfdfd;
+}
+
+/* Стилизация скроллбара */
+.timetable-cards-scroll-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Сетка кабинетов */
+.timetable-cards-grid {
+    display: flex;
+    flex-wrap: nowrap; /* Запрещаем перенос на новую строку */
+    gap: 12px; /* Отступ между карточками */
+    min-width: min-content; /* Минимальная ширина по содержимому */
+}
+
+/* Столбец с карточкой кабинета */
+.timetable-cabinet-column {
+    flex: 0 0 auto;
+    width: 450px; /* Фиксированная ширина карточки */
+    min-width: 450px;
+}
+
+/* Карточка кабинета */
+.timetable-cabinet-card {
+    min-height: 300px;
+    height: 100%;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid #dee2e6;
+}
+
+.timetable-cabinet-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .timetable-cabinet-column {
+        width: 380px; /* Уменьшаем ширину на мобильных */
+        min-width: 380px;
+    }
+
+    .timetable-scroll-controls {
+        padding: 8px;
+    }
+
+    .scroll-left-btn,
+    .scroll-right-btn {
+        min-width: 36px;
+        height: 36px;
+    }
+}
+
+@media (max-width: 576px) {
+    .timetable-cabinet-column {
+        width: 320px; /* Еще меньше на маленьких экранах */
+        min-width: 320px;
+    }
+
+    .timetable-scroll-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
