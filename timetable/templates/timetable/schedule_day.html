@@ -287,7 +287,7 @@
 
                                             {% endif %}">
                                     <td>
-                                        {% if is_admin or slot.cabinet.number == 6 and is_medical_admin %}
+                                        {% if is_admin or is_medical_admin %}
                                             <a href="{% url 'timetable:timeslot_detail' slot.pk %}"
                                                class="text-decoration-none"
                                                title="Нажмите для просмотра деталей слота">
