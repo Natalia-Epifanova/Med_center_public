@@ -1,0 +1,3026 @@
+[
+{
+    "model": "timetable.bloodtest",
+    "pk": 1,
+    "fields": {
+        "code": "B03.016.003",
+        "name": "Общий (клинический) анализ крови развёрнутый",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "450.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 2,
+    "fields": {
+        "code": "B03.016.002",
+        "name": "Общий (клинический) анализ крови",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "230.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 3,
+    "fields": {
+        "code": "A09.05.003",
+        "name": "Исследование уровня общего гемоглобина в крови",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "140.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 4,
+    "fields": {
+        "code": "A12.05.005",
+        "name": "Определение основных групп по системе AB0 (группа крови)",
+        "category": 2,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 5,
+    "fields": {
+        "code": "A12.05.006",
+        "name": "Определение антигена D системы резус (резус-фактор)",
+        "category": 2,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 6,
+    "fields": {
+        "code": "A12.05.121",
+        "name": "Дифференцированный подсчет лейкоцитов (лейкоцитарная формула)",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 7,
+    "fields": {
+        "code": "A12.05.001",
+        "name": "Исследование скорости оседания эритроцитов",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 8,
+    "fields": {
+        "code": "A12.05.123",
+        "name": "Исследование уровня ретикулоцитов в крови",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 9,
+    "fields": {
+        "code": "A12.05.120",
+        "name": "Исследование уровня тромбоцитов в крови",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "140.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 10,
+    "fields": {
+        "code": "A12.05.014,A12.05.015",
+        "name": "Исследование времени свертывания нестабилизированной крови или рекальцификации плазмы",
+        "category": 1,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 11,
+    "fields": {
+        "code": "A12.06.062",
+        "name": "Определение содержания антител к цитруллинированному виментину в крови (анти-MCV)",
+        "category": 2,
+        "biomaterial": "serum",
+        "execution_time": "6-8 дней",
+        "price": "1100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 12,
+    "fields": {
+        "code": "A12.05.108.001",
+        "name": "Определение интерлейкина 6 в сыворотке крови",
+        "category": 2,
+        "biomaterial": "serum",
+        "execution_time": "2-3 дня",
+        "price": "2000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 13,
+    "fields": {
+        "code": "A12.06.001.005",
+        "name": "B-лимфоциты, % и абсолютное количество (CD19+ лимфоциты, B-cells, Percent and Absolute)",
+        "category": 2,
+        "biomaterial": "serum",
+        "execution_time": "до 6 дней",
+        "price": "1900.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 14,
+    "fields": {
+        "code": "A09.05.045",
+        "name": "Определение активности амилазы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "140.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 15,
+    "fields": {
+        "code": "A09.05.173",
+        "name": "Определение активности липазы в сыворотке крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "200.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 16,
+    "fields": {
+        "code": "A09.05.043",
+        "name": "Определение активности креатинкиназы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "220.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 17,
+    "fields": {
+        "code": "A09.05.039",
+        "name": "Определение активности лактатдегидрогеназы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "170.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 18,
+    "fields": {
+        "code": "A09.05.042",
+        "name": "Определение активности аланинаминотрансферазы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 19,
+    "fields": {
+        "code": "A09.05.041",
+        "name": "Определение активности аспартатаминотрансферазы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 20,
+    "fields": {
+        "code": "A09.05.044",
+        "name": "Определение активности гамма-глютамилтрансферазы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 21,
+    "fields": {
+        "code": "A09.05.179",
+        "name": "Исследование уровня/активности изоферментов щелочной фосфатазы в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 22,
+    "fields": {
+        "code": "A09.05.006",
+        "name": "Исследование уровня миоглобина в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "800.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 23,
+    "fields": {
+        "code": "A09.05.043",
+        "name": "Определение активности креатинкиназы - МВ в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "280.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 24,
+    "fields": {
+        "code": "A09.05.129",
+        "name": "Исследование уровня желчных кислот в крови",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 25,
+    "fields": {
+        "code": "В03.016.004",
+        "name": "Развернутый комплекс биохимических исследований",
+        "category": 3,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "750.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 26,
+    "fields": {
+        "code": "A09.05.010",
+        "name": "Исследование уровня общего белка в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "110.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 27,
+    "fields": {
+        "code": "A09.05.011",
+        "name": "Исследование уровня альбумина в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "110.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 28,
+    "fields": {
+        "code": "A09.05.021",
+        "name": "Исследование уровня общего билирубина в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "120.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 29,
+    "fields": {
+        "code": "A09.05.014",
+        "name": "Определение соотношения белковых фракций методом электрофореза",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 30,
+    "fields": {
+        "code": "A09.05.214",
+        "name": "Исследование уровня гомоцистеина в крови",
+        "category": 4,
+        "biomaterial": "lithium_heparin",
+        "execution_time": "3 дня",
+        "price": "1560.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 31,
+    "fields": {
+        "code": "A09.05.020",
+        "name": "Исследование уровня креатинина в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "110.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 32,
+    "fields": {
+        "code": "А09.05.020.001",
+        "name": "СКФ (скорость клубочковой фильтрации)",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "40.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 33,
+    "fields": {
+        "code": "A09.05.017",
+        "name": "Исследование уровня мочевины в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "110.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 34,
+    "fields": {
+        "code": "A09.05.018",
+        "name": "Исследование уровня мочевой кислоты в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "130.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 35,
+    "fields": {
+        "code": "A09.05.207",
+        "name": "Исследование уровня молочной кислоты в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "600.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 36,
+    "fields": {
+        "code": "A09.05.22",
+        "name": "Исследование уровня свободного и связанного билирубина в крови",
+        "category": 4,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "120.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 37,
+    "fields": {
+        "code": "A09.05.007",
+        "name": "Исследование уровня железа сыворотки крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "220.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 38,
+    "fields": {
+        "code": "A12.05.019",
+        "name": "Исследование насыщения трансферрина железом",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "320.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 39,
+    "fields": {
+        "code": "A09.05.076",
+        "name": "Исследование уровня ферритина в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 40,
+    "fields": {
+        "code": "A09.05.008",
+        "name": "Исследование уровня трансферрина сыворотки крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "430.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 41,
+    "fields": {
+        "code": "A09.05.077",
+        "name": "Исследование уровня церулоплазмина в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 42,
+    "fields": {
+        "code": "A09.05.127",
+        "name": "Исследование уровня общего магния в сыворотке крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "200.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 43,
+    "fields": {
+        "code": "A09.05.033",
+        "name": "Исследование уровня неорганического фосфора в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "200.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 44,
+    "fields": {
+        "code": "A09.05.206",
+        "name": "Исследование уровня ионизированного кальция в крови",
+        "category": 5,
+        "biomaterial": "lithium_heparin",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 45,
+    "fields": {
+        "code": "A09.05.032",
+        "name": "Исследование уровня общего кальция в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 46,
+    "fields": {
+        "code": "A09.05.031",
+        "name": "Исследование уровня калия в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 47,
+    "fields": {
+        "code": "A09.05.030",
+        "name": "Исследование уровня натрия в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 48,
+    "fields": {
+        "code": "A09.05.034",
+        "name": "Исследование уровня хлоридов в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "150.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 49,
+    "fields": {
+        "code": "A09.05.274",
+        "name": "Исследование уровня цинка в крови",
+        "category": 5,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "1050.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 50,
+    "fields": {
+        "code": "A09.05.023",
+        "name": "Исследование уровня глюкозы в крови",
+        "category": 6,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 51,
+    "fields": {
+        "code": "А09.05.083",
+        "name": "Исследование уровня гликированного гемоглобина в крови",
+        "category": 6,
+        "biomaterial": "edta",
+        "execution_time": "2 дня",
+        "price": "500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 52,
+    "fields": {
+        "code": "A09.05.056",
+        "name": "Исследование уровня инсулина плазмы крови",
+        "category": 6,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "520.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 53,
+    "fields": {
+        "code": "A09.05.204",
+        "name": "Исследование уровня инсулиноподобного ростового фактора I в крови",
+        "category": 6,
+        "biomaterial": "serum",
+        "execution_time": "5 дней",
+        "price": "1300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 54,
+    "fields": {
+        "code": "А09.05.023, А09.05.056",
+        "name": "Исследование уровня глюкозы в крови, Исследование уровня инсулина плазмы крови, Индексы Инсулинорезистентности",
+        "category": 6,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "600.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 55,
+    "fields": {
+        "code": "A09.05.205",
+        "name": "Исследование уровня С-пептида в крови",
+        "category": 6,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "510.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 56,
+    "fields": {
+        "code": "A09.05.102",
+        "name": "Исследование уровня фруктозамина в крови",
+        "category": 6,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "660.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 57,
+    "fields": {
+        "code": "A09.05.180",
+        "name": "Определение активности панкреатической амилазы в крови",
+        "category": 7,
+        "biomaterial": "serum",
+        "execution_time": "8 дней",
+        "price": "3300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 58,
+    "fields": {
+        "code": "A12.06.015",
+        "name": "Определение антистрептолизина-О в сыворотке крови",
+        "category": 8,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 59,
+    "fields": {
+        "code": "A12.06.019",
+        "name": "Определение содержания ревматоидного фактора в крови",
+        "category": 8,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 60,
+    "fields": {
+        "code": "A09.05.009",
+        "name": "Исследование уровня С-реактивного белка в сыворотке крови",
+        "category": 8,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 61,
+    "fields": {
+        "code": "A08.05.013.010",
+        "name": "Определение активности щелочной фосфатаза нейтрофилов периферической крови",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 62,
+    "fields": {
+        "code": "А09.05.027",
+        "name": "Исследование уровня липопротеинов в крови",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "200.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 63,
+    "fields": {
+        "code": "В03.016.005",
+        "name": "Анализ крови по оценке нарушений липидного обмена биохимический",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "620.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 64,
+    "fields": {
+        "code": "B03.016.005.002",
+        "name": "Печеночный профиль",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 65,
+    "fields": {
+        "code": "A09.05.026",
+        "name": "Исследование уровня холестерина в крови",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "120.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 66,
+    "fields": {
+        "code": "A09.05.025",
+        "name": "Исследование уровня триглицеридов в крови",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "120.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 67,
+    "fields": {
+        "code": "A09.05.004",
+        "name": "Исследование уровня холестерина липопротеинов высокой плотности в крови",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 68,
+    "fields": {
+        "code": "A09.05.028",
+        "name": "Исследование уровня холестерина липопротеинов низкой плотности",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 69,
+    "fields": {
+        "code": "A09.05.264",
+        "name": "Определение Омега-3 индекса в крови",
+        "category": 9,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "3800.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 70,
+    "fields": {
+        "code": "B03.016.005.003",
+        "name": "Коэффициент атерогенности",
+        "category": 9,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "40.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 71,
+    "fields": {
+        "code": "A09.05.238.000.01",
+        "name": "Общий антиаксидантный статус (TAS)",
+        "category": 9,
+        "biomaterial": "lithium_heparin",
+        "execution_time": "10 дней",
+        "price": "1800.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 72,
+    "fields": {
+        "code": "A09.05.054.002",
+        "name": "Исследование уровня иммуноглобулина А в крови",
+        "category": 10,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "320.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 73,
+    "fields": {
+        "code": "A09.05.054.003",
+        "name": "Исследование уровня иммуноглобулина М в крови",
+        "category": 10,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "320.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 74,
+    "fields": {
+        "code": "A09.05.054.004",
+        "name": "Исследование уровня иммуноглобулина G в крови",
+        "category": 10,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "320.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 75,
+    "fields": {
+        "code": "A09.05.054.001",
+        "name": "Исследование уровня общего иммуноглобулина Е в крови",
+        "category": 10,
+        "biomaterial": "serum",
+        "execution_time": "Понедельник",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 76,
+    "fields": {
+        "code": "B03.002.004",
+        "name": "Комплекс исследований для выявления аллергена (пищевая панель)",
+        "category": 10,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "11000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 77,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (детское питание: яичный белок, молоко, треска, пшеница, соевые бобы, томаты, яичный желток)",
+        "category": 11,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 78,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (смесь аллергенов рыбы: (треска, лосось/семга, сельдь, скумбрия, камбала)",
+        "category": 11,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 79,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (смесь аллергенов злаковых: (пшеница, ячмень, овес, кукуруза, рис)",
+        "category": 11,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 80,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (смесь аллергенов зерновые: пшеница, овес, кукуруза, кунжут, греча)",
+        "category": 11,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 81,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (смесь пищевая: апельсин, яблоки, банан, персик)",
+        "category": 11,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 82,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (смесь аллергенов орехов: арахис, фундук, миндаль, кокос, грецкий орех)",
+        "category": 11,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 83,
+    "fields": {
+        "code": "B03.005.006",
+        "name": "Коагулограмма (ориентировочное исследование системы гемостаза)",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "1100.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 84,
+    "fields": {
+        "code": "A12.05.014",
+        "name": "Исследование времени свертывания нестабилизированной крови или рекальцификации плазмы неактивированное",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "160.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 85,
+    "fields": {
+        "code": "A12.05.039",
+        "name": "Активированное частичное тромбопластиновое время",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 86,
+    "fields": {
+        "code": "A12.05.027",
+        "name": "Определение протромбинового (тромбопластинового) времени в крови или в плазме",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 87,
+    "fields": {
+        "code": "A12.05.028",
+        "name": "Определение тромбинового времени в крови",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 88,
+    "fields": {
+        "code": "A09.05.050",
+        "name": "Исследование уровня фибриногена в крови",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "180.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 89,
+    "fields": {
+        "code": "A09.05.047",
+        "name": "Определение активности антитромбина III в крови",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 90,
+    "fields": {
+        "code": "B03.040.001",
+        "name": "Комплекс исследований для диагностики системной красной волчанки",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 91,
+    "fields": {
+        "code": "A09.05.051",
+        "name": "Исследование уровня продуктов паракоагуляции в крови",
+        "category": 13,
+        "biomaterial": "edta",
+        "execution_time": "1 день",
+        "price": "1000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 92,
+    "fields": {
+        "code": "A09.05.051.001",
+        "name": "Определение концентрации Д-димера в крови",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "вторник",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 93,
+    "fields": {
+        "code": "A12.30.014",
+        "name": "Определение международного нормализованного отношения (MHO)",
+        "category": 13,
+        "biomaterial": "plasma",
+        "execution_time": "1 день",
+        "price": "220.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 94,
+    "fields": {
+        "code": "A09.05.060",
+        "name": "Исследование уровня общего трийодтиронина (Т3) в крови",
+        "category": 14,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 95,
+    "fields": {
+        "code": "A09.05.063",
+        "name": "Исследование уровня свободного тироксина (СТ4) сыворотки крови",
+        "category": 14,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 96,
+    "fields": {
+        "code": "A12.06.046",
+        "name": "Определение содержания антител к рецептору тиреотропного гормона (ТТГ) в крови",
+        "category": 14,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "320.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 97,
+    "fields": {
+        "code": "A09.05.117",
+        "name": "Исследование уровня тиреоглобулина в крови",
+        "category": 14,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "480.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 98,
+    "fields": {
+        "code": "A12.06.045",
+        "name": "Определение содержания антител к тиреопероксидазе в крови",
+        "category": 15,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "450.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 99,
+    "fields": {
+        "code": "A12.06.046.001",
+        "name": "Определение содержания стимулирующих антител к рецептору тиреотропного гормона в крови",
+        "category": 15,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "1500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 100,
+    "fields": {
+        "code": "A09.05.067",
+        "name": "Исследование уровня адренокортикотропного гормона в крови",
+        "category": 16,
+        "biomaterial": "edta",
+        "execution_time": "четверг",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 101,
+    "fields": {
+        "code": "A09.05.135",
+        "name": "Исследование уровня общего кортизола в крови",
+        "category": 16,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 102,
+    "fields": {
+        "code": "А09.05.058",
+        "name": "Исследование уровня паратиреоидного гормона в крови",
+        "category": 17,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 103,
+    "fields": {
+        "code": "A09.05.119",
+        "name": "Исследование уровня кальцитонина в крови",
+        "category": 17,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "600.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 104,
+    "fields": {
+        "code": "A09.05.224",
+        "name": "Исследование уровня остеокальцина в крови",
+        "category": 17,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 105,
+    "fields": {
+        "code": "A09.05.235, A09.05.221",
+        "name": "Исследование уровня 25-ОН витамина Д в крови, Исследование уровня 1,25-ОН витамина Д в крови",
+        "category": 18,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "1450.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 106,
+    "fields": {
+        "code": "A12.06.060",
+        "name": "Определение уровня витамина В12 (цианокобаламин) в крови",
+        "category": 18,
+        "biomaterial": "serum",
+        "execution_time": "5 дней",
+        "price": "750.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 107,
+    "fields": {
+        "code": "А09.05.080",
+        "name": "Исследование уровня фолиевой кислоты в сыворотке крови",
+        "category": 18,
+        "biomaterial": "serum",
+        "execution_time": "5 дней",
+        "price": "900.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 108,
+    "fields": {
+        "code": "A12.06.060.021",
+        "name": "Определение уровня витамина К (филлохинон) в крови",
+        "category": 18,
+        "biomaterial": "edta",
+        "execution_time": "8 дней",
+        "price": "2110.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 109,
+    "fields": {
+        "code": "А09.05.066",
+        "name": "Исследование уровня соматотропного гормона в крови",
+        "category": 19,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 110,
+    "fields": {
+        "code": "А09.05.132",
+        "name": "Исследование уровня фолликулостимулирующего гормона в сыворотке крови",
+        "category": 20,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 111,
+    "fields": {
+        "code": "А09.05.131",
+        "name": "Исследование уровня лютеинизирующего гормона в сыворотке крови",
+        "category": 20,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 112,
+    "fields": {
+        "code": "А09.05.087",
+        "name": "Исследование уровня пролактина в крови",
+        "category": 20,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 113,
+    "fields": {
+        "code": "А09.05.087.001",
+        "name": "Исследование уровня макропролактина в крови",
+        "category": 20,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "1430.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 114,
+    "fields": {
+        "code": "A09.05.159",
+        "name": "Исследование уровня лептина в крови",
+        "category": 21,
+        "biomaterial": "serum",
+        "execution_time": "8 дней",
+        "price": "1000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 115,
+    "fields": {
+        "code": "А09.05.154",
+        "name": "Исследование уровня общего эстрадиола в крови",
+        "category": 22,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 116,
+    "fields": {
+        "code": "А09.05.153",
+        "name": "Исследование уровня прогестерона в крови",
+        "category": 22,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "450.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 117,
+    "fields": {
+        "code": "А09.05.078",
+        "name": "Исследование уровня общего тестостерона в крови",
+        "category": 23,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "360.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 118,
+    "fields": {
+        "code": "А09.05.078.001",
+        "name": "Исследование уровня свободного тестостерона в крови",
+        "category": 23,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "1040.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 119,
+    "fields": {
+        "code": "А09.05.149",
+        "name": "Исследование уровня дегидроэпиандростерона сульфата в крови",
+        "category": 23,
+        "biomaterial": "serum",
+        "execution_time": "пятница",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 120,
+    "fields": {
+        "code": "А09.05.139",
+        "name": "Исследование уровня 17-гидроксипрогестерона в крови",
+        "category": 23,
+        "biomaterial": "serum",
+        "execution_time": "пятница",
+        "price": "480.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 121,
+    "fields": {
+        "code": "А09.05.160",
+        "name": "Исследование уровня глобулина, связывающего половые гормоны, в крови",
+        "category": 23,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "460.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 122,
+    "fields": {
+        "code": "A09.05.225",
+        "name": "Исследование уровня антимюллерова гормона в крови",
+        "category": 24,
+        "biomaterial": "serum",
+        "execution_time": "пятница",
+        "price": "1150.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 123,
+    "fields": {
+        "code": "A09.05.202",
+        "name": "Исследование уровня антигена аденогенных раков СА 125 в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 124,
+    "fields": {
+        "code": "A09.05.231",
+        "name": "Исследование уровня опухолеассоциированного маркёра СА 15-3 в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "600.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 125,
+    "fields": {
+        "code": "A09.05.201",
+        "name": "Исследование уровня антигена аденогенных раков СА 19-9 в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "600.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 126,
+    "fields": {
+        "code": "А09.05.130.002",
+        "name": "ПСА общий / ПСА свободный / Расчет соотношения",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "900.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 127,
+    "fields": {
+        "code": "А09.05.130",
+        "name": "Исследование уровня простатспецифического антигена общего в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 128,
+    "fields": {
+        "code": "A09.05.195",
+        "name": "Исследование уровня ракового эмбрионального антигена в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 129,
+    "fields": {
+        "code": "А09.05.089",
+        "name": "Исследование уровня связанного с беременностью плазменного протеина А (РАРР-А) в сыворотке крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 130,
+    "fields": {
+        "code": "A12.06.038",
+        "name": "Определение содержания антител к хорионическому гонадотропину в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 131,
+    "fields": {
+        "code": "A09.05.090",
+        "name": "Исследование уровня хорионического гонадотропина (свободная бета-субъединица) в сыворотке крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 132,
+    "fields": {
+        "code": "A09.05.299",
+        "name": "Исследование уровня антигена аденогенных раков СА 72-4 в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 133,
+    "fields": {
+        "code": "A09.05.300",
+        "name": "Определение секреторного белка эпидидимиса человека 4 (НЕ4) в крови",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "5 дней",
+        "price": "1200.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 134,
+    "fields": {
+        "code": "А09.05.001",
+        "name": "ПСА свободный",
+        "category": 25,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 135,
+    "fields": {
+        "code": "A26.05.021",
+        "name": "Молекулярно-биологическое исследование крови на вирус иммунодефицита человека ВИЧ-1 (Human immunodeficiency virus HIV-1)",
+        "category": 26,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 136,
+    "fields": {
+        "code": "A26.06.049.001, A26.06.13",
+        "name": "Исследование уровня антител классов М, G (IgM, IgG) к вирусу иммунодефицита человека ВИЧ-1/2 и антигена р24 (Human immunodeficiency virus HIV 1/2 + Agp24) в крови, Определение антигена р24 вируса иммунодефицита человека ВИЧ-1 (Human immunodeficiency virus HIV-1,) в крови",
+        "category": 26,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "450.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 137,
+    "fields": {
+        "code": "А26.06.082",
+        "name": "Определение антител к бледной трепонеме (Treponema pallidum) в крови",
+        "category": 27,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "130.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 138,
+    "fields": {
+        "code": "A26.06.082.003",
+        "name": "Определение антител к бледной трепонеме (Treponema pallidum) в реакции пассивной гемагглютинации (РПГА) (качественное и полуколичественное исследование) в сыворотке крови",
+        "category": 27,
+        "biomaterial": "serum",
+        "execution_time": "1 день",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 139,
+    "fields": {
+        "code": "A26.06.082.001",
+        "name": "Определение антител к бледной трепонеме (Treponema pallidum) в нетрепонемных тестах (RPR, РМП) (качественное и полуколичественное исследование) в сыворотке крови",
+        "category": 27,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 140,
+    "fields": {
+        "code": "A26.06.035",
+        "name": "Определение антигена (HbeAg) вируса гепатита В (Hepatitis В virus) в крови",
+        "category": 28,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 141,
+    "fields": {
+        "code": "A26.06.038",
+        "name": "Определение антител к е-антигену (anti-HBe) вируса гепатита В (Hepatitis В virus) в крови",
+        "category": 28,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 142,
+    "fields": {
+        "code": "A26.06.040",
+        "name": "Определение антител к поверхностному антигену (HBsAg) вируса гепатита В (Hepatitis В virus) в крови",
+        "category": 28,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 143,
+    "fields": {
+        "code": "А26.05.020",
+        "name": "Определение ДНК вируса гепатита В (Hepatitis B virus) в крови методом ПЦР, качественное, ультрачувствительное исследование",
+        "category": 28,
+        "biomaterial": "serum",
+        "execution_time": "5 дней",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 144,
+    "fields": {
+        "code": "А26.06.036.002",
+        "name": "Определение антигена (HBsAg) вируса гепатита В (Hepatitis B virus) в крови, количественное исследование",
+        "category": 28,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "1400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 145,
+    "fields": {
+        "code": "A12.06.052",
+        "name": "Определение содержания антител к циклическому цитрулиновому пептиду (анти-ССР) в крови",
+        "category": 29,
+        "biomaterial": "serum",
+        "execution_time": "четверг",
+        "price": "1500.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 146,
+    "fields": {
+        "code": "A12.05.010",
+        "name": "Определение HLA-антигенов",
+        "category": 29,
+        "biomaterial": "edta",
+        "execution_time": "пятница",
+        "price": "1350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 147,
+    "fields": {
+        "code": "A26.06.041",
+        "name": "Определение антител к вирусу гепатиту С (Hepatitis С virus) в крови",
+        "category": 30,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 148,
+    "fields": {
+        "code": "A26.05.019.001",
+        "name": "Определение РНК вируса гепатита С (Hepatitis С virus) в крови методом ПЦР, качественное исследование",
+        "category": 30,
+        "biomaterial": "serum",
+        "execution_time": "10 дней",
+        "price": "800.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 149,
+    "fields": {
+        "code": "A26.06.034.001",
+        "name": "Определение антител класса М (anti-HAV IgM) к вирусу гепатита А (Hepatitis A virus) в крови",
+        "category": 31,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 150,
+    "fields": {
+        "code": "A26.06.034.002",
+        "name": "Обнаружение антител класса G (anti-HAV IgG) к вирусу гепатита А (Hepatitis A virus) в крови",
+        "category": 31,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 151,
+    "fields": {
+        "code": "A12.06.010.003",
+        "name": "АНФ Антинуклеарный фактор на клеточной линии HEp-2, нРИФ",
+        "category": 32,
+        "biomaterial": "serum",
+        "execution_time": "по накоплению 4 пациентов",
+        "price": "1050.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 152,
+    "fields": {
+        "code": "A12.06.057.002",
+        "name": "Иммуноблот антинуклеарных IgG антител при системной склеродермии, системном склерозе IgG (Scl70, CENP A, CENP B, RP11, RP155, AB,фибрилларин, NOR90, Th/To, PM Scl100, PM Scl75, Ku, PDGFR, RO52)",
+        "category": 32,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "3850.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 153,
+    "fields": {
+        "code": "A12.06.057.001",
+        "name": "Иммуноблот антинуклеарных IgG антител при диагностике заболеваний соединительной ткани (nRNP, SS-A, SS-B, RO-52, Scl-70, Jo-1, CENP В, PCNA, dsDNA, нуклеосомам, гистонам, рибосомальному белку Р, и АМА М-2)",
+        "category": 32,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "3050.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 154,
+    "fields": {
+        "code": "A12.06.012.003",
+        "name": "Определение содержания аутогранулоцитотоксических антител",
+        "category": 33,
+        "biomaterial": "serum",
+        "execution_time": "по накоплению 2 пациентов",
+        "price": "1250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 155,
+    "fields": {
+        "code": "A12.06.053",
+        "name": "Определение маркеров ANCA-ассоциированных васкулитов: PR3 (c-ANCA), МПО (p-ANCA)",
+        "category": 33,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "2850.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 156,
+    "fields": {
+        "code": "A12.06.012.003",
+        "name": "Аутоантитела класса IgG к миелопероксидазе (МРО), протеиназе 3 (PR3) и базальной мембране клубочков почек GBM, иммуноблот гранулоцитам и Hep 2 клеточным антигенам, нРИФ",
+        "category": 33,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "2250.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 157,
+    "fields": {
+        "code": "A26.06.081.001",
+        "name": "Определение антител класса G (IgG) к токсоплазме (Toxoplasma gondii) в крови",
+        "category": 34,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 158,
+    "fields": {
+        "code": "A26.06.081.002",
+        "name": "Определение антител класса М (IgM) к токсоплазме (Toxoplasma gondii) в крови",
+        "category": 34,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 159,
+    "fields": {
+        "code": "A26.06.071.001",
+        "name": "Определение антител класса G (IgG) к вирусу краснухи (Rubella virus) в крови",
+        "category": 35,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 160,
+    "fields": {
+        "code": "A26.06.071.002",
+        "name": "Определение антител класса М (IgM) к вирусу краснухи (Rubella virus) в крови",
+        "category": 35,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 161,
+    "fields": {
+        "code": "A26.06.071.003",
+        "name": "Определение индекса авидности антител класса G (IgG avidity) к вирусу краснухи (Rubella virus) в крови",
+        "category": 35,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 162,
+    "fields": {
+        "code": "A26.05.035.001",
+        "name": "Определение ДНК вируса простого герпеса 1 и 2 типов (Herpes simplex virus types 1, 2) методом ПЦР в крови, качественное исследование",
+        "category": 36,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 163,
+    "fields": {
+        "code": "A26.06.045.003",
+        "name": "Определение антител класса М (IgM) к вирусу простого герпеса 1 и 2 типов (Herpes simplex virus types 1, 2) в крови",
+        "category": 36,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 164,
+    "fields": {
+        "code": "A26.06.045.002",
+        "name": "Определение антител класса G (IgG) к вирусу простого герпеса 2 типа (Herpes simplex virus 2) в крови",
+        "category": 36,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 165,
+    "fields": {
+        "code": "A26.06.046.002",
+        "name": "Определение авидности антител класса G к вирусу простого герпеса 1 и 2 типов (Herpes simplex virus types 1, 2)",
+        "category": 36,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 166,
+    "fields": {
+        "code": "A26.05.035",
+        "name": "Молекулярно-биологическое исследование крови на вирус простого герпеса (Herpes simplex virus)",
+        "category": 36,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 167,
+    "fields": {
+        "code": "A26.05.017",
+        "name": "Молекулярно-биологическое исследование крови на цитомегаловирус (Cytomegalovirus)",
+        "category": 37,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 168,
+    "fields": {
+        "code": "A26.06.022.003",
+        "name": "Определение индекса авидности антител класса G (IgG avidity) к цитомегаловирусу (Cytomegalovirus) в крови",
+        "category": 37,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 169,
+    "fields": {
+        "code": "A26.06.022.002",
+        "name": "Определение антител класса М (IgM) к цитомегаловирусу (Cytomegalovirus) в крови",
+        "category": 37,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 170,
+    "fields": {
+        "code": "A26.06.022.001",
+        "name": "Определение антител класса G (IgG) к цитомегаловирусу (Cytomegalovirus) в крови 380.00",
+        "category": 37,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 171,
+    "fields": {
+        "code": "A26.06.113",
+        "name": "Определение антител к хламидии пневмонии (Chlamydophila pneumoniae) в крови",
+        "category": 38,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 172,
+    "fields": {
+        "code": "A26.06.057.001",
+        "name": "Определение антител классов М (IgМ) к микоплазме пневмонии (Mycoplasma pneumoniae) в крови",
+        "category": 38,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 173,
+    "fields": {
+        "code": "A26.06.057.002",
+        "name": "Определение антител классов G (IgG) к микоплазме пневмонии (Mycoplasma pneumoniae) в крови",
+        "category": 38,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 174,
+    "fields": {
+        "code": "A26.06.047.001",
+        "name": "Определение антител класса G (IgG) к вирусу герпеса человека 6 типа (Human herpes virus 6) в крови",
+        "category": 39,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "700.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 175,
+    "fields": {
+        "code": "A26.06.047",
+        "name": "Определение антител к вирусу герпеса человека 6 типа (Herpesvirus 6) в крови",
+        "category": 39,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "550.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 176,
+    "fields": {
+        "code": "A26.06.029.001",
+        "name": "Определение антител класса М (IgM) к капсидному антигену (VCA) вируса Эпштейна-Барр (Epstein - Barr virus) в крови",
+        "category": 39,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 177,
+    "fields": {
+        "code": "A26.06.029.002",
+        "name": "Определение антител класса G (IgG) к капсидному антигену (VCA) вируса Эпштейна-Барр (Epstein - Barr virus) в крови",
+        "category": 39,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 178,
+    "fields": {
+        "code": "A26.06.028",
+        "name": "Определение антител классов М, G (IgM, IgG) к вирусу Эпштейна-Барра (Epstein - Barr virus) в крови",
+        "category": 39,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 179,
+    "fields": {
+        "code": "A26.06.030",
+        "name": "Определение антител класса G (IgG) к ранним белкам (ЕА) вируса Эпштейна-Барр (Epstein-Barr virus) в крови",
+        "category": 39,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 180,
+    "fields": {
+        "code": "A26.05.011",
+        "name": "Молекулярно-биологическое исследование крови на вирус Эпштейна-Барра (Epstein - Barr virus)",
+        "category": 39,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "550.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 181,
+    "fields": {
+        "code": "A26.06.031",
+        "name": "Определение антител класса G (IgG) к ядерному антигену (NA) вируса Эпштейна-Барр  virus) в крови",
+        "category": 39,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 182,
+    "fields": {
+        "code": "A26.06.015.003",
+        "name": "Определение антител класса G к хламидиям (Chlamydia spp.) в крови",
+        "category": 40,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 183,
+    "fields": {
+        "code": "A26.06.015.001",
+        "name": "Определение антител класса А к хламидиям (Chlamydia spp.) в крови",
+        "category": 40,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 184,
+    "fields": {
+        "code": "A26.06.112.002",
+        "name": "Определение антител класса М (IgM) к вирусу паротита (Mumps virus) в крови",
+        "category": 40,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 185,
+    "fields": {
+        "code": "A26.06.121",
+        "name": "Определение антител к аскаридам (Ascaris lumbricoides)",
+        "category": 41,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 186,
+    "fields": {
+        "code": "A26.06.062.001",
+        "name": "Определение антител класса IgG к возбудителю описторхоза (Opisthorchis felineus) в крови",
+        "category": 41,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 187,
+    "fields": {
+        "code": "A26.06.062.002",
+        "name": "Определение антител класса IgМ к возбудителю описторхоза (Opisthorchis felineus) в крови",
+        "category": 41,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 188,
+    "fields": {
+        "code": "B03.014.004.001",
+        "name": "Гельминты смесь (токсокароз, трихинеллез, эхинококкоз)",
+        "category": 41,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "450.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 189,
+    "fields": {
+        "code": "B03.014.004.002",
+        "name": "Токсокароз антитела класса IgG",
+        "category": 41,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "400.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 190,
+    "fields": {
+        "code": "A26.06.032",
+        "name": "Определение антител классов А, М, G (IgM, IgA, IgG) к лямблиям в крови",
+        "category": 41,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "320.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 191,
+    "fields": {
+        "code": "A12.06.029",
+        "name": "Определение содержания антител к кардиолипину в крови",
+        "category": 42,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "800.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 192,
+    "fields": {
+        "code": "A12.06.051",
+        "name": "Определение содержания антител к бета-2-гликопротеину в крови",
+        "category": 42,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "800.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 193,
+    "fields": {
+        "code": "A27.05.003",
+        "name": "Определение полиморфизма С677Т метилентетрагидрофолатредуктазы",
+        "category": 42,
+        "biomaterial": "edta",
+        "execution_time": "7 дней",
+        "price": "7000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 194,
+    "fields": {
+        "code": "A12.06.025",
+        "name": "Определение содержания антител к антигенам мышечной ткани в крови",
+        "category": 43,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "2850.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 195,
+    "fields": {
+        "code": "A12.06.024",
+        "name": "Печеночные антигены (ANA, LKM, AMA, ASMA, F-актин), нРИФ",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "по накоплению 4 пациентов",
+        "price": "1200.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 196,
+    "fields": {
+        "code": "A12.06.024",
+        "name": "Иммуноблот аутоиммунного поражения печени №1 (AMA M2, LKM-1, Lc1, а/т к Sp100, а/т к gp210, F-актин, Tropomyosin, Actinin, SLA/LP)",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "3000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 197,
+    "fields": {
+        "code": "A12.06.024",
+        "name": "Иммуноблот аутоиммунного поражения печени№2 (AMA M2, M2-3E (BPO), Sp100, PML, gp210, LKM-1, LC-1, SLA/LP, RO-52)",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "3000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 198,
+    "fields": {
+        "code": "A12.06.024",
+        "name": "Гастро профиль аутоиммуных заболеваний ЖКТ (глиадин, ASCA, tTG, париетальные клетки, внутренний фактор)",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "2 дня",
+        "price": "3000.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 199,
+    "fields": {
+        "code": "A12.06.055",
+        "name": "Антитела IgG к глиадину, количественное определение",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "620.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 200,
+    "fields": {
+        "code": "A12.06.055",
+        "name": "Антитела IgА к глиадину, количественное определение",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "620.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 201,
+    "fields": {
+        "code": "A12.06.056",
+        "name": "Антитела IgG к тканевой трансглютаминазе, полуколичественное определение",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 202,
+    "fields": {
+        "code": "A12.06.056",
+        "name": "Антитела IgА к тканевой трансглютаминазе, количественное определение",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 203,
+    "fields": {
+        "code": "A12.06.059",
+        "name": "Антитела IgА к сахаромицетам (ASCA)",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "14 дней",
+        "price": "680.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 204,
+    "fields": {
+        "code": "A12.06.059",
+        "name": "Антитела IgG к сахаромицетам (ASCA)",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "14 дней",
+        "price": "680.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 205,
+    "fields": {
+        "code": "A12.06.066",
+        "name": "Антитела IgА к эндомизию (НРИФ)",
+        "category": 44,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "980.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 206,
+    "fields": {
+        "code": "А11.12.009.002",
+        "name": "Антитела к SARS-Cov-2 (COVID 19) класса G, полуколичественное определение",
+        "category": 45,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "1300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 207,
+    "fields": {
+        "code": "А11.12.009.001",
+        "name": "Антитела к SARS-Cov-2 (COVID 19) класса А, полуколичественное определение",
+        "category": 45,
+        "biomaterial": "serum",
+        "execution_time": "вторник",
+        "price": "1300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 208,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь аллергенов плесени: Penicillum notatum, Aspergillus fumigatus, Alternaria tenuis, Cladosporium herbarum, Candida albicans",
+        "category": 12,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 209,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь аллергенов деревьев (позднее цветение: клен, дуб, ива, тополь)",
+        "category": 12,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 210,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь аллергенов деревьев (раннее цветение: ольха серая, береза бородавчатая, лещина/орешник, ясень)",
+        "category": 12,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 211,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь трав (луговые: ежа сборная, овсяница, плевел, тимофеевка, мятлик)",
+        "category": 12,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 212,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь трав (сорные: амброзия высокая, полынь, нивяник, одуванчик, подорожник)",
+        "category": 12,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 213,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь бытовых аллергенов (Клещ Dermatophagoides farinae, Клещ Dermatophagoides pteronissinus, эпидермис кошки, эпидермис собаки)",
+        "category": 12,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "380.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 214,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Клещ Dermatophagoides farinaе",
+        "category": 47,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 215,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Клещ Dermatophagoides pteronissinus",
+        "category": 47,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 216,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Библиотечная пыль",
+        "category": 47,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 217,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Домашняя пыль",
+        "category": 47,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 218,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Эпидермис кошки",
+        "category": 48,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 219,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Эпидермис собаки",
+        "category": 48,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 220,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Смесь эпителиев и белков грызуны (морская свинка,кролик,хомяк,крыса, мышь)",
+        "category": 48,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 221,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Новокаин",
+        "category": 49,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 222,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Латекс",
+        "category": 50,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 223,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови. Хлорамин Т",
+        "category": 50,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 224,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (яичный белок)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 225,
+    "fields": {
+        "code": "A26.28.019.002",
+        "name": "Уреаплазма (Ureaplasma urealiticum) антитела класса IgG",
+        "category": 52,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 226,
+    "fields": {
+        "code": "A26.28.019.002.001",
+        "name": "Уреаплазма (Ureaplasma urealiticum) антитела класса IgА",
+        "category": 52,
+        "biomaterial": "serum",
+        "execution_time": "среда",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 227,
+    "fields": {
+        "code": "A26.06.011",
+        "name": "Borrelia burgdorferi антитела класса IgG",
+        "category": 53,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 228,
+    "fields": {
+        "code": "A26.06.011",
+        "name": "Borrelia burgdorferi антитела класса IgM",
+        "category": 53,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "580.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 229,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (яичный желток)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 230,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (коровье молоко)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 231,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (молоко кипячёное)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 232,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (молоко козье)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 233,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (пшеница)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 234,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (овсяная мука)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 235,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (рис)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 236,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (греча)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 237,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (свинина)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 238,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (говядина)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 239,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (кукуруза)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 240,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (куриное мясо)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 241,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (глютен)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 242,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (морковь)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 243,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (картофель)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 244,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (яблоко)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 245,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (тыква)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 246,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (груша)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 247,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (кролик)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 248,
+    "fields": {
+        "code": "A09.05.118",
+        "name": "Исследование уровня антител к антигенам растительного, животного и химического происхождения в крови (кабачки/цуккини)",
+        "category": 51,
+        "biomaterial": "serum",
+        "execution_time": "понедельник, среда",
+        "price": "350.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 249,
+    "fields": {
+        "code": "A26.06.088.002",
+        "name": "Вирус клещевого энцефалита, антитела класса IgG",
+        "category": 54,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "480.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 250,
+    "fields": {
+        "code": "A26.06.088.001",
+        "name": "Вирус клещевого энцефалита, антитела класса IgМ",
+        "category": 54,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "480.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 251,
+    "fields": {
+        "code": "A26.05.074",
+        "name": "Серологическое обследование на брюшной тиф (РПГА)",
+        "category": 55,
+        "biomaterial": "serum",
+        "execution_time": "3 дня",
+        "price": "300.00"
+    }
+},
+{
+    "model": "timetable.bloodtest",
+    "pk": 252,
+    "fields": {
+        "code": "A26.06.033",
+        "name": "Хеликобактер пилори (Helicobacter pylori), ИФА",
+        "category": 56,
+        "biomaterial": "serum",
+        "execution_time": "понедельник",
+        "price": "350.00"
+    }
+}
+]

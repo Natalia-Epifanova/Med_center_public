@@ -1,0 +1,54 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+    <p class="lead">Вход в личный кабинет</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <form class="row" method="post" enctype="multipart/form-data">
+                <div class="card">
+                    <div class="card-body">
+                        {% csrf_token %}
+
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">Логин</label>
+                            <input type="text" name="username" id="id_username" class="form-control" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">Пароль</label>
+                            <input type="password" name="password" id="id_password" class="form-control" required>
+                        </div>
+
+                        {# Блок для вывода ошибок формы #}
+                        {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {% if "blocked:" in error %}
+                                    {{ error|cut:"blocked:" }}
+                                {% else %}
+                                    Пожалуйста, введите правильные логин и пароль.
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-flex justify-content-center">
+                            <button type="submit" class="btn btn-primary">
+                                Войти
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

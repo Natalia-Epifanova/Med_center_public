@@ -1,0 +1,76 @@
+{% extends "timetable/base.html" %}
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Ревмамед</h1>
+    <p class="lead">Редактирование профиля</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <form method="post">
+                <div class="card">
+                    <div class="card-body">
+                        {% csrf_token %}
+
+                        {% if form.errors %}
+                        <div class="alert alert-danger">
+                            {% for field in form %}
+                                {% for error in field.errors %}
+                                    <p>{{ field.label }}: {{ error }}</p>
+                                {% endfor %}
+                            {% endfor %}
+                            {% for error in form.non_field_errors %}
+                                <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">Логин</label>
+                            <input type="text" name="username" id="id_username" class="form-control"
+                                   value="{{ form.username.value|default:'' }}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">Email</label>
+                            <input type="email" name="email" id="id_email" class="form-control"
+                                   value="{{ form.email.value|default:'' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_first_name" class="form-label">Имя</label>
+                            <input type="text" name="first_name" id="id_first_name" class="form-control"
+                                   value="{{ form.first_name.value|default:'' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_last_name" class="form-label">Фамилия</label>
+                            <input type="text" name="last_name" id="id_last_name" class="form-control"
+                                   value="{{ form.last_name.value|default:'' }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_phone" class="form-label">Телефон</label>
+                            <input type="text" name="phone" id="id_phone" class="form-control"
+                                   value="{{ form.phone.value|default:'' }}">
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="btn-group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить изменения
+                            </button>
+                            <a class="btn btn-outline-secondary" href="{% url 'users:profile' %}">
+                                Отмена
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

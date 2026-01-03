@@ -1,0 +1,272 @@
+<!-- templates/appointments/appointment_detail.html -->
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between">
+            <h5 class="mb-0">
+                <i class="fas fa-calendar-check"></i> Запись #{{ appointment.id }}
+                {% if appointment.cabinet.number == 6 and "забор крови" in appointment.service.name.lower %}
+                <i class="fas fa-syringe ms-2" title="Процедурный кабинет"></i>
+                {% endif %}
+            </h5>
+            <a href="{% url 'timetable:schedule_day' %}?date={{ appointment.date|date:'Y-m-d' }}"
+               class="btn btn-sm btn-light">
+                <i class="fas fa-arrow-left"></i> Назад к расписанию
+            </a>
+        </div>
+
+
+
+
+
+        <div class="card-body">
+            <!-- Основная информация -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6><i class="fas fa-user"></i> Пациент</h6>
+                    <p class="ps-3">
+                        <small>
+                            <a href="{% url 'patients:patient_detail' appointment.patient.pk %}"
+                               class="text-decoration-none patient-link"
+                               title="Нажмите для просмотра карточки пациента"
+                               target="_blank">
+                                <strong>{{ appointment.patient.surname }} {{ appointment.patient.first_name }} {{ appointment.patient.last_name }}</strong>
+                            </a>
+                        </small><br>
+                        <small class="text-muted">
+                            Карта: {{ appointment.patient.card_number|default:"не указана" }}<br>
+                            Телефон: {{ appointment.patient.phone_number|default:"не указан" }}
+                        </small>
+                    </p>
+                </div>
+
+                <div class="col-md-6">
+                    <h6><i class="fas fa-user-md"></i> Врач</h6>
+                    <p class="ps-3">
+                        <strong>{{ appointment.doctor.surname }} {{ appointment.doctor.first_name.0 }}.{{ appointment.doctor.last_name.0 }}.</strong><br>
+                        <small class="text-muted">
+                            {{ appointment.doctor.get_specialization_display }}<br>
+                            Кабинет: {{ appointment.cabinet.number }}
+                            {% if appointment.cabinet.number == 6 %} (Процедурный){% endif %}
+                        </small>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Детали записи -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <h6><i class="fas fa-clock"></i> Время</h6>
+                    <p class="ps-3">
+                        {{ appointment.date|date:"d.m.Y" }}<br>
+                        {{ appointment.start_time|time:"H:i" }} - {{ appointment.end_time|time:"H:i" }}
+                    </p>
+                </div>
+
+                <div class="col-md-4">
+                    <h6><i class="fas fa-stethoscope"></i> Услуга</h6>
+                    <p class="ps-3">
+                        {{ appointment.service.name }}<br>
+                        <small class="text-muted">
+                            Цена: {{ appointment.service.price }} руб.
+                        </small>
+                    </p>
+                </div>
+
+                <div class="col-md-4">
+                    <h6><i class="fas fa-money-bill"></i> Оплата</h6>
+                    <p class="ps-3">
+                        <span class="badge bg-{% if appointment.insurance_type == 'dms' %}pink
+                                             {% elif appointment.insurance_type == 'oms' %}purple
+                                             {% else %}success{% endif %}">
+                            {{ appointment.get_insurance_type_display }}
+                        </span><br>
+                        <small class="text-muted">
+                            Статус: {{ appointment.get_status_display }}
+                        </small>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Выбранные анализы крови (только для процедурного кабинета и услуги "Забор крови") -->
+            {% if appointment.cabinet.number == 6 and "забор крови" in appointment.service.name.lower and appointment.selected_blood_tests.exists %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="fas fa-vial"></i> Выбранные анализы крови</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Название</th>
+                                            <th>Код</th>
+                                            <th>Цена</th>
+                                            <th>Срок выполнения</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for test_relation in appointment.selected_blood_tests.all %}
+                                        {% with test=test_relation.blood_test %}
+                                        <tr>
+                                            <td>{{ test.name }}</td>
+                                            <td><code>{{ test.code }}</code></td>
+                                            <td>{{ test.price }} руб.</td>
+                                            <td>{{ test.execution_time }}</td>
+                                        </tr>
+                                        {% endwith %}
+                                        {% endfor %}
+                                    </tbody>
+                                    <tfoot>
+                                        {% with total_tests=appointment.selected_blood_tests.count tests_price=appointment.get_tests_price service_price=appointment.service.price total_price=appointment.total_with_blood_tests|default:appointment.get_total_price %}
+                                        <tr class="table-light">
+                                            <td colspan="2" class="text-end"><strong>Всего анализов:</strong></td>
+                                            <td colspan="2"><strong>{{ total_tests }}</strong></td>
+                                        </tr>
+                                        <tr class="table-light">
+                                            <td colspan="2" class="text-end"><strong>Стоимость анализов:</strong></td>
+                                            <td colspan="2"><strong>{{ tests_price }} руб.</strong></td>
+                                        </tr>
+                                        <tr class="table-light">
+                                            <td colspan="2" class="text-end"><strong>Услуга "Забор крови":</strong></td>
+                                            <td colspan="2"><strong>{{ service_price }} руб.</strong></td>
+                                        </tr>
+                                        <tr class="table-warning">
+                                            <td colspan="2" class="text-end"><strong>Итого к оплате:</strong></td>
+                                            <td colspan="2"><strong>{{ total_price }} руб.</strong></td>
+                                        </tr>
+                                        {% endwith %}
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Комментарий (только если есть пользовательский комментарий) -->
+            {% if appointment.comment and appointment.comment.strip %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h6><i class="fas fa-comment"></i> Комментарий</h6>
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            {{ appointment.comment|linebreaks }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Связанные записи -->
+            {% if related_appointments|length > 1 %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-link"></i> Связанные записи</h6>
+                        <p>Эта запись является частью цепочки из {{ related_appointments|length }} записей</p>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead class="table-info">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Дата</th>
+                                    <th>Время</th>
+                                    <th>Врач</th>
+                                    <th>Услуга</th>
+                                    <th>Цена</th>
+                                    <th>Кабинет</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for app in related_appointments %}
+                                <tr class="{% if app.id == appointment.id %}table-primary{% endif %}">
+                                    <td>
+                                        {% if app.id == appointment.id %}
+                                        <strong><i class="fas fa-star"></i> Эта запись</strong>
+                                        {% else %}
+                                        {{ forloop.counter }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ app.date|date:"d.m.Y" }}</td>
+                                    <td>{{ app.start_time|time:"H:i" }}</td>
+                                    <td>{{ app.doctor.surname }}</td>
+                                    <td>{{ app.service.name }}</td>
+                                    <td>{{ app.service.price }}</td>
+                                    <td>Каб. {{ app.cabinet.number }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Кнопки действий -->
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="d-flex flex-wrap gap-2">
+                        <!-- Основные кнопки -->
+                        {% if appointment.cabinet.number == 6 and "забор крови" in appointment.service.name.lower %}
+                        <!-- Для процедурной записи "Забор крови" -->
+                        <a href="{% url 'appointments:appointment_update_procedural' appointment.pk %}"
+                           class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Изменить процедурную запись
+                        </a>
+                        {% else %}
+                        <!-- Для обычной записи -->
+                        <a href="{% url 'appointments:appointment_edit_simple' appointment.pk %}"
+                           class="btn btn-warning">
+                            <i class="fas fa-edit"></i> Изменить запись
+                        </a>
+                        {% endif %}
+
+                        <a href="{% url 'appointments:appointment_delete' appointment.pk %}"
+                           class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Удалить запись
+                        </a>
+
+                        <a href="{% url 'timetable:schedule_day' %}?date={{ appointment.date|date:'Y-m-d' }}"
+                           class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Закрыть
+                        </a>
+                    </div>
+
+                    <!-- Быстрые кнопки удаления (только если есть связанные записи) -->
+                    {% if has_related %}
+                    <div class="mt-3">
+                        <div class="alert alert-warning p-2">
+                            <small class="d-flex align-items-center">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Быстрое удаление:</strong>
+                                <div class="ms-2">
+                                    <a href="{% url 'appointments:appointment_delete' appointment.pk %}?action=single"
+                                       class="btn btn-sm btn-outline-danger me-2"
+                                       onclick="return confirm('Удалить только эту запись? Связанные записи останутся.')">
+                                        Удалить только эту
+                                    </a>
+                                    <a href="{% url 'appointments:appointment_delete' appointment.pk %}?action=all"
+                                       class="btn btn-sm btn-danger"
+                                       onclick="return confirm('Удалить ВСЕ {{ related_appointments|length }} связанных записей?')">
+                                        Удалить все {{ related_appointments|length }}
+                                    </a>
+                                </div>
+                            </small>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,457 @@
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Запись пациента на прием</h1>
+    <p class="lead">
+        Запись к врачу: {{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.
+    </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card timetable-form-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-calendar-plus"></i>
+                        Новая запись на прием
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Информация о выбранном времени -->
+                    <div class="alert alert-info" id="original-slot-info">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>Выбранное время приема:</strong><br>
+                                Дата: <span id="original-date">{{ time_slot.date|date:"d.m.Y" }}</span><br>
+                                Время: <span id="original-time">{{ time_slot.start_time|time:"H:i" }}-{{ time_slot.end_time|time:"H:i" }}</span><br>
+                                Кабинет: <span id="original-cabinet">{{ time_slot.cabinet.number }}{% if time_slot.cabinet.name_of_cabinet %} ({{time_slot.cabinet.name_of_cabinet }}){% endif %}</span><br>
+                                Врач: <span id="doctor-full-name">{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.</span>
+                            </div>
+                            <div>
+                                <button type="button"
+                                        class="btn btn-outline-warning btn-sm"
+                                        id="change-time-btn">
+                                    <i class="fas fa-clock"></i> Изменить время
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Скрытые поля -->
+                        <input type="hidden" id="js-original-date" value="{{ time_slot.date|date:'Y-m-d' }}">
+                        <input type="hidden" id="js-original-time" value="{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}">
+                        <input type="hidden" id="js-current-slot-id" value="{{ time_slot.id }}">
+                        <input type="hidden" id="js-doctor-id" value="{{ time_slot.doctor.id }}">
+                        <input type="hidden" id="js-doctor-name" value="{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.">
+                    </div>
+
+                    <!-- КНОПКИ ПОДТВЕРЖДЕНИЯ/ОТМЕНЫ (изначально скрыты) -->
+                    <div id="time-change-buttons" class="mb-3" style="display: none;">
+                        <button type="button" class="btn btn-success btn-sm" id="confirm-time-change-btn">
+                            <i class="fas fa-check"></i> Подтвердить изменение времени
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm ms-2" id="cancel-time-change-btn">
+                            <i class="fas fa-times"></i> Отмена
+                        </button>
+                    </div>
+
+                    <!-- Контейнер для выбора нового времени (изначально скрыт) -->
+                    <div id="timeslot-selector-container" style="display: none;"></div>
+                    <!-- ДОБАВЬТЕ ЭТОТ БЛОК ПЕРЕД ФОРМОЙ -->
+                    <div id="server-errors-container" class="mb-3" style="display: none;">
+                        <div class="alert alert-danger">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                Ошибки при сохранении:
+                            </h6>
+                            <ul id="server-errors-list" class="mb-0"></ul>
+                        </div>
+                    </div>
+                    <!-- ОШИБКИ ФОРМЫ -->
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Обнаружены ошибки при заполнении формы:
+                        </h6>
+                        <ul class="mb-0">
+                            {% for field, errors in form.errors.items %}
+                                {% for error in errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    {% if messages %}
+                    <div class="messages">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show timetable-alert" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <!-- Блок предупреждения для врача Пищелева -->
+                    <div id="pishchelevWarning" class="alert alert-warning mt-2" style="display: none;">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Особенности записи к врачу Пищелеву П.В.:</strong>
+                        <span id="pishchelevWarningText"></span>
+                    </div>
+
+                    <form method="post" id="appointmentForm">
+                        {% csrf_token %}
+
+                        <input type="hidden" name="total_sum" id="id_total_sum" value="">
+                        <!-- Hidden поля для изменения времени -->
+                        {{ form.allow_time_change }}
+                        {{ form.new_time_slot_id }}
+                        {{ form.new_appointment_date }}
+
+                        <!-- Блок данных пациента -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">1. Данные пациента</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <label for="{{ form.surname.id_for_label }}" class="form-label">
+                                            {{ form.surname.label }}
+                                        </label>
+                                        {{ form.surname }}
+                                        {% if form.surname.errors %}
+                                        <div class="text-danger small">{{ form.surname.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.first_name.id_for_label }}" class="form-label">
+                                            {{ form.first_name.label }}
+                                        </label>
+                                        {{ form.first_name }}
+                                        {% if form.first_name.errors %}
+                                        <div class="text-danger small">{{ form.first_name.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.last_name.id_for_label }}" class="form-label">
+                                            {{ form.last_name.label }}
+                                        </label>
+                                        {{ form.last_name }}
+                                        {% if form.last_name.errors %}
+                                        <div class="text-danger small">{{ form.last_name.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3">
+                                    <div class="col-md-4">
+                                        <label for="{{ form.phone_number.id_for_label }}" class="form-label">
+                                            {{ form.phone_number.label }}
+                                        </label>
+                                        {{ form.phone_number }}
+                                        {% if form.phone_number.errors %}
+                                        <div class="text-danger small">{{ form.phone_number.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.card_number.id_for_label }}" class="form-label">
+                                            {{ form.card_number.label }}
+                                        </label>
+                                        {{ form.card_number }}
+                                        {% if form.card_number.errors %}
+                                        <div class="text-danger small">{{ form.card_number.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label for="{{ form.date_of_birth.id_for_label }}" class="form-label">
+                                            {{ form.date_of_birth.label }}
+                                        </label>
+                                        {{ form.date_of_birth }}
+                                        {% if form.date_of_birth.errors %}
+                                        <div class="text-danger small">{{ form.date_of_birth.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Кнопка проверки пациента -->
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-outline-primary" id="checkPatientBtn">
+                                            <i class="fas fa-search"></i> Проверить пациента в базе
+                                        </button>
+                                        <div id="patientCheckResult" class="mt-2" style="display: none;"></div>
+                                    </div>
+                                </div>
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <div class="input-group">
+                                            <input type="text"
+                                                   class="form-control"
+                                                   id="patient-search-input"
+                                                   placeholder="Поиск пациента (ФИО, номер карты, телефон)...">
+                                            <button class="btn btn-outline-primary" type="button" id="patient-search-btn">
+                                                <i class="fas fa-search"></i> Найти
+                                            </button>
+                                        </div>
+
+                                        <!-- Результаты поиска -->
+                                        <div id="patient-search-results" class="mt-2" style="display: none;">
+                                            <div class="card">
+                                                <div class="card-header py-2">
+                                                    <small>Результаты поиска:</small>
+                                                </div>
+                                                <div class="card-body p-2">
+                                                    <div id="patient-results-list" class="list-group list-group-flush"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Блок выбора услуги -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">2. Выбор услуги и типа записи</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label for="{{ form.service.id_for_label }}" class="form-label">
+                                            {{ form.service.label }}
+                                        </label>
+                                        {{ form.service }}
+                                        {% if form.service.errors %}
+                                        <div class="text-danger">{{ form.service.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
+                                <!-- Блок выбора типа записи -->
+                                <div class="row mb-3">
+                                    <div class="col-12">
+                                        <label class="form-label d-block">{{ form.appointment_chain_type.label }}:</label>
+
+                                        {% for value, text in form.appointment_chain_type.field.choices %}
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio"
+                                                   name="{{ form.appointment_chain_type.name }}"
+                                                   id="id_{{ form.appointment_chain_type.name }}_{{ forloop.counter0 }}"
+                                                   value="{{ value }}"
+                                                   {% if form.appointment_chain_type.value == value %}checked{% endif %}>
+                                            <label class="form-check-label" for="id_{{ form.appointment_chain_type.name }}_{{ forloop.counter0 }}">
+                                                {{ text }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+
+                                        {% if form.appointment_chain_type.errors %}
+                                        <div class="text-danger small">{{ form.appointment_chain_type.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <!-- Блок процедурного кабинета -->
+                                <div class="row mb-3" id="proceduralSection">
+                                    <div class="col-12">
+                                        <div class="form-check">
+                                            {{ form.needs_procedural }}
+                                            <label for="{{ form.needs_procedural.id_for_label }}" class="form-check-label">
+                                                {{ form.needs_procedural.label }}
+                                            </label>
+                                            <div class="form-text">
+                                                {{ form.needs_procedural.help_text }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Секция для второй услуги к тому же врачу -->
+                                <div id="sameDoctorSections" style="display: none;">
+                                    <div class="row mb-3" id="additionalServiceSection" style="display: none;">
+                                        <div class="col-12">
+                                            <label for="{{ form.additional_service.id_for_label }}" class="form-label">
+                                                {{ form.additional_service.label }}
+                                            </label>
+                                            {{ form.additional_service }}
+                                            {% if form.additional_service.errors %}
+                                            <div class="text-danger small">{{ form.additional_service.errors }}</div>
+                                            {% endif %}
+                                            <div class="form-text">
+                                                Будет занят следующий временной слот для второй услуги
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- ИСПРАВЛЕННЫЙ БЛОК: Используем чекбокс с name -->
+                                    <div class="row mb-3" id="additionalServiceProceduralSection" style="display: none;">
+                                        <div class="col-12">
+                                            <div class="form-check">
+                                                <!-- ИСПРАВЛЕНО: Добавляем name и value -->
+                                                <input type="checkbox" class="form-check-input"
+                                                       id="needs_procedural_additional_checkbox"
+                                                       name="needs_procedural_additional_checkbox"
+                                                       value="true">
+                                                <label for="needs_procedural_additional_checkbox" class="form-check-label">
+                                                    <i class="fas fa-syringe"></i> Занять окошко в процедурном кабинете для второй услуги
+                                                </label>
+                                                <div class="form-text">
+                                                    Автоматически займет такое же время в процедурном кабинете для второй услуги
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row mb-3" id="twoSlotsSection" style="display: none;">
+                                        <div class="col-12">
+                                            <div class="alert alert-warning">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                <strong>Будет занято два временных слота для одной услуги</strong><br>
+                                                • Текущий слот: <span id="current-slot-time">{{ time_slot.start_time|time:"H:i" }}-{{ time_slot.end_time|time:"H:i" }}</span><br>
+                                                • Следующий слот: <span id="next-slot-time">Загрузка...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Секция для записи к другому врачу -->
+                                <div id="anotherDoctorSection" style="display: none;" class="card mb-4">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Добавить запись к этому или другому врачу</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i>
+                                            Вы можете добавить запись к этому же врачу (на другое время) или к другим врачам
+                                        </div>
+
+                                        <div id="anotherDoctorFormContainer">
+                                            <!-- Форма будет добавляться динамически через JavaScript -->
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                                <!-- Секция для нескольких записей к разным врачам -->
+                                <div id="multipleAppointmentsSection" style="display: none;" class="card mb-4">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Записи к нескольким врачам</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="alert alert-info">
+                                            <i class="fas fa-info-circle"></i>
+                                            Вы можете добавить несколько записей к одному или разным врачам. Все записи будут связаны с основной.
+                                        </div>
+
+                                        <div id="multipleAppointmentsContainer">
+                                            <!-- Формы будут добавляться динамически -->
+                                        </div>
+
+                                        <div class="mt-3">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" id="addAppointmentForm">
+                                                <i class="fas fa-plus"></i> Добавить запись к врачу
+                                            </button>
+                                            <small class="text-muted ms-2">Максимум 5 дополнительных записей</small>
+                                        </div>
+
+                                        <!-- Скрытое поле для хранения данных -->
+                                        {{ form.additional_appointments_data }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Дополнительные параметры -->
+                        <div class="card mb-4">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">3. Дополнительные параметры</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label for="{{ form.insurance_type.id_for_label }}" class="form-label">
+                                            {{ form.insurance_type.label }}
+                                        </label>
+                                        {{ form.insurance_type }}
+                                        {% if form.insurance_type.errors %}
+                                        <div class="text-danger">{{ form.insurance_type.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-check mt-4">
+                                            {{ form.needs_reschedule }}
+                                            <label for="{{ form.needs_reschedule.id_for_label }}" class="form-check-label">
+                                                {{ form.needs_reschedule.label }}
+                                            </label>
+                                            {% if form.needs_reschedule.errors %}
+                                            <div class="text-danger small">{{ form.needs_reschedule.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row mt-3">
+                                    <div class="col-12">
+                                        <label for="{{ form.comment.id_for_label }}" class="form-label">
+                                            {{ form.comment.label }}
+                                        </label>
+                                        {{ form.comment }}
+                                        {% if form.comment.errors %}
+                                        <div class="text-danger">{{ form.comment.errors }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="id_needs_procedural_additional" name="needs_procedural_additional" value="">
+                        {{ form.procedural_appointments_data }}
+
+                        <!-- Кнопки действий -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'timetable:schedule_day' %}?date={{ time_slot.date|date:'Y-m-d' }}"
+                               class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Назад к расписанию
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-calendar-check"></i> Записать пациента
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
+    const availableSlotsUrl = "{% url 'appointments:api_available_slots_for_doctor' %}";
+    const csrfToken = "{{ csrf_token }}";
+    const doctorId = {{ time_slot.doctor.id }};
+    const currentSlotId = {{ time_slot.id }};
+    const originalDate = "{{ time_slot.date|date:'Y-m-d' }}";
+    const originalTime = "{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}";
+    const originalCabinet = "{{ time_slot.cabinet.number }}";
+    const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
+    // ВАЖНО: Используем |escapejs фильтр
+    const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
+</script>
+
+<!-- Подключаем общие утилиты -->
+<script src="/static/js/utils.js?v={% now 'U' %}"></script>
+<!-- Подключаем менеджер цепочек -->
+<script src="/static/js/appointment_chain_manager.js?v={% now 'U' %}"></script>
+<!-- Подключаем основной скрипт создания записи -->
+<script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>
+
+
+{% endblock %}
