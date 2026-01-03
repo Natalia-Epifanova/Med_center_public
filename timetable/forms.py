@@ -5,7 +5,7 @@ from django.forms import ModelForm
 from django.utils import timezone
 
 from .mixins import StyleFormMixin
-from .models import Cabinet, DayComment, Doctor, TimeSlot
+from .models import Cabinet, DayComment, Doctor, TimeSlot, CabinetDayComment
 
 
 class TimeSlotForm(StyleFormMixin, ModelForm):
@@ -127,6 +127,24 @@ class DayCommentForm(StyleFormMixin, ModelForm):
         labels = {
             "comment": "Комментарий для дня",
         }
+
+
+class CabinetDayCommentForm(forms.ModelForm):
+    comment = forms.CharField(
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "class": "form-control",
+                "placeholder": "Введите комментарий для этого кабинета на выбранную дату...",
+            }
+        ),
+        required=False,
+        label="",
+    )
+
+    class Meta:
+        model = CabinetDayComment
+        fields = ["comment"]
 
 
 class CopyScheduleForm(StyleFormMixin, forms.Form):

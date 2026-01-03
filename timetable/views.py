@@ -27,10 +27,11 @@ from timetable.forms import (
     DayCommentForm,
     TimeSlotForm,
     TimeSlotUpdateForm,
+    CabinetDayCommentForm,
 )
-from timetable.models import Cabinet, DayComment, Doctor, TimeSlot
+from timetable.models import Cabinet, DayComment, Doctor, TimeSlot, CabinetDayComment
 from timetable.services import CopyScheduleService, TimeSlotService
-from users.permissions.decorators import admin_required
+from users.permissions.decorators import admin_required, medical_admin_or_admin_required
 from users.permissions.mixins import (
     AdminRequiredMixin,
     MedicalAdminOrAdminRequiredMixin,
@@ -261,6 +262,32 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
         context["schedule_data"] = schedule_data
         context["cabinets"] = Cabinet.objects.all().order_by("number")
         context["doctors"] = Doctor.objects.all().order_by("surname", "first_name")
+        cabinet_comments = {}
+        for cabinet in cabinets_sorted:
+            try:
+                comment = CabinetDayComment.objects.get(
+                    date=selected_date, cabinet=cabinet
+                )
+                cabinet_comments[cabinet.id] = {
+                    "comment": comment,
+                    "form": CabinetDayCommentForm(instance=comment),
+                }
+            except CabinetDayComment.DoesNotExist:
+                cabinet_comments[cabinet.id] = {
+                    "comment": None,
+                    "form": CabinetDayCommentForm(
+                        initial={"date": selected_date, "cabinet": cabinet.id}
+                    ),
+                }
+
+        context["cabinet_comments"] = cabinet_comments
+
+        # Проверка прав для отображения формы
+        user = self.request.user
+        context["can_edit_cabinet_comments"] = user.groups.filter(
+            name__in=["Admin", "MedicalAdmin"]
+        ).exists()
+
         return context
 
     @staticmethod
@@ -447,6 +474,41 @@ def save_day_comment(request):
 
         return JsonResponse(
             {"success": True, "message": "Комментарий сохранен", "created": created}
+        )
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@login_required
+@require_POST
+@medical_admin_or_admin_required
+def save_cabinet_day_comment(request):
+    """Сохранение комментария кабинета"""
+    date_str = request.POST.get("date")
+    cabinet_id = request.POST.get("cabinet_id")
+    comment_text = request.POST.get("comment", "").strip()
+
+    try:
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        cabinet = Cabinet.objects.get(id=cabinet_id)
+
+        # Создаем или обновляем комментарий
+        comment_obj, created = CabinetDayComment.objects.update_or_create(
+            date=date,
+            cabinet=cabinet,
+            defaults={
+                "comment": comment_text,
+            },
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Комментарий сохранен",
+                "created": created,
+                "comment_id": comment_obj.id,
+            }
         )
 
     except Exception as e:
