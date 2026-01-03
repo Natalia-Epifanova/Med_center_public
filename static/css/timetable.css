@@ -179,9 +179,9 @@
 
 /* Перерывы */
 .timetable-slot-break {
-    background-color: #fff3cd !important;
-    color: #856404 !important;
-    border-left: 4px solid #ffc107;
+    background-color: #ff4c5b !important;      /* Бледно-красный фон */
+    border-left: 4px solid #f44336;            /* Красная граница слева */
+    color: #c62828 !important;
 }
 
 /* ===== БЕЙДЖИ ТИПОВ ОПЛАТЫ ===== */
@@ -667,4 +667,23 @@
         flex-direction: column;
         gap: 10px;
     }
+}
+
+/* Альтернативный вариант - более яркая желтая подсветка */
+.timetable-slot-free {
+    background: linear-gradient(135deg, #fff9c4 0%, #fff176 100%) !important;
+    border-left: 4px solid #fdd835;
+    color: #5d4037 !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.timetable-slot-free td,
+.timetable-slot-free small {
+    color: #5d4037 !important;
+    font-weight: 600; /* Жирный текст для лучшей читаемости */
+}
+
+.timetable-slot-free:hover {
+    background: linear-gradient(135deg, #fff59d 0%, #ffeb3b 100%) !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.15);
 }
