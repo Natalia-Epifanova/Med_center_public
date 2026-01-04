@@ -42,6 +42,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 12. Инициализация поиска пациента
     initializePatientSearch();
 
+    // 13. Очистка пустых форм перед отправкой
+    setupCleanupBeforeSubmit();
+
 
 });
 
@@ -470,6 +473,13 @@ function initializeAppointmentTypeManagerLegacy() {
         if (additionalProceduralSection) additionalProceduralSection.style.display = 'none';
         if (twoSlotsSection) twoSlotsSection.style.display = 'none';
 
+        // ИСПРАВЬТЕ: Также скрываем секции для других врачей
+        const anotherDoctorSection = document.getElementById('anotherDoctorSection');
+        const multipleSection = document.getElementById('multipleAppointmentsSection');
+
+        if (anotherDoctorSection) anotherDoctorSection.style.display = 'none';
+        if (multipleSection) multipleSection.style.display = 'none';
+
         if (value === 'additional' || value === 'two_slots') {
             if (sameDoctorSections) sameDoctorSections.style.display = 'block';
 
@@ -483,26 +493,19 @@ function initializeAppointmentTypeManagerLegacy() {
             } else if (value === 'two_slots' && twoSlotsSection) {
                 twoSlotsSection.style.display = 'block';
             }
+        } else if (value === 'another_doctor') {
+            if (anotherDoctorSection) anotherDoctorSection.style.display = 'block';
+        } else if (value === 'multiple') {
+            if (multipleSection) multipleSection.style.display = 'block';
         }
     }
 
     function handleAppointmentTypeChange(event) {
         updateSectionsVisibility(event.target.value);
-    }
 
-    function handleAdditionalServiceChange() {
-        if (!additionalProceduralSection) return;
-
-        if (this.value) {
-            additionalProceduralSection.style.display = 'block';
-        } else {
-            additionalProceduralSection.style.display = 'none';
-
-            const additionalProceduralCheckbox = document.getElementById('needs_procedural_additional_checkbox');
-            if (additionalProceduralCheckbox) additionalProceduralCheckbox.checked = false;
-
-            const hiddenField = document.getElementById('id_needs_procedural_additional');
-            if (hiddenField) hiddenField.value = 'false';
+        // ИСПРАВЬТЕ: Также вызываем метод цепочки
+        if (window.chainManager) {
+            window.chainManager.onChainTypeChange(event.target.value);
         }
     }
 
@@ -695,16 +698,69 @@ function initializeProceduralManagerForAdditionalService() {
         }
     }
 }
+function setupCleanupBeforeSubmit() {
+    const appointmentForm = document.getElementById('appointmentForm');
+    if (!appointmentForm) return;
 
+    appointmentForm.addEventListener('submit', function() {
+        // Задержка для того, чтобы chainManager успел обновиться
+        setTimeout(() => {
+            if (window.chainManager) {
+                const chainTypeElement = document.querySelector('input[name="appointment_chain_type"]:checked');
+                if (chainTypeElement) {
+                    const chainType = chainTypeElement.value;
+
+                    // Очищаем hidden поле если тип не требует дополнительных записей
+                    const hiddenField = document.getElementById('id_additional_appointments_data');
+                    if (hiddenField) {
+                        if (chainType === 'single' || chainType === 'additional' || chainType === 'two_slots') {
+                            hiddenField.value = '';
+                        }
+                    }
+                }
+            }
+        }, 100);
+    });
+}
 function setupFormValidation() {
     const appointmentForm = document.getElementById('appointmentForm');
     if (!appointmentForm) return;
 
     appointmentForm.addEventListener('submit', function(e) {
+        console.log('=== FORM SUBMIT DEBUG ===');
+
         // Проверяем валидацию Пищелева перед отправкой
         if (!validatePishchelevBeforeSubmit()) {
             e.preventDefault();
             return false;
+        }
+
+        // ВАЖНО: Очищаем пустые данные перед отправкой
+        if (window.chainManager) {
+            // Проверяем тип записи
+            const chainTypeElement = document.querySelector('input[name="appointment_chain_type"]:checked');
+            if (chainTypeElement) {
+                const chainType = chainTypeElement.value;
+
+                if (chainType === 'multiple') {
+                    // Для "multiple" удаляем форму "single" если она пустая
+                    const singleForm = document.querySelector('[data-form-index="single"]');
+                    if (singleForm) {
+                        const formData = window.chainManager.getFormData('single');
+                        if (!formData || !formData.doctor_id || !formData.service_id || !formData.time_slot_id) {
+                            // Форма "single" пустая - удаляем
+                            window.chainManager.removeSingleFormIfExists();
+                        }
+                    }
+                } else if (chainType === 'another_doctor') {
+                    // Для "another_doctor" удаляем все формы "multiple"
+                    window.chainManager.removeAllMultipleForms();
+                }
+            }
+
+            // Обновляем скрытые поля
+            window.chainManager.updateHiddenField();
+            window.chainManager.updateProceduralHiddenField();
         }
 
         return true;

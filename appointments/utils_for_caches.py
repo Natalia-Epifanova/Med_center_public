@@ -448,16 +448,29 @@ def get_cached_doctor_slots_for_api(doctor_id, date, booked_slots=None):
             # 1. Он свободен ИЛИ
             # 2. Это наш текущий слот (в booked_slots)
             if is_free or slot_id_str in booked_slots:
+                # Формируем строку времени
+                time_display = f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}"
+
+                # Получаем описание слота (если есть)
+                slot_description = getattr(slot, "description", "") or ""
+
+                # Если есть описание - добавляем его к времени
+                if slot_description:
+                    time_with_description = f"{time_display} - {slot_description}"
+                else:
+                    time_with_description = time_display
+
                 slots_data.append(
                     {
                         "id": slot.id,
                         "start_time": slot.start_time.strftime("%H:%M:%S"),
                         "end_time": slot.end_time.strftime("%H:%M:%S"),
-                        "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
+                        "time": time_with_description,  # Только время и описание
                         "cabinet": f"Каб. {slot.cabinet.number}",
                         "cabinet_number": slot.cabinet.number,
-                        "is_available": True,  # Если он попал в список - значит доступен
+                        "is_available": True,
                         "is_current": slot_id_str in booked_slots,
+                        "description": slot_description,
                     }
                 )
 
