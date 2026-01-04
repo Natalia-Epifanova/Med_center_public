@@ -314,14 +314,18 @@ function updateStatusSelectStyle(selectElement, status) {
     selectElement.classList.remove(
         'status-scheduled', 'status-confirmed', 'status-completed',
         'status-cancelled', 'status-no_show', 'status-default',
+        'status-approached', 'status-not_called', // ← ДОБАВЛЕНО
         'border-primary', 'border-info', 'border-success',
-        'border-warning', 'border-danger', 'text-muted'
+        'border-warning', 'border-danger', 'border-secondary',
+        'text-muted', 'bg-primary-light', 'bg-info-light',
+        'bg-success-light', 'bg-warning-light', 'bg-danger-light',
+        'bg-light'
     );
 
     // Добавляем базовый класс и класс в зависимости от статуса
     selectElement.classList.add('status-' + status);
 
-    // Добавляем классы Bootstrap для границ
+    // Добавляем классы Bootstrap для границ и фона
     switch(status) {
         case 'scheduled':
             selectElement.classList.add('border-primary', 'bg-primary-light');
@@ -332,11 +336,14 @@ function updateStatusSelectStyle(selectElement, status) {
         case 'completed':
             selectElement.classList.add('border-success', 'bg-success-light');
             break;
-        case 'cancelled':
-            selectElement.classList.add('border-warning', 'bg-warning-light');
+        case 'approached':
+            selectElement.classList.add('border-info', 'bg-info-light'); // Синий для "Подошел"
+            break;
+        case 'not_called':
+            selectElement.classList.add('border-warning', 'bg-warning-light'); // Желтый/оранжевый для "Не дозвонились"
             break;
         case 'no_show':
-            selectElement.classList.add('border-danger', 'bg-danger-light');
+            selectElement.classList.add('border-danger', 'bg-danger-light'); // Красный для "Не явился"
             break;
         default:
             selectElement.classList.add('border-secondary', 'bg-light');

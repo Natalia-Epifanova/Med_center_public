@@ -45,6 +45,8 @@
                         <input type="hidden" id="js-original-time" value="{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}">
                         <input type="hidden" id="js-current-slot-id" value="{{ time_slot.id }}">
                         <input type="hidden" id="js-doctor-id" value="{{ time_slot.doctor.id }}">
+                        <input type="hidden" id="js-main-doctor-name" value="{{ doctor.surname }}">
+                        <input type="hidden" id="js-main-doctor-id" value="{{ doctor.id }}">
                         <input type="hidden" id="js-doctor-name" value="{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.">
                     </div>
 

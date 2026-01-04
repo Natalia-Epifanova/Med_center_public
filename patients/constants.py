@@ -19,6 +19,14 @@ DOCUMENT_TYPES = {
         "informed_consent_physio_template",
         "Согласие_на_физио",
     ),
+    "consent_paid": (
+        "informed_consent_paid_template",
+        "Согласие_платно_и_омс",
+    ),
+    "consent_ip": (
+        "informed_consent_ip_template",
+        "Согласие_ип",
+    ),
     "contract_revmamed": ("contract_revmamed_template", "Договор_Ревмамед"),
     "contract_IP": ("contract_IP_template", "Договор_ИП"),
     "contract_for_psych_support": (
