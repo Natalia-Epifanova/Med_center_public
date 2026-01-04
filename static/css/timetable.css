@@ -228,9 +228,14 @@
     color: #198754 !important;
 }
 
-.appointment-status-select.status-cancelled {
+.appointment-status-select.status-approached {
     background-color: #fff3cd !important;
-    color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+.appointment-status-select.status-not_called {
+    background-color: #fff3cd !important;
+    color: #99592e !important;
 }
 
 .appointment-status-select.status-no_show {

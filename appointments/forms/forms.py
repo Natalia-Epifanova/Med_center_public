@@ -168,6 +168,15 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                 # ВАЖНО: Сохраняем основную запись сразу для получения ID
                 appointment.save()
 
+                if appointment_chain_type in ["another_doctor", "multiple"]:
+                    if not appointment.comment:
+                        appointment.comment = ""
+                    # Добавляем пометку, что это основная запись в цепочке
+                    chain_comment = f"Основная запись в цепочке"
+                    if appointment.comment and chain_comment not in appointment.comment:
+                        appointment.comment = f"{appointment.comment}\n{chain_comment}"
+                    appointment.save()
+
                 # ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА ПИЩЕЛЕВА для последовательных записей
                 if appointment_chain_type == "two_slots":
                     self._validate_consecutive_for_pishchelev(
@@ -265,15 +274,21 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                     procedural_list = (
                         json.loads(procedural_data) if procedural_data else []
                     )
-
+                    additional_doctors = []
                     for i, appointment_data in enumerate(appointments_list, start=1):
                         if "insurance_type" not in appointment_data:
                             # Установить значение по умолчанию
                             appointment_data["insurance_type"] = "paid"
+
                         # Создаем запись
                         additional_appointment = self._create_additional_appointment(
                             main_appointment, appointment_data, i
                         )
+                        # Добавляем врача в список для комментария основной записи
+                        if additional_appointment.doctor:
+                            additional_doctors.append(
+                                additional_appointment.doctor.surname
+                            )
 
                         # ПРОВЕРЯЕМ, ЕСТЬ ЛИ ПРОЦЕДУРНЫЕ ДАННЫЕ ДЛЯ ЭТОЙ ЗАПИСИ
                         procedural_info = None
@@ -292,6 +307,52 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                                 additional_appointment,
                                 main_appointment=additional_appointment,
                             )
+
+                    # ВАЖНО: Добавляем комментарий к ОСНОВНОЙ записи
+                    if additional_doctors:
+                        # Формируем комментарий с уникальными именами врачей
+                        unique_doctors = []
+                        for doctor in additional_doctors:
+                            if doctor not in unique_doctors:
+                                unique_doctors.append(doctor)
+
+                        if len(unique_doctors) == 1:
+                            chain_comment = f"Доп. запись к врачу {unique_doctors[0]}"
+                        else:
+                            doctors_str = ", ".join(unique_doctors)
+                            chain_comment = f"Доп. записи к врачам: {doctors_str}"
+
+                        # Добавляем только если еще нет такого комментария
+                        current_comment = main_appointment.comment or ""
+
+                        # Удаляем старые комментарии о цепочке (если они есть)
+                        lines = current_comment.split("\n")
+                        filtered_lines = []
+                        for line in lines:
+                            if not any(
+                                phrase in line
+                                for phrase in [
+                                    "Доп. запись к врачу",
+                                    "Доп. записи к врачам:",
+                                    "Основная запись в цепочке",
+                                ]
+                            ):
+                                filtered_lines.append(line)
+
+                        cleaned_comment = "\n".join(filtered_lines).strip()
+
+                        # Добавляем новый комментарий
+                        if cleaned_comment:
+                            main_appointment.comment = (
+                                f"{cleaned_comment}\n{chain_comment}"
+                            )
+                        else:
+                            main_appointment.comment = chain_comment
+
+                        main_appointment.save()
+                        print(
+                            f"Добавлен комментарий к основной записи: {main_appointment.comment}"
+                        )
 
                 except (json.JSONDecodeError, KeyError) as e:
                     raise forms.ValidationError(
@@ -369,6 +430,10 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                     f"Слот {time_slot.start_time} у врача {doctor.surname} уже занят"
                 )
 
+            # ВАЖНО: Создаем комментарий для дополнительной записи
+            main_doctor_surname = main_appointment.doctor.surname
+            additional_comment = comment or f"Доп. запись к врачу {main_doctor_surname}"
+
             # Создаем дополнительную запись
             additional_appointment = Appointment.objects.create(
                 time_slot=time_slot,
@@ -376,8 +441,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                 service=service,
                 insurance_type=insurance_type,
                 status=main_appointment.status,
-                comment=comment
-                or f"Дополнительная запись!",
+                comment=additional_comment,  # Используем сформированный комментарий
                 chain_type=Appointment.ChainType.MULTIPLE_DOCTORS,
                 is_chain_main=False,
             )
@@ -1072,8 +1136,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                 service=service,
                 insurance_type=insurance_type,
                 status=Appointment.AppointmentStatus.SCHEDULED,
-                comment=comment
-                or f"Дополнительная запись!",
+                comment=comment or f"Дополнительная запись!",
                 chain_type=Appointment.ChainType.MULTIPLE_DOCTORS,
                 is_chain_main=False,
             )
