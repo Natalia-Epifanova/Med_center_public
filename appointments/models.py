@@ -63,7 +63,8 @@ class Appointment(models.Model):
         SCHEDULED = "scheduled", _("Записан")
         CONFIRMED = "confirmed", _("Подтвержден")
         COMPLETED = "completed", _("Завершен")
-        CANCELLED = "cancelled", _("Подошел")
+        APPROACHED = "approached", _("Подошел")
+        NOT_CALLED = "not_called", _("Не дозвонились")
         NO_SHOW = "no_show", _("Не явился")
 
     # Типы оплаты

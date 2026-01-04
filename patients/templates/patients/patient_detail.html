@@ -207,6 +207,12 @@
                         <div class="col-md-6 mb-3">
                             <h6 class="border-bottom pb-2">Информированные согласия</h6>
                             <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_paid')">
+                                    <i class="fas fa-file-signature"></i> Согласие для карт (платно и ОМС)
+                                </button>
+                                <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_ip')">
+                                    <i class="fas fa-file-signature"></i> Согласие для карт (ИП)
+                                </button>
                                 <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_hyaluronic')">
                                     <i class="fas fa-file-signature"></i> Согласие на блокаду (Гиалуроновая кислота)
                                 </button>
