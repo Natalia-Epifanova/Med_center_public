@@ -65,6 +65,10 @@ class Appointment(models.Model):
         COMPLETED = "completed", _("Завершен")
         APPROACHED = "approached", _("Подошел")
         NOT_CALLED = "not_called", _("Не дозвонились")
+        NO_RECEPTION = (
+            "no_reception",
+            _("Приема не было"),
+        )
         NO_SHOW = "no_show", _("Не явился")
 
     # Типы оплаты

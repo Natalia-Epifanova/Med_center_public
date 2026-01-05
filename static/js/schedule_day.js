@@ -314,7 +314,7 @@ function updateStatusSelectStyle(selectElement, status) {
     selectElement.classList.remove(
         'status-scheduled', 'status-confirmed', 'status-completed',
         'status-cancelled', 'status-no_show', 'status-default',
-        'status-approached', 'status-not_called', // ← ДОБАВЛЕНО
+        'status-approached', 'status-not_called', 'status-no_reception', // ← ДОБАВЛЕНО
         'border-primary', 'border-info', 'border-success',
         'border-warning', 'border-danger', 'border-secondary',
         'text-muted', 'bg-primary-light', 'bg-info-light',
@@ -343,6 +343,9 @@ function updateStatusSelectStyle(selectElement, status) {
             selectElement.classList.add('border-warning', 'bg-warning-light'); // Желтый/оранжевый для "Не дозвонились"
             break;
         case 'no_show':
+            selectElement.classList.add('border-danger', 'bg-danger-light'); // Красный для "Не явился"
+            break;
+        case 'no_reception':
             selectElement.classList.add('border-danger', 'bg-danger-light'); // Красный для "Не явился"
             break;
         default:
