@@ -35,6 +35,7 @@ class Migration(migrations.Migration):
                             ("completed", "Завершен"),
                             ("approached", "Подошел"),
                             ("not_called", "Не дозвонились"),
+                            ("no_reception", "Приема не было"),
                             ("no_show", "Не явился"),
                         ],
                         default="scheduled",
