@@ -14,10 +14,12 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
 from appointments.constants import SLOT_LOCK_TIMEOUT
-from appointments.forms.forms import (AppointmentForm,
-                                      AppointmentSimpleEditForm,
-                                      ProceduralAppointmentForm,
-                                      ProceduralAppointmentUpdateForm)
+from appointments.forms.forms import (
+    AppointmentForm,
+    AppointmentSimpleEditForm,
+    ProceduralAppointmentForm,
+    ProceduralAppointmentUpdateForm,
+)
 from appointments.models import Appointment, AppointmentChain
 from appointments.utils_for_caches import get_procedural_cabinet
 from timetable.models import Doctor, TimeSlot
@@ -169,7 +171,20 @@ class AppointmentSimpleEditView(MedicalAdminOrAdminRequiredMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["appointment"] = self.object
+        appointment = self.object
+
+        # Проверяем, есть ли процедурная запись
+        has_procedural = Appointment.objects.filter(
+            previous_appointment=appointment,
+            time_slot__cabinet__number=6,
+        ).exists()
+
+        context.update(
+            {
+                "appointment": appointment,
+                "has_procedural": has_procedural,
+            }
+        )
         return context
 
     def form_invalid(self, form):
