@@ -530,6 +530,60 @@ function initializeAppointmentTypeManagerLegacy() {
         additionalServiceSelect.addEventListener('change', handleAdditionalServiceChange);
     }
 }
+function handleAdditionalServiceChange(event) {
+    const additionalProceduralSection = document.getElementById('additionalServiceProceduralSection');
+    const additionalProceduralVisibleCheckbox = document.getElementById('needs_procedural_additional_checkbox');
+    const additionalServiceSelect = event.target;
+
+    if (!additionalProceduralSection || !additionalProceduralVisibleCheckbox) return;
+
+    // Показываем/скрываем секцию процедурного кабинета для дополнительной услуги
+    if (additionalServiceSelect.value) {
+        additionalProceduralSection.style.display = 'block';
+
+        // Автоматически отмечаем процедурный кабинет для определенных услуг
+        const selectedOption = additionalServiceSelect.options[additionalServiceSelect.selectedIndex];
+        const serviceName = selectedOption.text.toLowerCase();
+
+        const needsProcedural = serviceName.includes('блокада') ||
+                               serviceName.includes('укол') ||
+                               serviceName.includes('пункция') ||
+                               serviceName.includes('введение') ||
+                               serviceName.includes('инъекция') ||
+                               serviceName.includes('внутримышечно') ||
+                               serviceName.includes('внутрикожно') ||
+                               serviceName.includes('внутривенно');
+
+        if (needsProcedural && !additionalProceduralVisibleCheckbox.checked) {
+            additionalProceduralVisibleCheckbox.checked = true;
+
+            // Обновляем скрытое поле
+            const hiddenField = document.getElementById('id_needs_procedural_additional');
+            if (hiddenField) {
+                hiddenField.value = 'true';
+            }
+        } else if (!needsProcedural && additionalProceduralVisibleCheckbox.checked) {
+            additionalProceduralVisibleCheckbox.checked = false;
+
+            // Обновляем скрытое поле
+            const hiddenField = document.getElementById('id_needs_procedural_additional');
+            if (hiddenField) {
+                hiddenField.value = 'false';
+            }
+        }
+    } else {
+        additionalProceduralSection.style.display = 'none';
+        if (additionalProceduralVisibleCheckbox.checked) {
+            additionalProceduralVisibleCheckbox.checked = false;
+
+            // Обновляем скрытое поле
+            const hiddenField = document.getElementById('id_needs_procedural_additional');
+            if (hiddenField) {
+                hiddenField.value = 'false';
+            }
+        }
+    }
+}
 
 function initializeChainManager() {
     if (!window.AppointmentChainManager) return;
