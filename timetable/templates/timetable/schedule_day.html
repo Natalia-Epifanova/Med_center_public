@@ -430,7 +430,7 @@
                                                         <br><small class="text-muted">(ИП карта {{ appointment.patient.card_number_IP }})</small>
                                                     {% endif %}
                                                     {% if is_medical_admin or is_admin and appointment.patient.phone_number %}
-                                                        <br><small class="text-muted"> {{ appointment.patient.phone_number }} </small>
+                                                        <br><small class="text-muted" style="font-size: 0.8rem !important;"> {{ appointment.patient.phone_number }} </small>
                                                     {% endif %}
 
                                                 </small>
@@ -519,13 +519,12 @@
                             </table>
                             <!-- Комментарий кабинета -->
                             {% with cabinet_comment_data=cabinet_comments|get_by_key:cabinet.id %}
-                            {% if can_edit_cabinet_comments or cabinet_comment_data.comment %}
                             <div class="cabinet-comment-section mt-2 border-top pt-2">
                                 <div class="d-flex justify-content-between align-items-center mb-1">
                                     <small class="text-muted">
                                         <i class="fas fa-sticky-note"></i> Комментарий кабинета
                                     </small>
-                                    {% if can_edit_cabinet_comments %}
+                                    {% if is_admin or is_medical_admin %}
                                     <button type="button"
                                             class="btn btn-sm btn-outline-secondary edit-cabinet-comment-btn"
                                             data-cabinet-id="{{ cabinet.id }}"
@@ -546,7 +545,6 @@
                                     {% endif %}
                                 </div>
                             </div>
-                            {% endif %}
                             {% endwith %}
 
                         </div>
