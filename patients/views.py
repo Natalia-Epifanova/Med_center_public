@@ -149,6 +149,15 @@ class DocumentGenerator:
         return ""
 
     @staticmethod
+    def get_patient_short_name(patient):
+        """Получить Полное ФИО врача в формате 'Фамилия И.О.'"""
+        if patient and patient.last_name:  # Если есть отчество
+            return f"{patient.surname} {patient.first_name[0]}.{patient.last_name[0]}."
+        elif patient:
+            return f"{patient.surname} {patient.first_name[0]}."
+        return ""
+
+    @staticmethod
     def get_multiple_appointments_context(patient, appointment_ids):
         """Формирует контекст для нескольких записей"""
         from appointments.models import Appointment
@@ -342,9 +351,17 @@ class DocumentGenerator:
                 if appointment
                 else ""
             ),
+            "patient_short_name": (
+                DocumentGenerator.get_patient_short_name(appointment.patient)
+                if appointment
+                else ""
+            ),
             "doctor_specialization": (
                 appointment.doctor.get_specialization_display() if appointment else ""
             ),
+            "doc_surname": appointment.doctor.surname,
+            "doc_f_name": appointment.doctor.first_name,
+            "doc_l_name": appointment.doctor.last_name or "",
             "service_name": appointment.service.name if appointment else "",
             "service_price": service_price,
             "service_price_words": number_to_words(int(service_price)),
