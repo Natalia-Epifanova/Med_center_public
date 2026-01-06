@@ -430,7 +430,7 @@
                                                         <br><small class="text-muted">(ИП карта {{ appointment.patient.card_number_IP }})</small>
                                                     {% endif %}
                                                     {% if is_medical_admin or is_admin and appointment.patient.phone_number %}
-                                                        <br><small class="text-muted" style="font-size: 0.8rem !important;"> {{ appointment.patient.phone_number }} </small>
+                                                        <br><small class="text-muted" style="font-size: 0.7rem !important;"> {{ appointment.patient.phone_number }} </small>
                                                     {% endif %}
 
                                                 </small>
@@ -539,7 +539,10 @@
                                 <!-- Отображение комментария -->
                                 <div class="cabinet-comment-content">
                                     {% if cabinet_comment_data.comment and cabinet_comment_data.comment.comment %}
-                                        <small class="text-muted">{{ cabinet_comment_data.comment.comment|linebreaks }}</small>
+                                        <!-- ИЗМЕНЕНИЕ ЗДЕСЬ: жирный красный шрифт большего размера -->
+                                        <div class="cabinet-comment-text" style="color: red; font-weight: bold; font-size: 1.2rem !important; line-height: 1.4;">
+                                            {{ cabinet_comment_data.comment.comment|linebreaks }}
+                                        </div>
                                     {% else %}
                                         <small class="text-muted fst-italic">Комментарий отсутствует</small>
                                     {% endif %}
