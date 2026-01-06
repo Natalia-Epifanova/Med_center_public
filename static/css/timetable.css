@@ -217,6 +217,10 @@
     background-color: #e7f1ff !important;
     color: #0d6efd !important;
 }
+.appointment-status-select.status-no_reception {
+    background-color: #bdbdf2 !important;
+    color: #000000 !important;
+}
 
 .appointment-status-select.status-confirmed {
     background-color: #d1ecf1 !important;

@@ -492,6 +492,13 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         widget=forms.HiddenInput(attrs={"id": "id_new_appointment_date"}),
         label="Новая дата приема",
     )
+    needs_procedural = forms.BooleanField(
+        required=False,
+        initial=False,
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input"}),
+        label="Занять окошко в процедурном кабинете",
+        help_text="Автоматически займет такое же время в процедурном кабинете",
+    )
 
     class Meta:
         model = Appointment
@@ -524,6 +531,18 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             if self.appointment.time_slot:
                 self.fields["new_time_slot_id"].initial = self.appointment.time_slot.id
                 self.fields["new_appointment_date"].initial = self.appointment.date
+                # Проверяем, есть ли уже процедурная запись
+            procedural_exists = Appointment.objects.filter(
+                previous_appointment=self.appointment,
+                time_slot__cabinet__number=6,
+            ).exists()
+
+            # Если процедурная запись уже есть, делаем чекбокс отмеченным и неактивным
+            if procedural_exists:
+                self.fields["needs_procedural"].initial = True
+                self.fields["needs_procedural"].widget.attrs.update(
+                    {"disabled": "disabled", "title": "Процедурная запись уже создана"}
+                )
 
     def clean(self):
         cleaned_data = super().clean()
@@ -569,38 +588,66 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             except TimeSlot.DoesNotExist:
                 raise forms.ValidationError("Выбранный временной слот не существует")
 
+                # Проверяем процедурную запись если меняется время или выбрана услуга медблокады
+        if cleaned_data.get("needs_procedural") or self._is_medical_blockade_service(
+            cleaned_data.get("service")
+        ):
+            self._validate_procedural_availability(cleaned_data)
         # Проверяем процедурную запись если меняется время
         if allow_time_change and new_time_slot_id:
             self._validate_procedural_availability(cleaned_data)
 
         return cleaned_data
 
+    def _is_medical_blockade_service(self, service):
+        """Проверяет, является ли услуга медицинской блокадой"""
+        if not service:
+            return False
+
+        # Проверяем по категории
+        from timetable.models import MedicalServiceCategory
+
+        if service.category == MedicalServiceCategory.MEDICAL_BLOCKADES:
+            return True
+
+        # Проверяем по названию
+        blockade_keywords = [
+            "блокада",
+            "блокады",
+            "блокад",
+            "укол",
+            "уколы",
+            "инъекция",
+            "инъекции",
+            "введение",
+            "внутримышечно",
+            "внутрисуставно",
+        ]
+        service_name_lower = service.name.lower()
+
+        return any(keyword in service_name_lower for keyword in blockade_keywords)
+
     def _validate_procedural_availability(self, cleaned_data):
-        """Проверяет доступность процедурного кабинета при изменении времени"""
-        new_time_slot = cleaned_data.get("new_time_slot")
+        """Проверяет доступность процедурного кабинета"""
+        # Определяем, какой слот проверять
+        time_slot_to_check = None
+        if cleaned_data.get("allow_time_change") and cleaned_data.get("new_time_slot"):
+            time_slot_to_check = cleaned_data.get("new_time_slot")
+        else:
+            time_slot_to_check = self.appointment.time_slot
 
-        if not new_time_slot:
-            return
-
-        # Проверяем, есть ли процедурная запись
-        has_procedural = Appointment.objects.filter(
-            previous_appointment=self.appointment,
-            time_slot__cabinet__number=6,
-        ).exists()
-
-        if not has_procedural:
+        if not time_slot_to_check:
             return
 
         # Находим процедурный кабинет
         procedural_cabinet = get_procedural_cabinet()
 
         # Проверяем доступность времени в процедурном кабинете
-        # Ищем другие записи в процедурном кабинете на это время
         conflicting_slots = TimeSlot.objects.filter(
-            date=new_time_slot.date,
+            date=time_slot_to_check.date,
             cabinet=procedural_cabinet,
-            start_time__lt=new_time_slot.end_time,
-            end_time__gt=new_time_slot.start_time,
+            start_time__lt=time_slot_to_check.end_time,
+            end_time__gt=time_slot_to_check.start_time,
             appointments__isnull=False,
         )
 
@@ -620,10 +667,10 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             patient_name = occupied_slot.appointments.first().patient.get_full_name()
 
             raise forms.ValidationError(
-                f"Невозможно перенести запись: время {new_time_slot.start_time.strftime('%H:%M')}-"
-                f"{new_time_slot.end_time.strftime('%H:%M')} {new_time_slot.date.strftime('%d.%m.%Y')} "
+                f"Невозможно создать процедурную запись: время {time_slot_to_check.start_time.strftime('%H:%M')}-"
+                f"{time_slot_to_check.end_time.strftime('%H:%M')} {time_slot_to_check.date.strftime('%d.%m.%Y')} "
                 f"в процедурном кабинете уже занято пациентом {patient_name}. "
-                f"Пожалуйста, выберите другое время или отмените процедурную запись."
+                f"Пожалуйста, выберите другое время или снимите галочку 'Занять окошко в процедурном кабинете'."
             )
 
     @transaction.atomic
@@ -631,16 +678,22 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         """Сохраняет запись с проверкой процедурного кабинета"""
         appointment = super().save(commit=False)
 
-        # Проверяем, меняется ли время
-        allow_time_change = self.cleaned_data.get("allow_time_change", False)
-        new_time_slot = self.cleaned_data.get("new_time_slot")
+        # Проверяем, нужно ли создать процедурную запись
+        needs_procedural = self.cleaned_data.get("needs_procedural", False)
+        service = self.cleaned_data.get("service") or appointment.service
+
+        # Автоматически ставим галочку, если выбрана услуга медблокады
+        if self._is_medical_blockade_service(service) and not needs_procedural:
+            needs_procedural = True
 
         if commit:
             try:
                 # Сохраняем запись с новым временным слотом если он изменился
+                allow_time_change = self.cleaned_data.get("allow_time_change", False)
+                new_time_slot = self.cleaned_data.get("new_time_slot")
+
                 if allow_time_change and new_time_slot:
                     old_time_slot = appointment.time_slot
-
                     appointment.time_slot = new_time_slot
 
                     # Переносим процедурную запись если она есть
@@ -652,14 +705,51 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 # Сохраняем основную запись
                 appointment.save()
 
-                # ВАЖНО: Всегда обновляем услугу в процедурной записи
-                # даже если время не менялось, но услуга могла измениться
-                self._update_procedural_service(appointment)
+                # Обрабатываем процедурную запись
+                self._handle_procedural_appointment(appointment, needs_procedural)
 
             except forms.ValidationError as e:
                 raise forms.ValidationError(str(e))
 
         return appointment
+
+    def _handle_procedural_appointment(self, appointment, needs_procedural):
+        """Обрабатывает создание/обновление процедурной записи"""
+        from appointments.services import ProceduralAppointmentService
+
+        # Проверяем, есть ли уже процедурная запись
+        existing_procedural = Appointment.objects.filter(
+            previous_appointment=appointment,
+            time_slot__cabinet__number=6,
+        ).first()
+
+        if needs_procedural:
+            # Нужно создать или обновить процедурную запись
+            if not existing_procedural:
+                # Проверяем, можно ли создать
+                if not ProceduralAppointmentService.can_create_procedural_appointment(
+                    appointment
+                ):
+                    raise forms.ValidationError(
+                        "Невозможно создать процедурную запись: выбранное время в процедурном кабинете уже занято. "
+                        "Пожалуйста, выберите другое время или снимите галочку 'Занять окошко в процедурном кабинете'."
+                    )
+
+                # Создаем новую процедурную запись
+                ProceduralAppointmentService.create_procedural_appointment(appointment)
+            else:
+                # Обновляем существующую процедурную запись
+                ProceduralAppointmentService.update_procedural_appointment(
+                    appointment, existing_procedural
+                )
+        elif existing_procedural:
+            # Если процедурная запись существует, но галочка снята - удаляем ее
+            old_slot = existing_procedural.time_slot
+            existing_procedural.delete()
+
+            # Удаляем пустой слот процедурного кабинета
+            if old_slot and not old_slot.appointments.exists():
+                old_slot.delete()
 
     def _move_procedural_appointment(self, appointment, old_time_slot, new_time_slot):
         """Переносит связанную процедурную запись на новое время"""
