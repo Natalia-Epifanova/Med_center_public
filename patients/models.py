@@ -71,7 +71,8 @@ class Patient(models.Model):
         unique=True,
         verbose_name="Номер карты (ИП)",
     )
-    card_number_OMS = models.PositiveIntegerField(
+    card_number_OMS = models.CharField(
+        max_length=20,
         blank=True,
         null=True,
         unique=True,
@@ -94,7 +95,7 @@ class Patient(models.Model):
     street = models.CharField(
         max_length=100, blank=True, default="", verbose_name="Улица"
     )
-    home = models.CharField(max_length=4, blank=True, default="", verbose_name="Дом")
+    home = models.CharField(max_length=8, blank=True, default="", verbose_name="Дом")
     building = models.CharField(
         max_length=4, blank=True, default="", verbose_name="Корпус/строение"
     )
