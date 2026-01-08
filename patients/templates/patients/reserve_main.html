@@ -1,0 +1,210 @@
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block title %}Резервные списки пациентов{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Резервные списки пациентов {{ current_year }}</h1>
+        <div>
+            <a href="{% url 'patients:reserve_patient_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Добавить в резерв
+            </a>
+        </div>
+    </div>
+
+    <!-- Форма поиска -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-10">
+                    <input type="text"
+                           name="search"
+                           class="form-control"
+                           placeholder="Поиск по фамилии, имени или телефону..."
+                           value="{{ request.GET.search }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i> Найти
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if reserve_data %}
+    <!-- Основной контент: врачи и их списки -->
+    <div class="row">
+        {% for doctor_data in reserve_data %}
+        <!-- Изменяем col-12 на col-md-4 чтобы было 3 врача в ряд -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        {{ doctor_data.doctor.surname }}
+                        {{ doctor_data.doctor.first_name }}
+                        {% if doctor_data.doctor.last_name %}{{ doctor_data.doctor.last_name }}{% endif %}
+                    </h5>
+                    <small class="badge bg-light text-primary mt-1">
+                        Всего пациентов: {{ doctor_data.total_patients }}
+                    </small>
+                </div>
+
+                <div class="card-body p-0">
+                    <!-- Внутри карточки врача - месяцы -->
+                    {% for month_data in doctor_data.months %}
+                    {% if month_data.patient_count > 0 %}
+                    <div class="border-bottom">
+                        <!-- Изменяем заголовок месяца -->
+                        <div class="px-3 py-2 bg-warning bg-opacity-25">
+                            <h6 class="mb-0 d-flex justify-content-between align-items-center">
+                                <!-- Используем нижний регистр для названия месяца -->
+                                <span class="fw-bold text-dark">
+                                    <i class="bi bi-calendar-plus"></i>
+                                    Запись на {{ month_data.month_name|lower }}
+                                </span>
+                                <span class="badge bg-primary">{{ month_data.patient_count }}</span>
+                            </h6>
+                        </div>
+
+                        <div class="px-3 py-2">
+                            <div class="list-group list-group-flush">
+                                {% for entry in month_data.entries %}
+                                <div class="list-group-item border-0 px-0 py-2">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <strong class="d-block">{{ entry.surname }} {{ entry.first_name }}
+                                                {% if entry.last_name %} {{ entry.last_name }} {% endif %}
+                                                {% if entry.date_of_birth %} {{ entry.date_of_birth|date:"d.m.Y" }}{% endif %} </strong>
+
+
+
+                                            {% if entry.phone_number %}
+                                            <div class="mt-1 small">
+                                                <i class="bi bi-telephone"></i>
+                                                {{ entry.phone_number }}
+                                            </div>
+                                            {% endif %}
+
+                                            {% if entry.comment %}
+                                            <div class="mt-1 small text-muted">
+                                                <i class="bi bi-chat-left"></i>
+                                                {{ entry.comment|truncatechars:30 }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
+                                            <a href="{% url 'patients:reserve_patient_update' entry.id %}"
+                                               class="btn btn-outline-primary btn-sm"
+                                               title="Редактировать">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'patients:reserve_patient_delete' entry.id %}"
+                                               class="btn btn-outline-danger btn-sm"
+                                               title="Удалить">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <div class="mt-2 text-center">
+                                <a href="{% url 'patients:reserve_patient_create' %}?doctor_id={{ doctor_data.doctor.id }}&month={{ month_data.month_num }}&year={{ current_year }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus"></i> Добавить пациента
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                    <!-- Если у врача вообще нет пациентов -->
+                    {% if doctor_data.total_patients == 0 %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-calendar-x text-muted" style="font-size: 2rem;"></i>
+                        <p class="text-muted mt-2 mb-3">Нет пациентов в резерве</p>
+                        <a href="{% url 'patients:reserve_patient_create' %}?doctor_id={{ doctor_data.doctor.id }}&month=1&year={{ current_year }}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-plus"></i> Добавить первого
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Для красивого отображения: добавляем clearfix каждые 3 врача -->
+        {% if forloop.counter|divisibleby:3 %}
+        <div class="w-100 d-none d-md-block"></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+    {% elif request.GET.search %}
+    <div class="alert alert-warning">
+        <h4 class="alert-heading">Ничего не найдено</h4>
+        <p>По запросу "{{ request.GET.search }}" в резервных списках пациентов не найдено.</p>
+    </div>
+
+    {% else %}
+    <div class="alert alert-info">
+        <h4 class="alert-heading">Нет записей в резерве</h4>
+        <p>В резервных списках на {{ current_year }} год пока нет пациентов.</p>
+        <a href="{% url 'patients:reserve_patient_create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Добавить первого пациента в резерв
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.list-group-item {
+    border-left: 0;
+    border-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.list-group-item:first-child {
+    border-top: 0;
+}
+
+.badge {
+    font-size: 0.75em;
+}
+
+/* Для мобильных устройств - 1 врач в ряд */
+@media (max-width: 768px) {
+    .col-md-4 {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+/* Для планшетов - 2 врача в ряд */
+@media (min-width: 768px) and (max-width: 992px) {
+    .col-md-4 {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+</style>
+{% endblock %}

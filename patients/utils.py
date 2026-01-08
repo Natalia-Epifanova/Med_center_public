@@ -116,3 +116,22 @@ def get_russian_month_name(month_number):
         12: "декабря",
     }
     return months.get(month_number, "")
+
+
+def get_russian_month_name_for_reserve(month_number):
+    """Возвращает русское название месяца по номеру"""
+    months = {
+        1: "январь",
+        2: "февраль",
+        3: "март",
+        4: "апрель",
+        5: "май",
+        6: "июнь",
+        7: "июль",
+        8: "август",
+        9: "сентябрь",
+        10: "октябрь",
+        11: "ноябрь",
+        12: "декабрь",
+    }
+    return months.get(month_number, "")
