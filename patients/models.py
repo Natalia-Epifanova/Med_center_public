@@ -255,3 +255,76 @@ class Patient(models.Model):
 
     def __str__(self):
         return f"{self.full_name} ({self.card_number or 'без карты'})"
+
+
+class ReserveList(models.Model):
+    """Основная модель резервного списка, группирует записи по месяцам"""
+
+    doctor = models.ForeignKey(
+        "timetable.Doctor", on_delete=models.CASCADE, verbose_name="Врач"
+    )
+    month = models.PositiveSmallIntegerField(verbose_name="Месяц (1-12)")
+    year = models.PositiveSmallIntegerField(verbose_name="Год")
+
+    class Meta:
+        verbose_name = "Список резерва"
+        verbose_name_plural = "Списки резерва"
+        ordering = ["-year", "-month", "doctor"]
+        unique_together = ["doctor", "month", "year"]
+
+    def __str__(self):
+        return f"{self.doctor.surname} {self.doctor.first_name} {self.doctor.last_name} - {self.get_month_display()} {self.year}"
+
+    def get_month_display(self):
+        """Получаем название месяца"""
+        from patients.utils import get_russian_month_name
+
+        return get_russian_month_name(self.month).capitalize()
+
+    def patient_count(self):
+        """Количество пациентов в списке"""
+        return self.entries.count()
+
+
+class ReservePatient(models.Model):
+    """Отдельная запись в резервном списке"""
+
+    reserve_list = models.ForeignKey(
+        ReserveList, on_delete=models.CASCADE, related_name="entries"
+    )
+    patient = models.ForeignKey(
+        Patient,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        verbose_name="Пациент (если найден в БД)",
+    )
+
+    # Данные пациента (заполняются, если нет в БД)
+    surname = models.CharField(max_length=50, verbose_name="Фамилия")
+    first_name = models.CharField(max_length=20, verbose_name="Имя")
+    last_name = models.CharField(
+        max_length=30, blank=True, default="", verbose_name="Отчество"
+    )
+    date_of_birth = models.DateField(
+        null=True, blank=True, verbose_name="Дата рождения"
+    )
+    # === КОНТАКТНЫЕ ДАННЫЕ ===
+    phone_number = models.CharField(
+        max_length=12,
+        blank=True,
+        null=True,
+        verbose_name="Телефон пациента",
+        validators=[
+            RegexValidator(
+                regex=r"^\+7\d{10}$",
+                message="Номер телефона должен начинаться с +7 и содержать 12 символов",
+            )
+        ],
+    )
+
+    comment = models.TextField(blank=True, verbose_name="Комментарий")
+
+    class Meta:
+        verbose_name = "Запись резерва"
+        verbose_name_plural = "Записи резерва"

@@ -460,55 +460,56 @@
                                     </td>
                                     <td>
                                     {% if slot.slot_type == 'working' %}
-                                        {% get_appointment slot as appointment %}
-                                        {% if appointment %}
+                                        {% if is_admin or is_medical_admin %}
+                                            {% get_appointment slot as appointment %}
+                                            {% if appointment %}
 
-                                            <!-- Выпадающий список статуса -->
-                                            <select class="form-select form-select-sm appointment-status-select"
-                                                    data-appointment-id="{{ appointment.pk }}"
-                                                    style="min-width: 130px; font-size: 0.75rem;">
-                                                {% for status_value, status_label in appointment.AppointmentStatus.choices %}
-                                                <option value="{{ status_value }}"
-                                                        {% if appointment.status == status_value %}selected{% endif %}>
-                                                    {{ status_label }}
-                                                </option>
-                                                {% endfor %}
-                                            </select>
+                                                <!-- Выпадающий список статуса -->
+                                                <select class="form-select form-select-sm appointment-status-select"
+                                                        data-appointment-id="{{ appointment.pk }}"
+                                                        style="min-width: 130px; font-size: 0.75rem;">
+                                                    {% for status_value, status_label in appointment.AppointmentStatus.choices %}
+                                                    <option value="{{ status_value }}"
+                                                            {% if appointment.status == status_value %}selected{% endif %}>
+                                                        {{ status_label }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
 
-                                            <!-- Блок действий -->
-                                            <div class="btn-group btn-group-sm mt-1" role="group">
-                                                <!-- Кнопка просмотра записи -->
-                                                {% if is_medical_admin or is_admin %}
-                                                <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
-                                                   class="btn btn-outline-info" title="Просмотр записи">
-                                                   <i class="fas fa-eye"></i>
-                                                </a>
-                                                {% endif %}
-                                                <!-- Индикатор перезаписи -->
-                                                {% if appointment.needs_reschedule %}
-                                                <span class="btn btn-outline-info position-relative"
-                                                      title="Просил(а) перезаписать раньше">
-                                                    <i class="fas fa-clock"></i>
-                                                    <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
-                                                        <span class="visually-hidden">Требуется перезапись</span>
+                                                <!-- Блок действий -->
+                                                <div class="btn-group btn-group-sm mt-1" role="group">
+                                                    <!-- Кнопка просмотра записи -->
+                                                    {% if is_medical_admin or is_admin %}
+                                                    <a href="{% url 'appointments:appointment_detail' appointment.pk %}"
+                                                       class="btn btn-outline-info" title="Просмотр записи">
+                                                       <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    {% endif %}
+                                                    <!-- Индикатор перезаписи -->
+                                                    {% if appointment.needs_reschedule %}
+                                                    <span class="btn btn-outline-info position-relative"
+                                                          title="Просил(а) перезаписать раньше">
+                                                        <i class="fas fa-clock"></i>
+                                                        <span class="position-absolute top-0 start-100 translate-middle p-1 bg-danger border border-light rounded-circle">
+                                                            <span class="visually-hidden">Требуется перезапись</span>
+                                                        </span>
                                                     </span>
-                                                </span>
+                                                    {% endif %}
+
+
+                                                </div>
+                                            {% else %}
+                                                {% if is_medical_admin or is_admin %}
+                                                    <!-- ВОТ СЮДА НУЖНО ДОБАВИТЬ КНОПКУ С ПРОВЕРКОЙ БЛОКИРОВКИ -->
+                                                    <a href="{% url 'appointments:appointment_create' slot.id %}"
+                                                       class="btn btn-sm btn-outline-success check-slot-lock"
+                                                       data-slot-id="{{ slot.id }}"
+                                                       title="Добавить запись пациента">
+                                                        <i class="fas fa-plus"></i>
+                                                    </a>
                                                 {% endif %}
-
-
-                                            </div>
-                                        {% else %}
-                                            {% if is_medical_admin or is_admin %}
-                                                <!-- ВОТ СЮДА НУЖНО ДОБАВИТЬ КНОПКУ С ПРОВЕРКОЙ БЛОКИРОВКИ -->
-                                                <a href="{% url 'appointments:appointment_create' slot.id %}"
-                                                   class="btn btn-sm btn-outline-success check-slot-lock"
-                                                   data-slot-id="{{ slot.id }}"
-                                                   title="Добавить запись пациента">
-                                                    <i class="fas fa-plus"></i>
-                                                </a>
                                             {% endif %}
                                         {% endif %}
-
                                     {% else %}
                                         <small class="text-muted">Недоступно для записи</small>
                                     {% endif %}
