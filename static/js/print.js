@@ -212,40 +212,69 @@ function printSchedule() {
                     const patientContent = originalPatientCell.innerHTML.trim();
 
                     if (patientContent && patientContent !== '-') {
-                        // Упрощаем обработку: берем весь текст и убираем лишнее
+                        // Берем ВСЕ содержимое, включая номера карт
                         let patientText = originalPatientCell.textContent || originalPatientCell.innerText;
                         patientText = patientText.trim();
 
-                        // Удаляем номера телефонов
-                        patientText = patientText.replace(/\+7\s*\(?\d{3}\)?\s*\d{3}[\s-]?\d{2}[\s-]?\d{2}/g, '');
-
-                        // Удаляем информацию о картах
-                        patientText = patientText.replace(/карта\s*\d+/gi, '');
-                        patientText = patientText.replace(/ОМС\s*карта\s*\d+/gi, '');
-                        patientText = patientText.replace(/ИП\s*карта\s*\d+/gi, '');
-                        patientText = patientText.replace(/\(\s*\)/g, '');
-
-                        // Очищаем от лишних пробелов
-                        patientText = patientText.replace(/\s+/g, ' ').trim();
-
-                        // Разделяем по переводам строк и берем первую строку
+                        // Разделяем по переводам строк
                         const lines = patientText.split('\n');
-                        let finalText = lines[0] || patientText;
+                        let finalText = '';
 
-                        // Если есть тег <strong>, берем только его содержимое
+                        // Собираем только строки с ФИО и картами, игнорируем пустые строки
+                        lines.forEach(line => {
+                            const trimmedLine = line.trim();
+                            if (trimmedLine &&
+                                !trimmedLine.includes('+7') && // Игнорируем номера телефонов
+                                !trimmedLine.includes('phone') &&
+                                !trimmedLine.includes('тел.')) {
+
+                                // Если это первая строка (ФИО), добавляем как есть
+                                if (finalText === '') {
+                                    finalText = trimmedLine;
+                                } else {
+                                    // Для остальных строк добавляем с переводом строки
+                                    finalText += '\n' + trimmedLine;
+                                }
+                            }
+                        });
+
+                        // Если есть тег <strong>, берем только его содержимое плюс карты
                         const strongElement = originalPatientCell.querySelector('strong');
                         if (strongElement) {
-                            finalText = strongElement.textContent.trim();
-                        }
+                            const nameOnly = strongElement.textContent.trim();
+                            // Берем все остальные строки (карты) из исходного текста
+                            const otherLines = patientText.split('\n')
+                                .filter(line => {
+                                    const trimmed = line.trim();
+                                    return trimmed &&
+                                           !trimmed.includes(nameOnly) && // исключаем ФИО
+                                           (trimmed.includes('карта') ||
+                                            trimmed.includes('ОМС') ||
+                                            trimmed.includes('ИП'));
+                                });
 
-                        // Ограничиваем длину текста
-                        if (finalText.length > 30) {
-                            finalText = finalText.substring(0, 27) + '...';
+                            // Собираем ФИО и карты
+                            finalText = nameOnly;
+                            otherLines.forEach(line => {
+                                finalText += '\n' + line.trim();
+                            });
                         }
 
                         // Записываем в клонированную ячейку
                         if (finalText && finalText !== '-') {
-                            clonedPatientCell.innerHTML = `<strong style="font-size: 7pt;">${finalText}</strong>`;
+                            // Разделяем по переводам строк и создаем HTML
+                            const htmlLines = finalText.split('\n');
+                            let htmlContent = '';
+                            htmlLines.forEach((line, index) => {
+                                if (index === 0) {
+                                    // Первая строка (ФИО) жирным
+                                    htmlContent += `<strong style="font-size: 7pt;">${line}</strong>`;
+                                } else {
+                                    // Остальные строки (карты) обычным шрифтом
+                                    htmlContent += `<br><span style="font-size: 6pt;">${line}</span>`;
+                                }
+                            });
+                            clonedPatientCell.innerHTML = htmlContent;
                         } else {
                             clonedPatientCell.innerHTML = '<strong style="font-size: 7pt;">-</strong>';
                         }
@@ -308,7 +337,7 @@ function printSchedule() {
                 @media print {
                     body {
                         margin: 0 !important;
-                        padding: 10mm 0 0 0 !important;
+                        padding: 0;
                         width: 100% !important;
                         font-size: 7pt !important;
                         font-family: Arial, sans-serif !important;
@@ -319,7 +348,7 @@ function printSchedule() {
 
                 body {
                     margin: 0;
-                    padding: 10mm 0 0 0 !important;
+                    padding: 0;
                     font-family: Arial, sans-serif;
                     font-size: 7pt;
                     background: white;
