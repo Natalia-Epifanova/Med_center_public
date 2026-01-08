@@ -330,7 +330,7 @@ function printSchedule() {
                 /* РАЗМЕР СТРАНИЦЫ */
                 @page {
                     size: A4 landscape;
-                    margin: 20mm 15mm 8mm 8mm !important;
+                    margin: 8mm 8mm 8mm 8mm !important;
                 }
 
                 /* СТИЛИ ДЛЯ ПЕЧАТИ */
@@ -366,9 +366,9 @@ function printSchedule() {
                 .print-cards-grid {
                     display: grid !important;
                     grid-template-columns: repeat(3, 1fr) !important;
-                    gap: 1.5mm !important;
-                    width: 95% !important;
-                    max-width: 95% !important;
+                    gap: 1 mm !important;
+                    width: 97% !important;
+                    max-width: 97% !important;
                     margin: 0 auto !important;
                     padding: 0 !important;
                 }
@@ -390,7 +390,7 @@ function printSchedule() {
                 .print-cabinet-header {
                     background-color: #f0f0f0 !important;
                     color: black !important;
-                    padding: 0.8mm 1mm !important;
+                    padding: 0.5mm 0.8mm !important;
                     text-align: center;
                     font-size: 9pt !important;
                     font-weight: bold;
@@ -398,7 +398,7 @@ function printSchedule() {
                 }
 
                 .print-cabinet-body {
-                    padding: 0.8mm !important;
+                    padding: 0.5mm !important;
                     flex-grow: 1;
                     overflow: hidden;
                     font-size: 7pt !important;
