@@ -19,8 +19,14 @@ from docxtpl import DocxTemplate
 
 from appointments.models import Appointment
 from patients.constants import DOCUMENT_TYPES
-from patients.forms import PatientForm, PatientFullForm, PatientSearchForm
-from patients.models import Patient
+from patients.forms import (
+    PatientForm,
+    PatientFullForm,
+    PatientSearchForm,
+    ReservePatientCreateForm,
+    ReservePatientUpdateForm,
+)
+from patients.models import Patient, ReserveList, ReservePatient
 from patients.utils import get_russian_month_name, number_to_words
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
@@ -243,7 +249,37 @@ class DocumentGenerator:
         if not appointment and not multiple_appointments_context:
             appointment = patient.get_last_appointment()
 
-        service_price = appointment.service.price if appointment else 0
+        # Проверяем, существует ли appointment
+        if appointment and appointment.doctor:
+            service_price = appointment.service.price if appointment.service else 0
+            doctor_short_name = DocumentGenerator.get_doctor_short_name(
+                appointment.doctor
+            )
+            patient_short_name = DocumentGenerator.get_patient_short_name(
+                appointment.patient
+            )
+            doctor_specialization = appointment.doctor.get_specialization_display()
+            doc_surname = appointment.doctor.surname
+            doc_f_name = appointment.doctor.first_name
+            doc_l_name = appointment.doctor.last_name or ""
+            service_name = appointment.service.name if appointment.service else ""
+            appointment_date = (
+                appointment.time_slot.date.strftime("%d.%m.%Y")
+                if appointment.time_slot and appointment.time_slot.date
+                else ""
+            )
+        else:
+            # Устанавливаем значения по умолчанию если appointment или doctor отсутствуют
+            service_price = 0
+            doctor_short_name = ""
+            patient_short_name = DocumentGenerator.get_patient_short_name(patient)
+            doctor_specialization = ""
+            doc_surname = ""
+            doc_f_name = ""
+            doc_l_name = ""
+            service_name = ""
+            appointment_date = ""
+
         if isinstance(service_price, str):
             try:
                 service_price = float(service_price)
@@ -287,6 +323,7 @@ class DocumentGenerator:
         # Формируем итоговый адрес
         formatted_address = ", ".join(filter(None, address_parts))
 
+        # Формируем контекст с БЕЗОПАСНЫМИ значениями
         context = {
             # Данные пациента
             "patient_id": patient.pk,
@@ -340,31 +377,19 @@ class DocumentGenerator:
             "polis_oms": patient.polis_oms or "",
             "snils": patient.snils or "",
             "insurance_company": patient.insurance_company or "",
-            # Данные о записи
-            "appointment_date": (
-                appointment.time_slot.date.strftime("%d.%m.%Y")
-                if appointment and appointment.time_slot
-                else ""
-            ),
-            "doctor_name": (
-                DocumentGenerator.get_doctor_short_name(appointment.doctor)
-                if appointment
-                else ""
-            ),
-            "patient_short_name": (
-                DocumentGenerator.get_patient_short_name(appointment.patient)
-                if appointment
-                else ""
-            ),
-            "doctor_specialization": (
-                appointment.doctor.get_specialization_display() if appointment else ""
-            ),
-            "doc_surname": appointment.doctor.surname,
-            "doc_f_name": appointment.doctor.first_name,
-            "doc_l_name": appointment.doctor.last_name or "",
-            "service_name": appointment.service.name if appointment else "",
+            # Данные о записи - используем значения из проверки выше
+            "appointment_date": appointment_date,
+            "doctor_name": doctor_short_name,
+            "patient_short_name": patient_short_name,
+            "doctor_specialization": doctor_specialization,
+            "doc_surname": doc_surname,
+            "doc_f_name": doc_f_name,
+            "doc_l_name": doc_l_name,
+            "service_name": service_name,
             "service_price": service_price,
-            "service_price_words": number_to_words(int(service_price)),
+            "service_price_words": (
+                number_to_words(int(service_price)) if service_price else "ноль"
+            ),
             # Текущая дата
             "current_date": datetime.now().strftime("%d.%m.%Y"),
             "c_day": datetime.now().strftime("%d"),
@@ -373,19 +398,13 @@ class DocumentGenerator:
             "current_year": datetime.now().strftime("%Y"),
             "multiple_services": False,
             "services_count": 1,
-            "services_text": appointment.service.name if appointment else "",
+            "services_text": service_name,
             "total_price": service_price,
-            "total_price_words": number_to_words(int(service_price)),
-            "date_range": (
-                appointment.time_slot.date.strftime("%d.%m.%Y") + "г."
-                if appointment and appointment.time_slot and appointment.time_slot.date
-                else ""
+            "total_price_words": (
+                number_to_words(int(service_price)) if service_price else "ноль"
             ),
-            "single_date": (
-                appointment.time_slot.date.strftime("%d.%m.%Y")
-                if appointment and appointment.time_slot and appointment.time_slot.date
-                else ""
-            ),
+            "date_range": appointment_date + "г." if appointment_date else "",
+            "single_date": appointment_date,
         }
 
         # Добавляем контекст для нескольких записей, если есть
@@ -485,3 +504,34 @@ def generate_document(request, pk, doc_type):
     # Удаляем временный файл
     os.remove(filepath)
     return response
+
+
+# class ReserveListView(LoginRequiredMixin, ListView):
+#     """Список пациентов с поиском и пагинацией"""
+#
+#     model = ReserveList
+#     template_name = "patients/reserve_patient_list.html"
+#
+#
+# class ReservePatientCreateView(LoginRequiredMixin, CreateView):
+#     """Создание нового пациента"""
+#
+#     model = ReservePatient
+#     form_class = ReservePatientCreateForm
+#     template_name = "patients/reserve_patient_form.html"
+#     success_url = reverse_lazy("patients:reserve_patient_list")
+#
+#
+# class ReservePatientUpdateView(LoginRequiredMixin, UpdateView):
+#     model = ReservePatient
+#     form_class = ReservePatientUpdateForm
+#     template_name = "patients/reserve_patient_form.html"
+#     success_url = reverse_lazy("patients:reserve_patient_list")
+#
+#
+# class ReservePatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+#     """Удаление пациента"""
+#
+#     model = ReservePatient
+#     template_name = "patients/reserve_patient_confirm_delete.html"
+#     success_url = reverse_lazy("patients:reserve_patient_list")
