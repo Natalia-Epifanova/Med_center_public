@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional, Tuple
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
+from django.db.models import Max
 from phonenumber_field.phonenumber import PhoneNumber
 
 from patients.models import Patient
@@ -104,3 +105,35 @@ class PatientService:
                     cleaned_data[field] = str(cleaned_data[field]).strip()
 
         return cleaned_data
+
+
+class CardNumberService:
+    """Сервис для работы с номерами карт пациентов"""
+
+    @staticmethod
+    def get_max_card_number():
+        """Получить максимальный номер карты"""
+        max_number = Patient.objects.aggregate(max_card_number=Max("card_number"))[
+            "max_card_number"
+        ]
+
+        return max_number or 0
+
+    @staticmethod
+    def get_next_card_number():
+        """Получить следующий доступный номер карты"""
+        max_number = CardNumberService.get_max_card_number()
+
+        # Если нет ни одного номера, начинаем с 1
+        if max_number is None:
+            return 1
+
+        # Находим следующий свободный номер
+        next_number = max_number + 1
+
+        # Проверяем, не занят ли этот номер (на всякий случай)
+        # и ищем следующий свободный
+        while Patient.objects.filter(card_number=next_number).exists():
+            next_number += 1
+
+        return next_number
