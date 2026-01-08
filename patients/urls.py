@@ -16,6 +16,24 @@ urlpatterns = [
         views.generate_document,
         name="generate_document",
     ),
+    # Маршруты для резервных списков
+    path("reserve/", views.ReserveMainView.as_view(), name="reserve_main"),
+    path(
+        "reserve/create/",
+        views.ReservePatientCreateView.as_view(),
+        name="reserve_patient_create",
+    ),
+    path(
+        "reserve/<int:pk>/update/",
+        views.ReservePatientUpdateView.as_view(),
+        name="reserve_patient_update",
+    ),
+    path(
+        "reserve/<int:pk>/delete/",
+        views.ReservePatientDeleteView.as_view(),
+        name="reserve_patient_delete",
+    ),
+    # API маршруты
     path(
         "api/check-patient/",
         check_patient_api,

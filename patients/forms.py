@@ -1,9 +1,10 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.forms import ModelForm
 from django.utils import timezone
 
-from patients.models import Patient
+from patients.models import Patient, ReservePatient
 from timetable.mixins import StyleFormMixin
 
 
@@ -203,3 +204,119 @@ class PatientSearchForm(forms.Form):
         if len(search) < 2 and search:
             raise ValidationError("Введите хотя бы 2 символа для поиска")
         return search
+
+
+class BaseReserveForm(StyleFormMixin, ModelForm):
+    """Базовая форма для резервных записей"""
+
+    def clean_date_of_birth(self):
+        """Валидация даты рождения"""
+        date_of_birth = self.cleaned_data.get("date_of_birth")
+        if date_of_birth and date_of_birth > timezone.now().date():
+            raise ValidationError("Дата рождения не может быть в будущем")
+        return date_of_birth
+
+
+class ReservePatientCreateForm(BaseReserveForm):
+    """Форма для создания записи в резерве с улучшенной функциональностью"""
+
+    class Meta:
+        model = ReservePatient
+        fields = [
+            "surname",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "date_of_birth",
+            "comment",
+        ]
+        widgets = {
+            "date_of_birth": forms.DateInput(
+                attrs={"type": "date", "class": "form-control"}
+            ),
+            "phone_number": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "+7 (___) ___-__-__",
+                    "id": "id_phone_number",
+                }
+            ),
+            "comment": forms.Textarea(
+                attrs={
+                    "rows": 2,
+                    "class": "form-control",
+                    "placeholder": "Комментарий для администратора...",
+                }
+            ),
+        }
+        labels = {
+            "surname": "Фамилия *",
+            "first_name": "Имя *",
+            "last_name": "Отчество",
+            "phone_number": "Телефон *",
+            "date_of_birth": "Дата рождения *",
+            "comment": "Комментарий",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Помечаем обязательные поля
+        self.fields["surname"].required = True
+        self.fields["first_name"].required = True
+        self.fields["phone_number"].required = True
+        self.fields["date_of_birth"].required = True
+
+        # Добавляем CSS классы
+        for field_name in ["surname", "first_name", "last_name", "phone_number"]:
+            self.fields[field_name].widget.attrs["class"] = "form-control"
+
+    def clean_phone_number(self):
+        """Валидация и форматирование номера телефона"""
+        phone = self.cleaned_data.get("phone_number", "").strip()
+
+        if not phone:
+            raise ValidationError("Это поле обязательно для заполнения")
+
+        # Удаляем все нецифровые символы кроме +
+        phone_clean = "".join(c for c in phone if c.isdigit() or c == "+")
+
+        # Форматируем номер
+        if phone_clean.startswith("8"):
+            phone_clean = "+7" + phone_clean[1:]
+        elif phone_clean.startswith("7"):
+            phone_clean = "+" + phone_clean
+        elif phone_clean.startswith("9") and len(phone_clean) == 10:
+            phone_clean = "+7" + phone_clean
+
+        # Проверяем формат +7XXXXXXXXXX
+        if not phone_clean.startswith("+7"):
+            raise ValidationError("Номер должен начинаться с +7")
+
+        if len(phone_clean) != 12:
+            raise ValidationError("Номер должен содержать 12 символов (включая +7)")
+
+        return phone_clean
+
+
+class ReservePatientUpdateForm(BaseReserveForm):
+    """Форма для редактирования записи в резерве"""
+
+    class Meta:
+        model = ReservePatient
+        fields = [
+            "surname",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "date_of_birth",
+            "comment",
+        ]
+        widgets = {
+            "date_of_birth": forms.DateInput(
+                attrs={"type": "date", "class": "datepicker"}
+            ),
+            "phone_number": forms.TextInput(
+                attrs={"placeholder": "+7 (___) ___-__-__", "class": "phone-input"}
+            ),
+            "comment": forms.Textarea(attrs={"rows": 2}),
+        }
