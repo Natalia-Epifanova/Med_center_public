@@ -6,6 +6,9 @@
                 <a class="nav-link" href="{% url 'timetable:home' %}">Главная</a>
                 <a class="nav-link" href="{% url 'timetable:schedule_day' %}">Расписание</a>
                 <a class="nav-link" href="{% url 'patients:patient_list' %}">База пациентов</a>
+                <a class="nav-link fw-bold text-success" href="{% url 'patients:reserve_main' %}">
+                    <i class="fas fa-calendar-check me-1"></i> Резерв ОМС
+                </a>
             </div>
 
             <!-- Меню пользователя справа -->

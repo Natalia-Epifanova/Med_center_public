@@ -284,3 +284,31 @@
         gap: 10px !important;
     }
 }
+
+.phone-input-group {
+    position: relative;
+}
+
+.phone-input-group::before {
+    content: "+7";
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #6c757d;
+    font-weight: bold;
+    z-index: 3;
+}
+
+.phone-input-group input {
+    padding-left: 35px;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.select-patient-btn:hover {
+    transform: scale(1.05);
+    transition: transform 0.2s;
+}

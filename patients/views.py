@@ -3,17 +3,21 @@ from datetime import datetime
 from typing import List, Optional
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.db import models
-from django.http import HttpRequest, HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
+from django.utils import timezone
 from django.views.generic import (
     CreateView,
     DeleteView,
     DetailView,
     ListView,
     UpdateView,
+    TemplateView,
 )
 from docxtpl import DocxTemplate
 
@@ -27,7 +31,13 @@ from patients.forms import (
     ReservePatientUpdateForm,
 )
 from patients.models import Patient, ReserveList, ReservePatient
-from patients.utils import get_russian_month_name, number_to_words
+from patients.services import PatientService, CardNumberService
+from patients.utils import (
+    get_russian_month_name,
+    number_to_words,
+    get_russian_month_name_for_reserve,
+)
+from timetable.models import Doctor
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
 
@@ -506,32 +516,299 @@ def generate_document(request, pk, doc_type):
     return response
 
 
-# class ReserveListView(LoginRequiredMixin, ListView):
-#     """Список пациентов с поиском и пагинацией"""
-#
-#     model = ReserveList
-#     template_name = "patients/reserve_patient_list.html"
-#
-#
-# class ReservePatientCreateView(LoginRequiredMixin, CreateView):
-#     """Создание нового пациента"""
-#
-#     model = ReservePatient
-#     form_class = ReservePatientCreateForm
-#     template_name = "patients/reserve_patient_form.html"
-#     success_url = reverse_lazy("patients:reserve_patient_list")
-#
-#
-# class ReservePatientUpdateView(LoginRequiredMixin, UpdateView):
-#     model = ReservePatient
-#     form_class = ReservePatientUpdateForm
-#     template_name = "patients/reserve_patient_form.html"
-#     success_url = reverse_lazy("patients:reserve_patient_list")
-#
-#
-# class ReservePatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
-#     """Удаление пациента"""
-#
-#     model = ReservePatient
-#     template_name = "patients/reserve_patient_confirm_delete.html"
-#     success_url = reverse_lazy("patients:reserve_patient_list")
+# ===== РЕЗЕРВНЫЕ СПИСКИ =====
+
+
+class ReserveMainView(LoginRequiredMixin, TemplateView):
+    """Главная страница резервных списков - показываем только врачей с записями"""
+
+    template_name = "patients/reserve_main.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        current_year = timezone.now().year
+        search = self.request.GET.get("search", "").strip()
+
+        # Используем правильное имя обратной связи: 'reservelist' (строчными буквами)
+        # Получаем ID врачей, у которых ЕСТЬ записи в резерве в текущем году
+        doctors_with_reserve_ids = (
+            ReserveList.objects.filter(year=current_year, entries__isnull=False)
+            .values_list("doctor_id", flat=True)
+            .distinct()
+        )
+
+        # Если есть поиск, фильтруем дополнительно по имени пациента
+        if search:
+            doctors_with_reserve_ids = (
+                ReserveList.objects.filter(
+                    year=current_year, entries__surname__icontains=search
+                )
+                .values_list("doctor_id", flat=True)
+                .distinct()
+            )
+
+        # Получаем врачей
+        doctors_to_show = Doctor.objects.filter(id__in=doctors_with_reserve_ids)
+
+        # Структура для отображения
+        reserve_data = []
+
+        for doctor in doctors_to_show:
+            doctor_data = {
+                "doctor": doctor,
+                "months": [],
+                "total_patients": 0,
+                "has_any_patients": False,
+            }
+
+            # Для каждого месяца (1-12)
+            for month_num in range(1, 13):
+                try:
+                    # Получаем список резерва
+                    reserve_list = ReserveList.objects.get(
+                        doctor=doctor, month=month_num, year=current_year
+                    )
+
+                    # Получаем записи
+                    entries = reserve_list.entries.all().order_by(
+                        "surname", "first_name"
+                    )
+
+                    # Фильтруем по поиску если нужно
+                    if search:
+                        entries = entries.filter(
+                            models.Q(surname__icontains=search)
+                            | models.Q(first_name__icontains=search)
+                            | models.Q(last_name__icontains=search)
+                            | models.Q(phone_number__icontains=search)
+                        )
+
+                    patient_count = entries.count()
+
+                    doctor_data["months"].append(
+                        {
+                            "month_num": month_num,
+                            "month_name": get_russian_month_name_for_reserve(
+                                month_num
+                            ).capitalize(),
+                            "reserve_list": reserve_list,
+                            "entries": entries,
+                            "patient_count": patient_count,
+                        }
+                    )
+
+                    doctor_data["total_patients"] += patient_count
+
+                    if patient_count > 0:
+                        doctor_data["has_any_patients"] = True
+
+                except ReserveList.DoesNotExist:
+                    # Если списка нет - пустой месяц
+                    doctor_data["months"].append(
+                        {
+                            "month_num": month_num,
+                            "month_name": get_russian_month_name_for_reserve(
+                                month_num
+                            ).capitalize(),
+                            "reserve_list": None,
+                            "entries": [],
+                            "patient_count": 0,
+                        }
+                    )
+
+            # Добавляем врача в список только если у него есть пациенты
+            if doctor_data["has_any_patients"]:
+                reserve_data.append(doctor_data)
+
+        context.update(
+            {
+                "reserve_data": reserve_data,
+                "current_year": current_year,
+                "search": search,
+                "has_results": len(reserve_data) > 0,
+                "doctors_count": doctors_to_show.count(),
+            }
+        )
+
+        return context
+
+
+class ReservePatientCreateView(LoginRequiredMixin, CreateView):
+    """Создание новой записи в резерве"""
+
+    model = ReservePatient
+    form_class = ReservePatientCreateForm
+    template_name = "patients/reserve_patient_form.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Получаем параметры из GET запроса
+        doctor_id = self.request.GET.get("doctor_id")
+        month = self.request.GET.get("month", timezone.now().month)
+        year = self.request.GET.get("year", timezone.now().year)
+
+        # Добавляем врачей для выбора
+        context["doctors"] = Doctor.objects.all()
+        context["selected_doctor_id"] = doctor_id
+        context["selected_month"] = month
+        context["selected_year"] = year
+        context["current_year"] = timezone.now().year
+
+        return context
+
+    def form_valid(self, form):
+        # Получаем данные пациента из формы
+        patient_data = {
+            "surname": form.cleaned_data.get("surname"),
+            "first_name": form.cleaned_data.get("first_name"),
+            "last_name": form.cleaned_data.get("last_name", ""),
+            "phone_number": form.cleaned_data.get("phone_number"),
+            "date_of_birth": form.cleaned_data.get("date_of_birth"),
+        }
+
+        # Создаем или находим пациента в основной базе
+        try:
+            patient, created = PatientService.get_or_create_patient(patient_data)
+
+            if created:
+                messages.info(
+                    self.request,
+                    f"Новый пациент {patient.get_full_name()} добавлен в базу данных",
+                )
+            else:
+                messages.info(
+                    self.request,
+                    f"Использован существующий пациент: {patient.get_full_name()}",
+                )
+
+        except ValidationError as e:
+            messages.error(self.request, f"Ошибка при создании пациента: {e}")
+            return self.form_invalid(form)
+        except Exception as e:
+            messages.error(self.request, f"Ошибка при обработке пациента: {e}")
+            return self.form_invalid(form)
+
+        # Получаем данные о враче и периоде
+        doctor_id = self.request.POST.get("doctor")
+        month = self.request.POST.get("month", timezone.now().month)
+        year = self.request.POST.get("year", timezone.now().year)
+
+        if not doctor_id:
+            messages.error(self.request, "Необходимо выбрать врача")
+            return self.form_invalid(form)
+
+        try:
+            doctor = Doctor.objects.get(id=doctor_id)
+        except Doctor.DoesNotExist:
+            messages.error(self.request, "Выбранный врач не найден")
+            return self.form_invalid(form)
+
+        # Получаем или создаем резервный список
+        reserve_list, created = ReserveList.objects.get_or_create(
+            doctor=doctor, month=int(month), year=int(year)
+        )
+
+        # Сохраняем запись в резерв с привязкой к пациенту
+        reserve_patient = form.save(commit=False)
+        reserve_patient.reserve_list = reserve_list
+        reserve_patient.patient = (
+            patient  # Привязываем к найденному/созданному пациенту
+        )
+
+        # Копируем данные из формы (на всякий случай)
+        reserve_patient.surname = patient.surname
+        reserve_patient.first_name = patient.first_name
+        reserve_patient.last_name = patient.last_name or ""
+        reserve_patient.phone_number = patient.phone_number or ""
+        reserve_patient.date_of_birth = patient.date_of_birth
+
+        reserve_patient.save()
+
+        messages.success(
+            self.request,
+            f"Пациент {patient.get_full_name()} добавлен в резервный список "
+            f"{doctor.surname} {doctor.first_name} {doctor.last_name}",
+        )
+        return redirect("patients:reserve_main")
+
+    def get_success_url(self):
+        return reverse_lazy("patients:reserve_main")
+
+
+class ReservePatientUpdateView(LoginRequiredMixin, UpdateView):
+    """Редактирование записи в резерве"""
+
+    model = ReservePatient
+    form_class = ReservePatientUpdateForm
+    template_name = "patients/reserve_patient_form.html"
+
+    def form_valid(self, form):
+        reserve_patient = form.save()
+
+        # Обновляем связь с пациентом
+        patient = self.find_existing_patient(
+            reserve_patient.surname,
+            reserve_patient.first_name,
+            reserve_patient.date_of_birth,
+        )
+
+        # Если нашли другого пациента
+        if patient != reserve_patient.patient:
+            reserve_patient.patient = patient
+            reserve_patient.save()
+
+        messages.success(self.request, "Запись обновлена")
+        return redirect("patients:reserve_main")
+
+    def find_existing_patient(self, surname, first_name, date_of_birth=None):
+        """Поиск существующего пациента"""
+        query = Patient.objects.filter(
+            surname__iexact=surname, first_name__iexact=first_name
+        )
+
+        if date_of_birth:
+            query = query.filter(date_of_birth=date_of_birth)
+
+        return query.first()
+
+    def get_success_url(self):
+        return reverse_lazy("patients:reserve_main")
+
+
+class ReservePatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+    """Удаление записи из резерва"""
+
+    model = ReservePatient
+    template_name = "patients/reserve_patient_confirm_delete.html"
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "Запись удалена из резерва")
+        return super().delete(request, *args, **kwargs)
+
+    def get_success_url(self):
+        return reverse_lazy("patients:reserve_main")
+
+
+@medical_admin_or_admin_required
+def get_max_card_number(request):
+    """API для получения максимального номера карты"""
+    max_number = CardNumberService.get_max_card_number()
+    return JsonResponse(
+        {
+            "max_card_number": max_number,
+            "next_number": max_number + 1 if max_number else 1,
+        }
+    )
+
+
+@medical_admin_or_admin_required
+def generate_new_card_number(request):
+    """API для генерации нового номера карты"""
+    new_number = CardNumberService.get_next_card_number()
+    return JsonResponse(
+        {
+            "new_card_number": new_number,
+            "message": f"Сгенерирован новый номер карты: {new_number}",
+        }
+    )
