@@ -97,10 +97,23 @@
                             <div class="col-md-4">
                                 <div class="form-group">
                                     <label for="{{ form.card_number.id_for_label }}">{{ form.card_number.label }}</label>
-                                    {{ form.card_number }}
+                                    <div class="input-group">
+                                        {{ form.card_number }}
+                                        <div class="input-group-append">
+                                            <button type="button"
+                                                    class="btn btn-outline-primary"
+                                                    id="generate-card-number-btn"
+                                                    title="Автоматически присвоить следующий доступный номер">
+                                                <i class="fas fa-plus"></i> Новый номер
+                                            </button>
+                                        </div>
+                                    </div>
                                     {% if form.card_number.errors %}
                                     <div class="text-danger small">{{ form.card_number.errors }}</div>
                                     {% endif %}
+                                    <small class="form-text text-muted">
+                                        Самый большой текущий номер: <span id="max-card-number">Загрузка...</span>
+                                    </small>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -264,6 +277,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 passportIssueDateInput.value = formattedDate;
             }
         }
+    }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const generateBtn = document.getElementById('generate-card-number-btn');
+    const cardNumberInput = document.getElementById('{{ form.card_number.id_for_label }}');
+    const maxCardNumberSpan = document.getElementById('max-card-number');
+
+    // Функция для получения максимального номера карты
+    async function getMaxCardNumber() {
+        try {
+            const response = await fetch('{% url "patients:get_max_card_number" %}');
+            if (!response.ok) throw new Error('Ошибка при запросе');
+            const data = await response.json();
+
+            maxCardNumberSpan.textContent = data.max_card_number || 'Нет данных';
+            return data.max_card_number;
+        } catch (error) {
+            console.error('Ошибка:', error);
+            maxCardNumberSpan.textContent = 'Ошибка загрузки';
+            return null;
+        }
+    }
+
+    // Функция для генерации нового номера
+    async function generateNewCardNumber() {
+        try {
+            const response = await fetch('{% url "patients:generate_new_card_number" %}');
+            if (!response.ok) throw new Error('Ошибка при запросе');
+            const data = await response.json();
+
+            if (data.new_card_number) {
+                cardNumberInput.value = data.new_card_number;
+                // Обновляем отображение максимального номера
+                getMaxCardNumber();
+            }
+        } catch (error) {
+            console.error('Ошибка:', error);
+            alert('Ошибка при генерации номера карты');
+        }
+    }
+
+    // Загружаем максимальный номер при открытии формы
+    getMaxCardNumber();
+
+    // Обработчик клика по кнопке
+    if (generateBtn && cardNumberInput) {
+        generateBtn.addEventListener('click', function() {
+            // Если поле уже заполнено, спрашиваем подтверждение
+            if (cardNumberInput.value) {
+                if (!confirm('Заменить текущий номер карты на новый?')) {
+                    return;
+                }
+            }
+            generateNewCardNumber();
+        });
     }
 });
 </script>
