@@ -90,49 +90,75 @@
                             </div>
                         </div>
 
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <h5 class="border-bottom pb-2 mb-3">Номера карт</h5>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="{{ form.card_number.id_for_label }}">{{ form.card_number.label }}</label>
-                                    <div class="input-group">
-                                        {{ form.card_number }}
-                                        <div class="input-group-append">
-                                            <button type="button"
-                                                    class="btn btn-outline-primary"
-                                                    id="generate-card-number-btn"
-                                                    title="Автоматически присвоить следующий доступный номер">
-                                                <i class="fas fa-plus"></i> Новый номер
-                                            </button>
-                                        </div>
+                        <!-- Обычная карта -->
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="{{ form.card_number.id_for_label }}">{{ form.card_number.label }}</label>
+                                <div class="input-group">
+                                    {{ form.card_number }}
+                                    <div class="input-group-append">
+                                        <button type="button"
+                                                class="btn btn-outline-primary"
+                                                id="generate-card-number-btn"
+                                                title="Автоматически присвоить следующий доступный номер">
+                                            <i class="fas fa-plus"></i> Новый номер
+                                        </button>
                                     </div>
-                                    {% if form.card_number.errors %}
-                                    <div class="text-danger small">{{ form.card_number.errors }}</div>
-                                    {% endif %}
-                                    <small class="form-text text-muted">
-                                        Самый большой текущий номер: <span id="max-card-number">Загрузка...</span>
-                                    </small>
                                 </div>
+                                {% if form.card_number.errors %}
+                                <div class="text-danger small">{{ form.card_number.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">
+                                    Самый большой текущий номер: <span id="max-card-number">Загрузка...</span>
+                                </small>
                             </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="{{ form.card_number_IP.id_for_label }}">{{ form.card_number_IP.label }}</label>
+                        </div>
+
+                        <!-- Карта ИП -->
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="{{ form.card_number_IP.id_for_label }}">{{ form.card_number_IP.label }}</label>
+                                <div class="input-group">
                                     {{ form.card_number_IP }}
-                                    {% if form.card_number_IP.errors %}
-                                    <div class="text-danger small">{{ form.card_number_IP.errors }}</div>
-                                    {% endif %}
+                                    <div class="input-group-append">
+                                        <button type="button"
+                                                class="btn btn-outline-primary"
+                                                id="generate-ip-card-number-btn"
+                                                title="Автоматически присвоить следующий доступный номер ИП">
+                                            <i class="fas fa-plus"></i> Новый номер
+                                        </button>
+                                    </div>
                                 </div>
+                                {% if form.card_number_IP.errors %}
+                                <div class="text-danger small">{{ form.card_number_IP.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">
+                                    Самый большой текущий номер: <span id="max-card-number-ip">Загрузка...</span>
+                                </small>
                             </div>
-                            <div class="col-md-4">
-                                <div class="form-group">
-                                    <label for="{{ form.card_number_OMS.id_for_label }}">{{ form.card_number_OMS.label }}</label>
+                        </div>
+
+                        <!-- Карта ОМС -->
+                        <div class="col-md-4">
+                            <div class="form-group">
+                                <label for="{{ form.card_number_OMS.id_for_label }}">{{ form.card_number_OMS.label }}</label>
+                                <div class="input-group">
                                     {{ form.card_number_OMS }}
-                                    {% if form.card_number_OMS.errors %}
-                                    <div class="text-danger small">{{ form.card_number_OMS.errors }}</div>
-                                    {% endif %}
+                                    <div class="input-group-append">
+                                        <button type="button"
+                                                class="btn btn-outline-primary"
+                                                id="generate-oms-card-number-btn"
+                                                title="Автоматически присвоить следующий доступный номер ОМС">
+                                            <i class="fas fa-plus"></i> Новый номер
+                                        </button>
+                                    </div>
                                 </div>
+                                {% if form.card_number_OMS.errors %}
+                                <div class="text-danger small">{{ form.card_number_OMS.errors }}</div>
+                                {% endif %}
+                                <small class="form-text text-muted">
+                                    Самый большой текущий номер: <span id="max-card-number-oms">Загрузка...</span>
+                                </small>
                             </div>
                         </div>
 
@@ -286,53 +312,94 @@ document.addEventListener('DOMContentLoaded', function() {
     const cardNumberInput = document.getElementById('{{ form.card_number.id_for_label }}');
     const maxCardNumberSpan = document.getElementById('max-card-number');
 
-    // Функция для получения максимального номера карты
-    async function getMaxCardNumber() {
+    const generateIpBtn = document.getElementById('generate-ip-card-number-btn');
+    const ipCardNumberInput = document.getElementById('{{ form.card_number_IP.id_for_label }}');
+    const maxIpCardNumberSpan = document.getElementById('max-card-number-ip');
+
+    const generateOmsBtn = document.getElementById('generate-oms-card-number-btn');
+    const omsCardNumberInput = document.getElementById('{{ form.card_number_OMS.id_for_label }}');
+    const maxOmsCardNumberSpan = document.getElementById('max-card-number-oms');
+
+    // Функция для получения максимального номера карты определенного типа
+    async function getMaxCardNumber(cardType, spanElement) {
         try {
-            const response = await fetch('{% url "patients:get_max_card_number" %}');
+            const response = await fetch(`{% url "patients:get_max_card_number" %}?type=${cardType}`);
             if (!response.ok) throw new Error('Ошибка при запросе');
             const data = await response.json();
 
-            maxCardNumberSpan.textContent = data.max_card_number || 'Нет данных';
+            if (spanElement) {
+                spanElement.textContent = data.max_card_number || 'Нет данных';
+            }
             return data.max_card_number;
         } catch (error) {
             console.error('Ошибка:', error);
-            maxCardNumberSpan.textContent = 'Ошибка загрузки';
+            if (spanElement) {
+                spanElement.textContent = 'Ошибка загрузки';
+            }
             return null;
         }
     }
 
     // Функция для генерации нового номера
-    async function generateNewCardNumber() {
+    async function generateNewCardNumber(cardType, inputElement) {
         try {
-            const response = await fetch('{% url "patients:generate_new_card_number" %}');
+            const response = await fetch(`{% url "patients:generate_new_card_number" card_type='regular' %}`.replace('regular', cardType));
             if (!response.ok) throw new Error('Ошибка при запросе');
             const data = await response.json();
 
-            if (data.new_card_number) {
-                cardNumberInput.value = data.new_card_number;
+            if (data.new_card_number && inputElement) {
+                inputElement.value = data.new_card_number;
                 // Обновляем отображение максимального номера
-                getMaxCardNumber();
+                await getMaxCardNumber(cardType,
+                    cardType === 'regular' ? maxCardNumberSpan :
+                    cardType === 'ip' ? maxIpCardNumberSpan :
+                    maxOmsCardNumberSpan
+                );
             }
         } catch (error) {
             console.error('Ошибка:', error);
-            alert('Ошибка при генерации номера карты');
+            alert(`Ошибка при генерации номера карты`);
         }
     }
 
-    // Загружаем максимальный номер при открытии формы
-    getMaxCardNumber();
+    // Загружаем максимальные номера при открытии формы
+    getMaxCardNumber('regular', maxCardNumberSpan);
+    getMaxCardNumber('ip', maxIpCardNumberSpan);
+    getMaxCardNumber('oms', maxOmsCardNumberSpan);
 
-    // Обработчик клика по кнопке
+    // Обработчик для обычной карты
     if (generateBtn && cardNumberInput) {
         generateBtn.addEventListener('click', function() {
-            // Если поле уже заполнено, спрашиваем подтверждение
             if (cardNumberInput.value) {
-                if (!confirm('Заменить текущий номер карты на новый?')) {
+                if (!confirm('Заменить текущий номер обычной карты на новый?')) {
                     return;
                 }
             }
-            generateNewCardNumber();
+            generateNewCardNumber('regular', cardNumberInput);
+        });
+    }
+
+    // Обработчик для карты ИП
+    if (generateIpBtn && ipCardNumberInput) {
+        generateIpBtn.addEventListener('click', function() {
+            if (ipCardNumberInput.value) {
+                if (!confirm('Заменить текущий номер карты ИП на новый?')) {
+                    return;
+                }
+            }
+            generateNewCardNumber('ip', ipCardNumberInput);
+        });
+    }
+
+    // Обработчик для карты ОМС
+    if (generateOmsBtn && omsCardNumberInput) {
+        generateOmsBtn.addEventListener('click', function() {
+            if (omsCardNumberInput.value) {
+                if (!confirm('Заменить текущий номер карты ОМС на новый?')) {
+                    return;
+                }
+            }
+            generateNewCardNumber('oms', omsCardNumberInput);
         });
     }
 });
