@@ -1,8 +1,12 @@
 from django.urls import path
 
 from . import views
-from .views import get_max_card_number, generate_new_card_number
-from .views_api import check_patient_api, search_patients_api
+from .views_api import (
+    check_patient_api,
+    search_patients_api,
+    generate_new_card_number,
+    get_max_card_number,
+)
 
 app_name = "patients"
 
@@ -47,7 +51,7 @@ urlpatterns = [
     ),
     path("get-max-card-number/", get_max_card_number, name="get_max_card_number"),
     path(
-        "generate-new-card-number/",
+        "generate-new-card-number/<str:card_type>/",
         generate_new_card_number,
         name="generate_new_card_number",
     ),
