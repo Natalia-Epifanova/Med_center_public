@@ -112,9 +112,9 @@ class CardNumberService:
 
     # Добавляем минимальные стартовые номера для каждого типа карт
     MIN_START_NUMBERS = {
-        "regular": 1,  # обычные карты
-        "ip": 169,  # карты ИП
-        "oms": 1593,  # карты ОМС
+        "regular": 1,  # обычные карты - НЕ ИСПОЛЬЗУЕТСЯ, т.к. обычные карты по логике max+1
+        "ip": 169,  # карты ИП - начинаем с 169 и ищем свободный
+        "oms": 1593,  # карты ОМС - начинаем с 1593 и ищем свободный
     }
 
     @staticmethod
@@ -165,52 +165,57 @@ class CardNumberService:
     @staticmethod
     def get_next_card_number(card_type="regular"):
         """Получить следующий доступный номер карты указанного типа"""
-        # Получаем минимальный стартовый номер для этого типа карты
-        min_start = CardNumberService.MIN_START_NUMBERS.get(card_type, 1)
 
-        # Получаем все существующие номера для этого типа карты
-        existing_numbers = set()
+        # ОБЫЧНЫЕ КАРТЫ (платные) - логика "максимальный + 1"
+        if card_type == "regular":
+            max_number = CardNumberService.get_max_card_number("regular")
+            # Если нет ни одного номера, начинаем с 1
+            if max_number == 0:
+                return 1
+            return max_number + 1
 
-        if card_type == "ip":
-            existing_numbers = set(
-                Patient.objects.exclude(card_number_IP__isnull=True).values_list(
-                    "card_number_IP", flat=True
-                )
-            )
-        elif card_type == "oms":
-            # Для ОМС извлекаем числовую часть до слеша
-            oms_numbers = Patient.objects.exclude(card_number_OMS__isnull=True).exclude(
-                card_number_OMS=""
-            )
-            for num in oms_numbers.values_list("card_number_OMS", flat=True):
-                try:
-                    if num:
-                        if "/" in str(num):
-                            num_part = str(num).split("/")[0]
-                        else:
-                            num_part = str(num)
-                        existing_numbers.add(int(num_part))
-                except (ValueError, AttributeError):
-                    continue
+        # КАРТЫ ИП и ОМС - логика "начать с минимального и найти первый свободный"
         else:
-            existing_numbers = set(
-                Patient.objects.exclude(card_number__isnull=True).values_list(
-                    "card_number", flat=True
+            # Получаем минимальный стартовый номер для этого типа карты
+            min_start = CardNumberService.MIN_START_NUMBERS.get(card_type, 1)
+
+            # Получаем все существующие номера для этого типа карты
+            existing_numbers = set()
+
+            if card_type == "ip":
+                existing_numbers = set(
+                    Patient.objects.exclude(card_number_IP__isnull=True).values_list(
+                        "card_number_IP", flat=True
+                    )
                 )
-            )
+            elif card_type == "oms":
+                # Для ОМС извлекаем числовую часть до слеша
+                oms_numbers = Patient.objects.exclude(
+                    card_number_OMS__isnull=True
+                ).exclude(card_number_OMS="")
+                for num in oms_numbers.values_list("card_number_OMS", flat=True):
+                    try:
+                        if num:
+                            if "/" in str(num):
+                                num_part = str(num).split("/")[0]
+                            else:
+                                num_part = str(num)
+                            existing_numbers.add(int(num_part))
+                    except (ValueError, AttributeError):
+                        continue
 
-        # Убираем None и 0 из множества
-        existing_numbers = {n for n in existing_numbers if n is not None and n > 0}
+            # Убираем None и 0 из множества
+            existing_numbers = {n for n in existing_numbers if n is not None and n > 0}
 
-        # Начинаем поиск с минимального стартового номера
-        next_number = min_start
+            # Начинаем поиск с минимального стартового номера
+            next_number = min_start
 
-        # Ищем первый свободный номер
-        while next_number in existing_numbers:
-            next_number += 1
+            # Ищем первый свободный номер
+            while next_number in existing_numbers:
+                next_number += 1
 
-        # Для ОМС возвращаем строку, для остальных - число
-        if card_type == "oms":
-            return str(next_number)
+            # Для ОМС возвращаем строку, для ИП - число
+            if card_type == "oms":
+                return str(next_number)
 
-        return next_number
+            return next_number
