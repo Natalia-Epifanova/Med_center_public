@@ -254,7 +254,7 @@ class ReservePatientCreateForm(BaseReserveForm):
             "first_name": "Имя *",
             "last_name": "Отчество",
             "phone_number": "Телефон *",
-            "date_of_birth": "Дата рождения *",
+            "date_of_birth": "Дата рождения",
             "comment": "Комментарий",
         }
 
