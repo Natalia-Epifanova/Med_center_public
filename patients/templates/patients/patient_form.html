@@ -124,7 +124,7 @@
                                         <button type="button"
                                                 class="btn btn-outline-primary"
                                                 id="generate-ip-card-number-btn"
-                                                title="Автоматически присвоить следующий доступный номер ИП">
+                                                title="Номер ИП начинается с 200. Следующий свободный будет присвоен автоматически">
                                             <i class="fas fa-plus"></i> Новый номер
                                         </button>
                                     </div>
@@ -132,9 +132,7 @@
                                 {% if form.card_number_IP.errors %}
                                 <div class="text-danger small">{{ form.card_number_IP.errors }}</div>
                                 {% endif %}
-                                <small class="form-text text-muted">
-                                    Самый большой текущий номер: <span id="max-card-number-ip">Загрузка...</span>
-                                </small>
+
                             </div>
                         </div>
 
@@ -148,7 +146,7 @@
                                         <button type="button"
                                                 class="btn btn-outline-primary"
                                                 id="generate-oms-card-number-btn"
-                                                title="Автоматически присвоить следующий доступный номер ОМС">
+                                                title="Номер ОМС начинается с 620. Следующий свободный будет присвоен автоматически">
                                             <i class="fas fa-plus"></i> Новый номер
                                         </button>
                                     </div>
@@ -156,9 +154,7 @@
                                 {% if form.card_number_OMS.errors %}
                                 <div class="text-danger small">{{ form.card_number_OMS.errors }}</div>
                                 {% endif %}
-                                <small class="form-text text-muted">
-                                    Самый большой текущий номер: <span id="max-card-number-oms">Загрузка...</span>
-                                </small>
+
                             </div>
                         </div>
 
