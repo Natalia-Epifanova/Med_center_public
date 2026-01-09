@@ -7,6 +7,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from patients.models import Patient
+from patients.services import CardNumberService
+from users.permissions.decorators import medical_admin_or_admin_required
 
 
 @csrf_exempt
@@ -199,3 +201,45 @@ def search_patients_api(request):
         print(f"Ошибка при поиске: {e}")
         print(traceback.format_exc())
         return JsonResponse({"error": f"Ошибка при поиске: {str(e)}"}, status=500)
+
+
+@medical_admin_or_admin_required
+def get_max_card_number(request):
+    """API для получения максимального номера карты"""
+    card_type = request.GET.get("type", "regular")
+
+    max_number = CardNumberService.get_max_card_number(card_type)
+    return JsonResponse(
+        {
+            "max_card_number": max_number,
+            "next_number": max_number + 1 if max_number else 1,
+            "card_type": card_type,
+        }
+    )
+
+
+@medical_admin_or_admin_required
+def generate_new_card_number(request, card_type="regular"):
+    """API для генерации нового номера карты указанного типа"""
+    valid_types = ["regular", "ip", "oms"]
+
+    if card_type not in valid_types:
+        return JsonResponse(
+            {
+                "error": f"Неверный тип карты. Допустимые значения: {', '.join(valid_types)}"
+            },
+            status=400,
+        )
+
+    new_number = CardNumberService.get_next_card_number(card_type)
+
+    # Определяем русское название типа карты для сообщения
+    type_names = {"regular": "обычной карты", "ip": "карты ИП", "oms": "карты ОМС"}
+
+    return JsonResponse(
+        {
+            "new_card_number": new_number,
+            "card_type": card_type,
+            "message": f"Сгенерирован новый номер {type_names[card_type]}: {new_number}",
+        }
+    )

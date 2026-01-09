@@ -254,7 +254,7 @@ class ReservePatientCreateForm(BaseReserveForm):
             "first_name": "Имя *",
             "last_name": "Отчество",
             "phone_number": "Телефон *",
-            "date_of_birth": "Дата рождения *",
+            "date_of_birth": "Дата рождения",
             "comment": "Комментарий",
         }
 
@@ -264,7 +264,7 @@ class ReservePatientCreateForm(BaseReserveForm):
         self.fields["surname"].required = True
         self.fields["first_name"].required = True
         self.fields["phone_number"].required = True
-        self.fields["date_of_birth"].required = True
+        self.fields["date_of_birth"].required = False
 
         # Добавляем CSS классы
         for field_name in ["surname", "first_name", "last_name", "phone_number"]:

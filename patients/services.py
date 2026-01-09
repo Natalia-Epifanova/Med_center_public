@@ -111,29 +111,68 @@ class CardNumberService:
     """Сервис для работы с номерами карт пациентов"""
 
     @staticmethod
-    def get_max_card_number():
-        """Получить максимальный номер карты"""
-        max_number = Patient.objects.aggregate(max_card_number=Max("card_number"))[
-            "max_card_number"
-        ]
+    def get_max_card_number(card_type="regular"):
+        """Получить максимальный номер карты указанного типа"""
+        if card_type == "ip":
+            # Для ИП - целое число
+            max_number = Patient.objects.aggregate(
+                max_card_number=Max("card_number_IP")
+            )["max_card_number"]
+        elif card_type == "oms":
+            # Для ОМС - строки, находим максимальное ЧИСЛО до слеша или полностью
+            try:
+                # Получаем все номера ОМС
+                oms_numbers = (
+                    Patient.objects.exclude(card_number_OMS__isnull=True)
+                    .exclude(card_number_OMS="")
+                    .values_list("card_number_OMS", flat=True)
+                )
+
+                max_numeric = 0
+                for num in oms_numbers:
+                    if num:
+                        # Пробуем извлечь числовую часть (до слеша)
+                        try:
+                            # Если есть слеш, берем часть до него
+                            if "/" in str(num):
+                                num_part = str(num).split("/")[0]
+                            else:
+                                num_part = str(num)
+
+                            # Пробуем преобразовать в число
+                            num_int = int(num_part)
+                            if num_int > max_numeric:
+                                max_numeric = num_int
+                        except (ValueError, AttributeError):
+                            continue
+
+                return max_numeric
+            except Exception:
+                return 0
+        else:
+            # Обычная карта - целое число
+            max_number = Patient.objects.aggregate(max_card_number=Max("card_number"))[
+                "max_card_number"
+            ]
 
         return max_number or 0
 
     @staticmethod
-    def get_next_card_number():
-        """Получить следующий доступный номер карты"""
-        max_number = CardNumberService.get_max_card_number()
+    def get_next_card_number(card_type="regular"):
+        """Получить следующий доступный номер карты указанного типа"""
+        max_number = CardNumberService.get_max_card_number(card_type)
 
         # Если нет ни одного номера, начинаем с 1
-        if max_number is None:
-            return 1
+        if max_number == 0:
+            if card_type == "oms":
+                return "1"  # Для ОМС - строка
+            return 1  # Для обычных и ИП - число
 
         # Находим следующий свободный номер
         next_number = max_number + 1
 
-        # Проверяем, не занят ли этот номер (на всякий случай)
-        # и ищем следующий свободный
-        while Patient.objects.filter(card_number=next_number).exists():
-            next_number += 1
+        # Для ОМС возвращаем строку, для остальных - число
+        if card_type == "oms":
+            return str(next_number)
 
         return next_number
