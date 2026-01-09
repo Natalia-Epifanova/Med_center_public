@@ -75,39 +75,51 @@
                                 <div class="list-group-item border-0 px-0 py-2">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
-                                            <!-- ПРОВЕРЯЕМ, ЕСТЬ ЛИ СВЯЗАННЫЙ ПАЦИЕНТ -->
-                                            {% if entry.patient %}
-                                            <!-- Если пациент есть в базе - показываем ссылку -->
-                                            <a href="{% url 'patients:patient_detail' entry.patient.pk %}"
-                                               class="text-decoration-none patient-link fw-bold text-primary"
-                                               title="Нажмите для просмотра карточки пациента"
-                                               target="_blank">
-                                                {{ entry.surname }} {{ entry.first_name }}
-                                                {% if entry.last_name %} {{ entry.last_name }} {% endif %}
-                                            </a>
-                                            {% else %}
-                                            <!-- Если пациента нет в базе - показываем просто текст -->
-                                            <strong class="text-dark">
-                                                {{ entry.surname }} {{ entry.first_name }}
-                                                {% if entry.last_name %} {{ entry.last_name }} {% endif %}
-                                            </strong>
-                                            {% endif %}
+                                            <div class="d-flex flex-column">
+                                                <div class="d-flex align-items-center mb-1">
+                                                    <!-- ПРОВЕРЯЕМ, ЕСТЬ ЛИ СВЯЗАННЫЙ ПАЦИЕНТ -->
+                                                    {% if entry.patient %}
+                                                    <!-- Если пациент есть в базе - показываем ссылку -->
+                                                    <a href="{% url 'patients:patient_detail' entry.patient.pk %}"
+                                                       class="text-decoration-none patient-link fw-bold text-primary me-2"
+                                                       title="Нажмите для просмотра карточки пациента"
+                                                       target="_blank">
+                                                        {{ entry.surname }} {{ entry.first_name }}
+                                                        {% if entry.last_name %} {{ entry.last_name }} {% endif %}
+                                                    </a>
+                                                    {% else %}
+                                                    <!-- Если пациента нет в базе - показываем просто текст -->
+                                                    <strong class="text-dark me-2">
+                                                        {{ entry.surname }} {{ entry.first_name }}
+                                                        {% if entry.last_name %} {{ entry.last_name }} {% endif %}
+                                                    </strong>
+                                                    {% endif %}
 
+                                                    <!-- Добавляем дату рождения -->
+                                                    {% if entry.date_of_birth %}
+                                                    <strong class="text-dark me-2">
+                                                        {{ entry.date_of_birth|date:"d.m.Y" }}
+                                                    </strong>
+                                                    {% endif %}
+                                                </div>
 
+                                                <!-- Добавляем дополнительную информацию -->
+                                                <div class="small text-muted">
+                                                    {% if entry.phone_number %}
+                                                    <div class="mt-1">
+                                                        <i class="bi bi-telephone me-1"></i>
+                                                        {{ entry.phone_number }}
+                                                    </div>
+                                                    {% endif %}
 
-                                            {% if entry.phone_number %}
-                                            <div class="mt-1 small">
-                                                <i class="bi bi-telephone"></i>
-                                                {{ entry.phone_number }}
+                                                    {% if entry.comment %}
+                                                    <div class="mt-1">
+                                                        <i class="bi bi-chat-left me-1"></i>
+                                                        {{ entry.comment|truncatechars:30 }}
+                                                    </div>
+                                                    {% endif %}
+                                                </div>
                                             </div>
-                                            {% endif %}
-
-                                            {% if entry.comment %}
-                                            <div class="mt-1 small text-muted">
-                                                <i class="bi bi-chat-left"></i>
-                                                {{ entry.comment|truncatechars:30 }}
-                                            </div>
-                                            {% endif %}
                                         </div>
                                         <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
                                             <a href="{% url 'patients:reserve_patient_update' entry.id %}"
@@ -205,11 +217,26 @@
     font-size: 0.75em;
 }
 
+.patient-link:hover {
+    text-decoration: underline;
+}
+
 /* Для мобильных устройств - 1 врач в ряд */
 @media (max-width: 768px) {
     .col-md-4 {
         flex: 0 0 100%;
         max-width: 100%;
+    }
+
+    /* Для мобильных устройств сделаем дату рождения под ФИО */
+    .list-group-item .d-flex.align-items-center {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+
+    .list-group-item .d-flex.align-items-center .badge {
+        margin-top: 5px;
+        margin-left: 0 !important;
     }
 }
 
