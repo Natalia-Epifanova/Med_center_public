@@ -737,40 +737,39 @@ class ReservePatientCreateView(LoginRequiredMixin, CreateView):
 
 
 class ReservePatientUpdateView(LoginRequiredMixin, UpdateView):
-    """Редактирование записи в резерве"""
+    """Редактирование только КОММЕНТАРИЯ в резервной записи"""
 
     model = ReservePatient
     form_class = ReservePatientUpdateForm
     template_name = "patients/reserve_patient_form.html"
 
+    def get_form_kwargs(self):
+        """Добавляем instance в kwargs для формы"""
+        kwargs = super().get_form_kwargs()
+        kwargs["instance"] = self.object
+        return kwargs
+
     def form_valid(self, form):
-        reserve_patient = form.save()
+        """Сохраняем ТОЛЬКО комментарий"""
+        reserve_patient = self.object
+        reserve_patient.comment = form.cleaned_data.get("comment", "")
+        reserve_patient.save(update_fields=["comment"])
 
-        # Обновляем связь с пациентом
-        patient = self.find_existing_patient(
-            reserve_patient.surname,
-            reserve_patient.first_name,
-            reserve_patient.date_of_birth,
-        )
-
-        # Если нашли другого пациента
-        if patient != reserve_patient.patient:
-            reserve_patient.patient = patient
-            reserve_patient.save()
-
-        messages.success(self.request, "Запись обновлена")
+        messages.success(self.request, "Комментарий обновлен")
         return redirect("patients:reserve_main")
 
-    def find_existing_patient(self, surname, first_name, date_of_birth=None):
-        """Поиск существующего пациента"""
-        query = Patient.objects.filter(
-            surname__iexact=surname, first_name__iexact=first_name
-        )
+    def get_context_data(self, **kwargs):
+        """Добавляем данные пациента в контекст для отображения"""
+        context = super().get_context_data(**kwargs)
+        reserve_patient = self.object
 
-        if date_of_birth:
-            query = query.filter(date_of_birth=date_of_birth)
+        # Добавляем данные пациента для отображения
+        context["reserve_patient"] = reserve_patient
+        context["patient"] = reserve_patient.patient  # Если есть связь
+        context["is_edit_mode"] = True
+        context["readonly_mode"] = True  # Флаг для шаблона
 
-        return query.first()
+        return context
 
     def get_success_url(self):
         return reverse_lazy("patients:reserve_main")
