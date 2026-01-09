@@ -788,27 +788,3 @@ class ReservePatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
 
     def get_success_url(self):
         return reverse_lazy("patients:reserve_main")
-
-
-@medical_admin_or_admin_required
-def get_max_card_number(request):
-    """API для получения максимального номера карты"""
-    max_number = CardNumberService.get_max_card_number()
-    return JsonResponse(
-        {
-            "max_card_number": max_number,
-            "next_number": max_number + 1 if max_number else 1,
-        }
-    )
-
-
-@medical_admin_or_admin_required
-def generate_new_card_number(request):
-    """API для генерации нового номера карты"""
-    new_number = CardNumberService.get_next_card_number()
-    return JsonResponse(
-        {
-            "new_card_number": new_number,
-            "message": f"Сгенерирован новый номер карты: {new_number}",
-        }
-    )
