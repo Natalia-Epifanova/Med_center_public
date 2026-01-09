@@ -14,7 +14,7 @@ class PatientService:
     @staticmethod
     @transaction.atomic
     def get_or_create_patient(patient_data: Dict[str, Any]) -> Tuple[Patient, bool]:
-        """Создание или поиск пациента"""
+        """Создание или поиск пациента с обновлением данных"""
         # Очистка данных
         cleaned_data = PatientService.clean_patient_data(patient_data)
 
@@ -27,7 +27,7 @@ class PatientService:
         if not surname or not first_name:
             raise ValidationError("Фамилия и имя обязательны")
 
-        # Поиск существующего пациента
+        # ПЕРВЫЙ ПОИСК: по ФИО (без учета даты рождения)
         query = Patient.objects.filter(
             surname__iexact=surname,
             first_name__iexact=first_name,
@@ -40,16 +40,80 @@ class PatientService:
                 models.Q(last_name="") | models.Q(last_name__isnull=True)
             )
 
-        if date_of_birth:
-            query = query.filter(date_of_birth=date_of_birth)
-
         existing_patient = query.first()
 
         if existing_patient:
+            # ЕСЛИ НАШЛИ ПАЦИЕНТА ПО ФИО - ОБНОВЛЯЕМ ЕГО ДАННЫЕ
+            update_fields = []
+
+            # Обновляем дату рождения, если она есть в новых данных
+            if date_of_birth and not existing_patient.date_of_birth:
+                existing_patient.date_of_birth = date_of_birth
+                update_fields.append("date_of_birth")
+
+            # Обновляем телефон, если он есть в новых данных и пустой у пациента
+            phone = cleaned_data.get("phone_number")
+            if phone and (
+                not existing_patient.phone_number or existing_patient.phone_number == ""
+            ):
+                existing_patient.phone_number = phone
+                update_fields.append("phone_number")
+
+            # Обновляем номер карты, если он есть в новых данных и пустой у пациента
+            card_number = cleaned_data.get("card_number")
+            if card_number and not existing_patient.card_number:
+                existing_patient.card_number = card_number
+                update_fields.append("card_number")
+
+            # Другие поля можно обновлять аналогично
+
+            if update_fields:
+                existing_patient.save(update_fields=update_fields)
+                print(f"DEBUG: Обновлен пациент {existing_patient.id}: {update_fields}")
+
             return existing_patient, False
+
+        # ВТОРОЙ ПОИСК: по ФИО и дате рождения (если дата указана)
+        # Этот поиск нужен для случая, когда у пациента уже была дата рождения
+        if date_of_birth:
+            query_with_dob = Patient.objects.filter(
+                surname__iexact=surname,
+                first_name__iexact=first_name,
+                date_of_birth=date_of_birth,
+            )
+
+            if last_name:
+                query_with_dob = query_with_dob.filter(last_name__iexact=last_name)
+            else:
+                query_with_dob = query_with_dob.filter(
+                    models.Q(last_name="") | models.Q(last_name__isnull=True)
+                )
+
+            existing_patient_with_dob = query_with_dob.first()
+            if existing_patient_with_dob:
+                # Обновляем другие поля, если они пустые
+                update_fields = []
+                phone = cleaned_data.get("phone_number")
+                if phone and (
+                    not existing_patient_with_dob.phone_number
+                    or existing_patient_with_dob.phone_number == ""
+                ):
+                    existing_patient_with_dob.phone_number = phone
+                    update_fields.append("phone_number")
+
+                card_number = cleaned_data.get("card_number")
+                if card_number and not existing_patient_with_dob.card_number:
+                    existing_patient_with_dob.card_number = card_number
+                    update_fields.append("card_number")
+
+                if update_fields:
+                    existing_patient_with_dob.save(update_fields=update_fields)
+
+                return existing_patient_with_dob, False
 
         # Создание нового пациента
         patient = Patient.objects.create(**cleaned_data)
+        print(f"DEBUG: Создан новый пациент {patient.id}")
         return patient, True
 
     @staticmethod
@@ -112,9 +176,9 @@ class CardNumberService:
 
     # Добавляем минимальные стартовые номера для каждого типа карт
     MIN_START_NUMBERS = {
-        "regular": 1,  # обычные карты
-        "ip": 169,  # карты ИП
-        "oms": 1593,  # карты ОМС
+        "regular": 1,  # обычные карты - НЕ ИСПОЛЬЗУЕТСЯ, т.к. обычные карты по логике max+1
+        "ip": 169,  # карты ИП - начинаем с 169 и ищем свободный
+        "oms": 1593,  # карты ОМС - начинаем с 1593 и ищем свободный
     }
 
     @staticmethod
@@ -165,52 +229,57 @@ class CardNumberService:
     @staticmethod
     def get_next_card_number(card_type="regular"):
         """Получить следующий доступный номер карты указанного типа"""
-        # Получаем минимальный стартовый номер для этого типа карты
-        min_start = CardNumberService.MIN_START_NUMBERS.get(card_type, 1)
 
-        # Получаем все существующие номера для этого типа карты
-        existing_numbers = set()
+        # ОБЫЧНЫЕ КАРТЫ (платные) - логика "максимальный + 1"
+        if card_type == "regular":
+            max_number = CardNumberService.get_max_card_number("regular")
+            # Если нет ни одного номера, начинаем с 1
+            if max_number == 0:
+                return 1
+            return max_number + 1
 
-        if card_type == "ip":
-            existing_numbers = set(
-                Patient.objects.exclude(card_number_IP__isnull=True).values_list(
-                    "card_number_IP", flat=True
-                )
-            )
-        elif card_type == "oms":
-            # Для ОМС извлекаем числовую часть до слеша
-            oms_numbers = Patient.objects.exclude(card_number_OMS__isnull=True).exclude(
-                card_number_OMS=""
-            )
-            for num in oms_numbers.values_list("card_number_OMS", flat=True):
-                try:
-                    if num:
-                        if "/" in str(num):
-                            num_part = str(num).split("/")[0]
-                        else:
-                            num_part = str(num)
-                        existing_numbers.add(int(num_part))
-                except (ValueError, AttributeError):
-                    continue
+        # КАРТЫ ИП и ОМС - логика "начать с минимального и найти первый свободный"
         else:
-            existing_numbers = set(
-                Patient.objects.exclude(card_number__isnull=True).values_list(
-                    "card_number", flat=True
+            # Получаем минимальный стартовый номер для этого типа карты
+            min_start = CardNumberService.MIN_START_NUMBERS.get(card_type, 1)
+
+            # Получаем все существующие номера для этого типа карты
+            existing_numbers = set()
+
+            if card_type == "ip":
+                existing_numbers = set(
+                    Patient.objects.exclude(card_number_IP__isnull=True).values_list(
+                        "card_number_IP", flat=True
+                    )
                 )
-            )
+            elif card_type == "oms":
+                # Для ОМС извлекаем числовую часть до слеша
+                oms_numbers = Patient.objects.exclude(
+                    card_number_OMS__isnull=True
+                ).exclude(card_number_OMS="")
+                for num in oms_numbers.values_list("card_number_OMS", flat=True):
+                    try:
+                        if num:
+                            if "/" in str(num):
+                                num_part = str(num).split("/")[0]
+                            else:
+                                num_part = str(num)
+                            existing_numbers.add(int(num_part))
+                    except (ValueError, AttributeError):
+                        continue
 
-        # Убираем None и 0 из множества
-        existing_numbers = {n for n in existing_numbers if n is not None and n > 0}
+            # Убираем None и 0 из множества
+            existing_numbers = {n for n in existing_numbers if n is not None and n > 0}
 
-        # Начинаем поиск с минимального стартового номера
-        next_number = min_start
+            # Начинаем поиск с минимального стартового номера
+            next_number = min_start
 
-        # Ищем первый свободный номер
-        while next_number in existing_numbers:
-            next_number += 1
+            # Ищем первый свободный номер
+            while next_number in existing_numbers:
+                next_number += 1
 
-        # Для ОМС возвращаем строку, для остальных - число
-        if card_type == "oms":
-            return str(next_number)
+            # Для ОМС возвращаем строку, для ИП - число
+            if card_type == "oms":
+                return str(next_number)
 
-        return next_number
+            return next_number
