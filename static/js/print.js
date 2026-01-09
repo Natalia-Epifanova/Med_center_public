@@ -177,9 +177,72 @@ function printSchedule() {
             const descriptionText = cell.querySelector('small.text-dark.fw-bold');
             if (descriptionText) descriptionText.remove();
 
-            // Убираем бейджи типов оплаты
-            const badge = cell.querySelector('.badge');
-            if (badge) badge.remove();
+            // ИСПРАВЛЕННАЯ СЕКЦИЯ: Сохраняем только бейджи ОМС и ДМС
+            const badges = cell.querySelectorAll('.badge');
+            badges.forEach(badge => {
+                const badgeText = badge.textContent || badge.innerText;
+
+                // Пропускаем бейдж "Платный"
+                if (badgeText.toLowerCase().includes('платн')) {
+                    badge.remove();
+                    return;
+                }
+
+                // Пропускаем бейдж "Оплачено"
+                if (badgeText.toLowerCase().includes('оплачено')) {
+                    badge.remove();
+                    return;
+                }
+
+                // Оставляем только бейджи ОМС и ДМС
+                if (badgeText.includes('ОМС') || badgeText.includes('ДМС') ||
+                    badgeText.includes('омс') || badgeText.includes('дмс')) {
+
+                    // Создаем новый элемент для бейджа
+                    const badgeType = badge.className.match(/badge-(success|warning|danger|info|primary)/);
+
+                    // Определяем цвет для печати
+                    let printColor = 'black';
+                    let bgColor = 'transparent';
+
+                    if (badgeType) {
+                        switch(badgeType[1]) {
+                            case 'success':
+                                bgColor = '#d4edda'; // зеленый для ОМС
+                                printColor = '#155724';
+                                break;
+                            case 'warning':
+                                bgColor = '#fff3cd'; // желтый для ДМС
+                                printColor = '#856404';
+                                break;
+                            case 'danger':
+                                bgColor = '#f8d7da'; // красный
+                                printColor = '#721c24';
+                                break;
+                            case 'info':
+                                bgColor = '#d1ecf1'; // голубой
+                                printColor = '#0c5460';
+                                break;
+                            case 'primary':
+                                bgColor = '#cce5ff'; // синий
+                                printColor = '#004085';
+                                break;
+                        }
+                    }
+
+                    // Создаем новый span для бейджа
+                    const badgeSpan = document.createElement('span');
+                    badgeSpan.innerHTML = `<strong style="font-size: 6pt; font-weight: bold; color: ${printColor}; background-color: ${bgColor}; padding: 0.5px 2px; border-radius: 1px; border: 0.3px solid #ccc; display: inline-block; margin-left: 1mm;">${badgeText}</strong>`;
+
+                    // Добавляем бейдж после времени
+                    const parent = badge.parentNode;
+                    parent.appendChild(document.createTextNode(' '));
+                    parent.appendChild(badgeSpan);
+                }
+
+                // Удаляем оригинальный бейдж
+                badge.remove();
+            });
 
             // Убираем все ссылки
             const links = cell.querySelectorAll('a');
@@ -312,7 +375,7 @@ function printSchedule() {
 
     console.log(`Created ${groupedCards.length} pages with 3 cabinets each`);
 
-    // Создаем HTML для печати
+    // Создаем HTML для печати с дополнительными стилями для бейджей
     let printHTML = `
         <!DOCTYPE html>
         <html>
@@ -495,6 +558,43 @@ function printSchedule() {
                 .doctor-header span {
                     font-size: 8pt !important;
                     color: black !important;
+                }
+
+                /* СТИЛИ ДЛЯ БЕЙДЖЕЙ ОПЛАТЫ */
+                .payment-badge {
+                    display: inline-block !important;
+                    font-size: 6pt !important;
+                    font-weight: bold !important;
+                    padding: 0.5px 2px !important;
+                    border-radius: 1px !important;
+                    border: 0.3px solid #ccc !important;
+                    margin-left: 1mm !important;
+                    vertical-align: middle !important;
+                }
+
+                .payment-badge-platno {
+                    background-color: #d4edda !important; /* зеленый */
+                    color: #155724 !important;
+                }
+
+                .payment-badge-oms {
+                    background-color: #cce5ff !important; /* синий */
+                    color: #004085 !important;
+                }
+
+                .payment-badge-ip {
+                    background-color: #fff3cd !important; /* желтый */
+                    color: #856404 !important;
+                }
+
+                .payment-badge-mixed {
+                    background-color: #d1ecf1 !important; /* голубой */
+                    color: #0c5460 !important;
+                }
+
+                .payment-badge-unknown {
+                    background-color: #f8d7da !important; /* красный */
+                    color: #721c24 !important;
                 }
 
                 /* Убираем все ссылки */
