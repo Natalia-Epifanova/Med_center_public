@@ -75,9 +75,23 @@
                                 <div class="list-group-item border-0 px-0 py-2">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div class="flex-grow-1">
-                                            <strong class="d-block">{{ entry.surname }} {{ entry.first_name }}
+                                            <!-- ПРОВЕРЯЕМ, ЕСТЬ ЛИ СВЯЗАННЫЙ ПАЦИЕНТ -->
+                                            {% if entry.patient %}
+                                            <!-- Если пациент есть в базе - показываем ссылку -->
+                                            <a href="{% url 'patients:patient_detail' entry.patient.pk %}"
+                                               class="text-decoration-none patient-link fw-bold text-primary"
+                                               title="Нажмите для просмотра карточки пациента"
+                                               target="_blank">
+                                                {{ entry.surname }} {{ entry.first_name }}
                                                 {% if entry.last_name %} {{ entry.last_name }} {% endif %}
-                                                {% if entry.date_of_birth %} {{ entry.date_of_birth|date:"d.m.Y" }}{% endif %} </strong>
+                                            </a>
+                                            {% else %}
+                                            <!-- Если пациента нет в базе - показываем просто текст -->
+                                            <strong class="text-dark">
+                                                {{ entry.surname }} {{ entry.first_name }}
+                                                {% if entry.last_name %} {{ entry.last_name }} {% endif %}
+                                            </strong>
+                                            {% endif %}
 
 
 
