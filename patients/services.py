@@ -14,7 +14,7 @@ class PatientService:
     @staticmethod
     @transaction.atomic
     def get_or_create_patient(patient_data: Dict[str, Any]) -> Tuple[Patient, bool]:
-        """Создание или поиск пациента"""
+        """Создание или поиск пациента с обновлением данных"""
         # Очистка данных
         cleaned_data = PatientService.clean_patient_data(patient_data)
 
@@ -27,7 +27,7 @@ class PatientService:
         if not surname or not first_name:
             raise ValidationError("Фамилия и имя обязательны")
 
-        # Поиск существующего пациента
+        # ПЕРВЫЙ ПОИСК: по ФИО (без учета даты рождения)
         query = Patient.objects.filter(
             surname__iexact=surname,
             first_name__iexact=first_name,
@@ -40,16 +40,80 @@ class PatientService:
                 models.Q(last_name="") | models.Q(last_name__isnull=True)
             )
 
-        if date_of_birth:
-            query = query.filter(date_of_birth=date_of_birth)
-
         existing_patient = query.first()
 
         if existing_patient:
+            # ЕСЛИ НАШЛИ ПАЦИЕНТА ПО ФИО - ОБНОВЛЯЕМ ЕГО ДАННЫЕ
+            update_fields = []
+
+            # Обновляем дату рождения, если она есть в новых данных
+            if date_of_birth and not existing_patient.date_of_birth:
+                existing_patient.date_of_birth = date_of_birth
+                update_fields.append("date_of_birth")
+
+            # Обновляем телефон, если он есть в новых данных и пустой у пациента
+            phone = cleaned_data.get("phone_number")
+            if phone and (
+                not existing_patient.phone_number or existing_patient.phone_number == ""
+            ):
+                existing_patient.phone_number = phone
+                update_fields.append("phone_number")
+
+            # Обновляем номер карты, если он есть в новых данных и пустой у пациента
+            card_number = cleaned_data.get("card_number")
+            if card_number and not existing_patient.card_number:
+                existing_patient.card_number = card_number
+                update_fields.append("card_number")
+
+            # Другие поля можно обновлять аналогично
+
+            if update_fields:
+                existing_patient.save(update_fields=update_fields)
+                print(f"DEBUG: Обновлен пациент {existing_patient.id}: {update_fields}")
+
             return existing_patient, False
+
+        # ВТОРОЙ ПОИСК: по ФИО и дате рождения (если дата указана)
+        # Этот поиск нужен для случая, когда у пациента уже была дата рождения
+        if date_of_birth:
+            query_with_dob = Patient.objects.filter(
+                surname__iexact=surname,
+                first_name__iexact=first_name,
+                date_of_birth=date_of_birth,
+            )
+
+            if last_name:
+                query_with_dob = query_with_dob.filter(last_name__iexact=last_name)
+            else:
+                query_with_dob = query_with_dob.filter(
+                    models.Q(last_name="") | models.Q(last_name__isnull=True)
+                )
+
+            existing_patient_with_dob = query_with_dob.first()
+            if existing_patient_with_dob:
+                # Обновляем другие поля, если они пустые
+                update_fields = []
+                phone = cleaned_data.get("phone_number")
+                if phone and (
+                    not existing_patient_with_dob.phone_number
+                    or existing_patient_with_dob.phone_number == ""
+                ):
+                    existing_patient_with_dob.phone_number = phone
+                    update_fields.append("phone_number")
+
+                card_number = cleaned_data.get("card_number")
+                if card_number and not existing_patient_with_dob.card_number:
+                    existing_patient_with_dob.card_number = card_number
+                    update_fields.append("card_number")
+
+                if update_fields:
+                    existing_patient_with_dob.save(update_fields=update_fields)
+
+                return existing_patient_with_dob, False
 
         # Создание нового пациента
         patient = Patient.objects.create(**cleaned_data)
+        print(f"DEBUG: Создан новый пациент {patient.id}")
         return patient, True
 
     @staticmethod
