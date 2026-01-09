@@ -299,24 +299,35 @@ class ReservePatientCreateForm(BaseReserveForm):
 
 
 class ReservePatientUpdateForm(BaseReserveForm):
-    """Форма для редактирования записи в резерве"""
+    """Форма ТОЛЬКО для редактирования комментария в резервной записи"""
 
     class Meta:
         model = ReservePatient
-        fields = [
+        fields = ["comment"]  # ТОЛЬКО комментарий!
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Делаем все поля READONLY кроме комментария
+        self._set_readonly_fields()
+
+    def _set_readonly_fields(self):
+        """Делает все поля кроме комментария только для чтения"""
+        for field_name in [
             "surname",
             "first_name",
             "last_name",
             "phone_number",
             "date_of_birth",
-            "comment",
-        ]
-        widgets = {
-            "date_of_birth": forms.DateInput(
-                attrs={"type": "date", "class": "datepicker"}
-            ),
-            "phone_number": forms.TextInput(
-                attrs={"placeholder": "+7 (___) ___-__-__", "class": "phone-input"}
-            ),
-            "comment": forms.Textarea(attrs={"rows": 2}),
-        }
+        ]:
+            if field_name in self.fields:
+                self.fields[field_name].widget.attrs["readonly"] = True
+                self.fields[field_name].widget.attrs[
+                    "class"
+                ] = "form-control-plaintext bg-light"
+                self.fields[field_name].required = False
+
+    def clean(self):
+        """Очистка данных - игнорируем readonly поля"""
+        cleaned_data = super().clean()
+        # Возвращаем только комментарий и ID
+        return {"comment": cleaned_data.get("comment", "")}
