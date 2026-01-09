@@ -339,6 +339,16 @@ function initializePatientSearch() {
             }
         }
 
+
+        // 8. ДАТА РОЖДЕНИЯ - только если пустая в форме
+        const currentDobField = document.getElementById('id_date_of_birth');
+        if (patient.date_of_birth && (!currentDobField || !currentDobField.value)) {
+            // Заполняем только если поле пустое
+            setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
+        } else if (currentDobField && currentDobField.value && !patient.date_of_birth) {
+            // Если у пациента нет даты рождения, но мы ввели её вручную -
+            // оставляем введенное значение (будет обновлено в существующем пациенте)
+        }
         // 8. СКРЫВАЕМ РЕЗУЛЬТАТЫ ПОИСКА
         const resultsContainer = document.getElementById('patient-search-results');
         if (resultsContainer) resultsContainer.style.display = 'none';

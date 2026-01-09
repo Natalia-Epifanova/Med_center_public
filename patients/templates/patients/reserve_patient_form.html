@@ -36,196 +36,243 @@
 
                     <form method="post" id="reservePatientForm" novalidate>
                         {% csrf_token %}
-
-                        <!-- Выбор врача и месяца (только при создании) -->
-                        {% if not form.instance.pk %}
+                        <!-- Внутри формы, после {% csrf_token %} -->
+                        {% if readonly_mode %}
+                        <!-- Режим ТОЛЬКО ПРОСМОТРА для редактирования -->
                         <div class="card mb-4">
                             <div class="card-header bg-light">
-                                <h5 class="mb-0">1. Выбор врача и периода</h5>
+                                <h5 class="mb-0">Данные пациента (только для просмотра)</h5>
                             </div>
                             <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label class="form-label fw-bold">Врач *</label>
-                                        <select name="doctor" class="form-select" required id="doctorSelect">
-                                            <option value="">Выберите врача...</option>
-                                            {% for doctor in doctors %}
-                                            <option value="{{ doctor.id }}"
-                                                    {% if doctor.id|stringformat:"i" == selected_doctor_id %}selected{% endif %}>
-                                                {{ doctor.surname }} {{ doctor.first_name }} {{ doctor.last_name|default:"" }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label fw-bold">Месяц *</label>
-                                        <select name="month" class="form-select" id="monthSelect" required>
-                                            <option value="">Месяц</option>
-                                            {% for month_num in "1 2 3 4 5 6 7 8 9 10 11 12"|split:" " %}
-                                            <option value="{{ month_num }}"
-                                                    {% if month_num == selected_month %}selected{% endif %}>
-                                                {{ month_num }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3 mb-3">
-                                        <label class="form-label fw-bold">Год *</label>
-                                        <input type="number" name="year" class="form-control"
-                                               value="{{ selected_year|default:current_year }}"
-                                               min="2024" max="2030" id="yearInput" required>
-                                    </div>
-                                </div>
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-3">ФИО:</dt>
+                                    <dd class="col-sm-9">{{ reserve_patient.surname }} {{ reserve_patient.first_name }} {{ reserve_patient.last_name|default:"" }}</dd>
+
+                                    <dt class="col-sm-3">Телефон:</dt>
+                                    <dd class="col-sm-9">{{ reserve_patient.phone_number|default:"не указан" }}</dd>
+
+                                    <dt class="col-sm-3">Дата рождения:</dt>
+                                    <dd class="col-sm-9">{{ reserve_patient.date_of_birth|date:"d.m.Y"|default:"не указана" }}</dd>
+
+                                    {% if reserve_patient.patient %}
+                                    <dt class="col-sm-3">Карта ОМС:</dt>
+                                    <dd class="col-sm-9">{{ reserve_patient.patient.card_number_OMS|default:"не указана" }}</dd>
+                                    {% endif %}
+                                </dl>
                             </div>
                         </div>
-                        {% endif %}
 
-                        <!-- Данные пациента -->
+                        <!-- Скрытые поля для сохранения данных -->
+                        <input type="hidden" name="surname" value="{{ reserve_patient.surname }}">
+                        <input type="hidden" name="first_name" value="{{ reserve_patient.first_name }}">
+                        <input type="hidden" name="last_name" value="{{ reserve_patient.last_name }}">
+                        <input type="hidden" name="phone_number" value="{{ reserve_patient.phone_number }}">
+                        <input type="hidden" name="date_of_birth" value="{{ reserve_patient.date_of_birth|date:'Y-m-d' }}">
+
+                        <!-- КОММЕНТАРИЙ (можно редактировать) -->
                         <div class="card mb-4">
                             <div class="card-header bg-light">
-                                <h5 class="mb-0">2. Данные пациента</h5>
+                                <h5 class="mb-0">Комментарий</h5>
                             </div>
                             <div class="card-body">
-                                <!-- ФИО -->
-                                <div class="row mb-3">
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">{{ form.surname.label }}</label>
-                                        {{ form.surname }}
-                                        {% if form.surname.errors %}
-                                        <div class="text-danger small mt-1">{{ form.surname.errors }}</div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label fw-bold">{{ form.first_name.label }}</label>
-                                        {{ form.first_name }}
-                                        {% if form.first_name.errors %}
-                                        <div class="text-danger small mt-1">{{ form.first_name.errors }}</div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">{{ form.last_name.label }}</label>
-                                        {{ form.last_name }}
-                                        {% if form.last_name.errors %}
-                                        <div class="text-danger small mt-1">{{ form.last_name.errors }}</div>
-                                        {% endif %}
+                                {{ form.comment }}
+                                {% if form.comment.errors %}
+                                <div class="text-danger small mt-1">{{ form.comment.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        {% else %}
+                            <!-- Выбор врача и месяца (только при создании) -->
+                            {% if not form.instance.pk %}
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">1. Выбор врача и периода</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6 mb-3">
+                                            <label class="form-label fw-bold">Врач *</label>
+                                            <select name="doctor" class="form-select" required id="doctorSelect">
+                                                <option value="">Выберите врача...</option>
+                                                {% for doctor in doctors %}
+                                                <option value="{{ doctor.id }}"
+                                                        {% if doctor.id|stringformat:"i" == selected_doctor_id %}selected{% endif %}>
+                                                    {{ doctor.surname }} {{ doctor.first_name }} {{ doctor.last_name|default:"" }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label fw-bold">Месяц *</label>
+                                            <select name="month" class="form-select" id="monthSelect" required>
+                                                <option value="">Месяц</option>
+                                                {% for month_num in "1 2 3 4 5 6 7 8 9 10 11 12"|split:" " %}
+                                                <option value="{{ month_num }}"
+                                                        {% if month_num == selected_month %}selected{% endif %}>
+                                                    {{ month_num }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3 mb-3">
+                                            <label class="form-label fw-bold">Год *</label>
+                                            <input type="number" name="year" class="form-control"
+                                                   value="{{ selected_year|default:current_year }}"
+                                                   min="2024" max="2030" id="yearInput" required>
+                                        </div>
                                     </div>
                                 </div>
+                            </div>
+                            {% endif %}
 
-                                <!-- Телефон и дата рождения -->
-                                <div class="row mb-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">{{ form.phone_number.label }}</label>
-                                        {{ form.phone_number }}
-                                        <div class="form-text">Формат: +7XXXXXXXXXX</div>
-                                        {% if form.phone_number.errors %}
-                                        <div class="text-danger small mt-1">{{ form.phone_number.errors }}</div>
-                                        {% endif %}
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-bold">{{ form.date_of_birth.label }}</label>
-                                        {{ form.date_of_birth }}
-                                        {% if form.date_of_birth.errors %}
-                                        <div class="text-danger small mt-1">{{ form.date_of_birth.errors }}</div>
-                                        {% endif %}
-                                    </div>
+                            <!-- Данные пациента -->
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">2. Данные пациента</h5>
                                 </div>
+                                <div class="card-body">
+                                    <!-- ФИО -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">{{ form.surname.label }}</label>
+                                            {{ form.surname }}
+                                            {% if form.surname.errors %}
+                                            <div class="text-danger small mt-1">{{ form.surname.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label fw-bold">{{ form.first_name.label }}</label>
+                                            {{ form.first_name }}
+                                            {% if form.first_name.errors %}
+                                            <div class="text-danger small mt-1">{{ form.first_name.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label">{{ form.last_name.label }}</label>
+                                            {{ form.last_name }}
+                                            {% if form.last_name.errors %}
+                                            <div class="text-danger small mt-1">{{ form.last_name.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
 
-                                <!-- Поиск пациента -->
-                                <div class="row mb-3">
-                                    <div class="col-12">
-                                        <div class="card">
-                                            <div class="card-header bg-light py-2">
-                                                <h6 class="mb-0">Поиск пациента в базе</h6>
-                                            </div>
-                                            <div class="card-body py-3">
-                                                <div class="input-group mb-2">
-                                                    <input type="text"
-                                                           class="form-control"
-                                                           id="patient-search-input"
-                                                           placeholder="ФИО, телефон, номер карты..."
-                                                           aria-label="Поиск пациента">
-                                                    <button class="btn btn-outline-primary" type="button" id="patient-search-btn">
-                                                        <i class="bi bi-search"></i> Найти
-                                                    </button>
+                                    <!-- Телефон и дата рождения -->
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">{{ form.phone_number.label }}</label>
+                                            {{ form.phone_number }}
+                                            <div class="form-text">Формат: +7XXXXXXXXXX</div>
+                                            {% if form.phone_number.errors %}
+                                            <div class="text-danger small mt-1">{{ form.phone_number.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label fw-bold">{{ form.date_of_birth.label }}</label>
+                                            {{ form.date_of_birth }}
+                                            {% if form.date_of_birth.errors %}
+                                            <div class="text-danger small mt-1">{{ form.date_of_birth.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <!-- Поиск пациента -->
+                                    <div class="row mb-3">
+                                        <div class="col-12">
+                                            <div class="card">
+                                                <div class="card-header bg-light py-2">
+                                                    <h6 class="mb-0">Поиск пациента в базе</h6>
                                                 </div>
+                                                <div class="card-body py-3">
+                                                    <div class="input-group mb-2">
+                                                        <input type="text"
+                                                               class="form-control"
+                                                               id="patient-search-input"
+                                                               placeholder="ФИО, телефон, номер карты..."
+                                                               aria-label="Поиск пациента">
+                                                        <button class="btn btn-outline-primary" type="button" id="patient-search-btn">
+                                                            <i class="bi bi-search"></i> Найти
+                                                        </button>
+                                                    </div>
 
-                                                <!-- Результаты поиска -->
-                                                <div id="patient-search-results" class="mt-2" style="display: none;">
-                                                    <div class="card">
-                                                        <div class="card-header py-2">
-                                                            <small class="fw-bold">Результаты поиска:</small>
-                                                        </div>
-                                                        <div class="card-body p-2">
-                                                            <div id="patient-results-list" class="list-group list-group-flush"></div>
+                                                    <!-- Результаты поиска -->
+                                                    <div id="patient-search-results" class="mt-2" style="display: none;">
+                                                        <div class="card">
+                                                            <div class="card-header py-2">
+                                                                <small class="fw-bold">Результаты поиска:</small>
+                                                            </div>
+                                                            <div class="card-body p-2">
+                                                                <div id="patient-results-list" class="list-group list-group-flush"></div>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                <!-- Кнопка проверки -->
-                                                <div class="mt-3">
-                                                    <button type="button" class="btn btn-outline-primary" id="checkPatientBtn">
-                                                        <i class="bi bi-person-check"></i> Проверить по заполненным данным
-                                                    </button>
-                                                </div>
+                                                    <!-- Кнопка проверки -->
+                                                    <div class="mt-3">
+                                                        <button type="button" class="btn btn-outline-primary" id="checkPatientBtn">
+                                                            <i class="bi bi-person-check"></i> Проверить по заполненным данным
+                                                        </button>
+                                                    </div>
 
-                                                <!-- Результат проверки -->
-                                                <div id="patientCheckResult" class="mt-2" style="display: none;"></div>
+                                                    <!-- Результат проверки -->
+                                                    <div id="patientCheckResult" class="mt-2" style="display: none;"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Карточка пациента (скрыта по умолчанию) -->
+                                    <div id="patientCardSection" class="mb-3" style="display: none;">
+                                        <div class="card border-success">
+                                            <div class="card-header bg-success text-white py-2">
+                                                <h6 class="mb-0">
+                                                    <i class="bi bi-person-badge"></i>
+                                                    Найденный пациент
+                                                </h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <div id="patientCardContent">
+                                                    <!-- Здесь будет информация о пациенте -->
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="clearPatientBtn">
+                                                    <i class="bi bi-x-circle"></i> Очистить
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- Карточка пациента (скрыта по умолчанию) -->
-                                <div id="patientCardSection" class="mb-3" style="display: none;">
-                                    <div class="card border-success">
-                                        <div class="card-header bg-success text-white py-2">
-                                            <h6 class="mb-0">
-                                                <i class="bi bi-person-badge"></i>
-                                                Найденный пациент
-                                            </h6>
-                                        </div>
-                                        <div class="card-body">
-                                            <div id="patientCardContent">
-                                                <!-- Здесь будет информация о пациенте -->
-                                            </div>
-                                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" id="clearPatientBtn">
-                                                <i class="bi bi-x-circle"></i> Очистить
-                                            </button>
-                                        </div>
+                            <!-- Комментарий -->
+                            <div class="card mb-4">
+                                <div class="card-header bg-light">
+                                    <h5 class="mb-0">3. Дополнительная информация</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">{{ form.comment.label }}</label>
+                                        {{ form.comment }}
+                                        {% if form.comment.errors %}
+                                        <div class="text-danger small mt-1">{{ form.comment.errors }}</div>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Комментарий -->
-                        <div class="card mb-4">
-                            <div class="card-header bg-light">
-                                <h5 class="mb-0">3. Дополнительная информация</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="mb-3">
-                                    <label class="form-label">{{ form.comment.label }}</label>
-                                    {{ form.comment }}
-                                    {% if form.comment.errors %}
-                                    <div class="text-danger small mt-1">{{ form.comment.errors }}</div>
+                            <!-- Кнопки -->
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'patients:reserve_main' %}" class="btn btn-secondary">
+                                    <i class="bi bi-arrow-left"></i> Назад к списку
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    {% if form.instance.pk %}
+                                        <i class="bi bi-check-circle"></i> Сохранить изменения
+                                    {% else %}
+                                        <i class="bi bi-plus-circle"></i> Добавить в резерв
                                     {% endif %}
-                                </div>
+                                </button>
                             </div>
-                        </div>
-
-                        <!-- Кнопки -->
-                        <div class="d-flex justify-content-between">
-                            <a href="{% url 'patients:reserve_main' %}" class="btn btn-secondary">
-                                <i class="bi bi-arrow-left"></i> Назад к списку
-                            </a>
-                            <button type="submit" class="btn btn-primary">
-                                {% if form.instance.pk %}
-                                    <i class="bi bi-check-circle"></i> Сохранить изменения
-                                {% else %}
-                                    <i class="bi bi-plus-circle"></i> Добавить в резерв
-                                {% endif %}
-                            </button>
-                        </div>
+                        {% endif %}
                     </form>
                 </div>
             </div>
@@ -235,357 +282,15 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Добавьте data-атрибут для определения режима -->
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Настройка форматирования телефона
-    const phoneInput = document.querySelector('[name="phone_number"]');
-
-    if (phoneInput) {
-        // Автоматическое добавление +7
-        phoneInput.addEventListener('input', function(e) {
-            let value = e.target.value.replace(/[^\d+]/g, '');
-
-            if (!value.startsWith('+7') && value.length > 0) {
-                if (value.startsWith('8')) {
-                    value = '+7' + value.slice(1);
-                } else if (value.startsWith('7')) {
-                    value = '+' + value;
-                } else {
-                    value = '+7' + value;
-                }
-            }
-
-            // Ограничиваем длину
-            if (value.length > 12) {
-                value = value.substring(0, 12);
-            }
-
-            e.target.value = value;
-        });
-
-        // Проверка при потере фокуса
-        phoneInput.addEventListener('blur', function(e) {
-            let value = e.target.value.replace(/[^\d+]/g, '');
-
-            if (value && !value.startsWith('+7')) {
-                if (value.startsWith('8')) {
-                    value = '+7' + value.slice(1);
-                } else if (value.startsWith('7')) {
-                    value = '+' + value;
-                } else if (value.length === 10) {
-                    value = '+7' + value;
-                }
-                e.target.value = value;
-            }
-        });
-    }
-
-    // Проверка врача при отправке формы (только для создания)
-    const form = document.getElementById('reservePatientForm');
-    const doctorSelect = document.getElementById('doctorSelect');
-
-    if (form && doctorSelect) {
-        form.addEventListener('submit', function(e) {
-            if (doctorSelect && !doctorSelect.value && !{{ form.instance.pk|yesno:"true,false" }}) {
-                e.preventDefault();
-                alert('Пожалуйста, выберите врача');
-                doctorSelect.focus();
-                return false;
-            }
-
-            // Проверяем обязательные поля
-            const requiredFields = ['surname', 'first_name', 'phone_number'];
-            for (const fieldName of requiredFields) {
-                const field = document.querySelector(`[name="${fieldName}"]`);
-                if (field && !field.value.trim()) {
-                    e.preventDefault();
-                    alert(`Поле "${field.previousElementSibling?.textContent?.replace('*', '').trim()}" обязательно для заполнения`);
-                    field.focus();
-                    return false;
-                }
-            }
-        });
-    }
-
-    // Поиск пациента
-    const searchInput = document.getElementById('patient-search-input');
-    const searchBtn = document.getElementById('patient-search-btn');
-    const searchResults = document.getElementById('patient-search-results');
-    const resultsList = document.getElementById('patient-results-list');
-
-    if (searchBtn && searchInput) {
-        searchBtn.addEventListener('click', searchPatients);
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchPatients();
-            }
-        });
-    }
-
-    function searchPatients() {
-        const query = searchInput.value.trim();
-
-        if (!query || query.length < 2) {
-            alert('Введите хотя бы 2 символа для поиска');
-            return;
-        }
-
-        // Показываем индикатор загрузки
-        searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Поиск...';
-        searchBtn.disabled = true;
-
-        // Очищаем предыдущие результаты
-        resultsList.innerHTML = '';
-        searchResults.style.display = 'block';
-
-        // Отправляем запрос на поиск
-        fetch(`/patients/api/search-patients/?q=${encodeURIComponent(query)}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ошибка поиска');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.error) {
-                    resultsList.innerHTML = `
-                        <div class="list-group-item text-danger">
-                            <i class="bi bi-exclamation-triangle"></i> ${data.error}
-                        </div>
-                    `;
-                    return;
-                }
-
-                if (data.count === 0) {
-                    resultsList.innerHTML = `
-                        <div class="list-group-item text-muted">
-                            <i class="bi bi-info-circle"></i> Пациенты не найдены
-                        </div>
-                    `;
-                    return;
-                }
-
-                // Отображаем найденных пациентов
-                data.patients.forEach(patient => {
-                    const item = document.createElement('div');
-                    item.className = 'list-group-item list-group-item-action';
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <strong>${patient.full_name}</strong>
-                                ${patient.date_of_birth ? `<div class="text-muted small">${patient.date_of_birth}</div>` : ''}
-                                ${patient.phone_number ? `<div class="small"><i class="bi bi-telephone"></i> ${patient.phone_number}</div>` : ''}
-                                ${patient.card_number ? `<div class="small"><i class="bi bi-card-text"></i> Карта: ${patient.card_number}</div>` : ''}
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary select-patient-btn"
-                                    data-patient-id="${patient.id}"
-                                    data-patient-data='${JSON.stringify(patient)}'>
-                                <i class="bi bi-check-lg"></i> Выбрать
-                            </button>
-                        </div>
-                    `;
-                    resultsList.appendChild(item);
-                });
-
-                // Добавляем обработчики для кнопок выбора
-                document.querySelectorAll('.select-patient-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const patientData = JSON.parse(this.getAttribute('data-patient-data'));
-                        fillFormWithPatientData(patientData);
-                        searchResults.style.display = 'none';
-                        searchInput.value = '';
-                    });
-                });
-            })
-            .catch(error => {
-                resultsList.innerHTML = `
-                    <div class="list-group-item text-danger">
-                        <i class="bi bi-exclamation-triangle"></i> Ошибка при поиске: ${error.message}
-                    </div>
-                `;
-            })
-            .finally(() => {
-                searchBtn.innerHTML = '<i class="bi bi-search"></i> Найти';
-                searchBtn.disabled = false;
-            });
-    }
-
-    // Проверка по заполненным данным
-    const checkPatientBtn = document.getElementById('checkPatientBtn');
-    const checkResult = document.getElementById('patientCheckResult');
-
-    if (checkPatientBtn) {
-        checkPatientBtn.addEventListener('click', checkExistingPatient);
-    }
-
-    function checkExistingPatient() {
-        const surname = document.querySelector('[name="surname"]').value.trim();
-        const firstName = document.querySelector('[name="first_name"]').value.trim();
-        const lastName = document.querySelector('[name="last_name"]').value.trim();
-        const dob = document.querySelector('[name="date_of_birth"]').value;
-
-        if (!surname || !firstName) {
-            alert('Введите фамилию и имя для проверки');
-            return;
-        }
-
-        checkPatientBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Проверка...';
-        checkPatientBtn.disabled = true;
-
-        fetch('/patients/api/check-patient/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: JSON.stringify({
-                surname: surname,
-                first_name: firstName,
-                last_name: lastName,
-                date_of_birth: dob
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            checkResult.style.display = 'block';
-
-            if (data.exists) {
-                const patient = data.patient;
-                checkResult.innerHTML = `
-                    <div class="alert alert-warning">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h6 class="alert-heading">
-                                    <i class="bi bi-exclamation-triangle"></i> Пациент уже существует!
-                                </h6>
-                                <p class="mb-1"><strong>ФИО:</strong> ${patient.full_name}</p>
-                                ${patient.phone_number ? `<p class="mb-1"><strong>Телефон:</strong> ${patient.phone_number}</p>` : ''}
-                                ${patient.card_number ? `<p class="mb-1"><strong>Карта:</strong> ${patient.card_number}</p>` : ''}
-                                ${patient.date_of_birth ? `<p class="mb-1"><strong>Дата рождения:</strong> ${patient.date_of_birth}</p>` : ''}
-                                <p class="mb-0 mt-2">
-                                    <button type="button" class="btn btn-sm btn-warning" id="useExistingPatientBtn">
-                                        Использовать этого пациента
-                                    </button>
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                `;
-
-                // Добавляем обработчик для кнопки
-                document.getElementById('useExistingPatientBtn').addEventListener('click', function() {
-                    fillFormWithPatientData(patient);
-                    checkResult.style.display = 'none';
-                });
-            } else {
-                checkResult.innerHTML = `
-                    <div class="alert alert-success">
-                        <i class="bi bi-check-circle"></i>
-                        <strong>Пациент не найден в базе.</strong> Будет создана новая запись.
-                    </div>
-                `;
-            }
-        })
-        .catch(error => {
-            checkResult.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle"></i>
-                    Ошибка при проверке: ${error.message}
-                </div>
-            `;
-        })
-        .finally(() => {
-            checkPatientBtn.innerHTML = '<i class="bi bi-person-check"></i> Проверить по заполненным данным';
-            checkPatientBtn.disabled = false;
-        });
-    }
-
-    // Заполнение формы данными пациента
-    function fillFormWithPatientData(patient) {
-        // Заполняем основные поля
-        document.querySelector('[name="surname"]').value = patient.surname || '';
-        document.querySelector('[name="first_name"]').value = patient.first_name || '';
-        document.querySelector('[name="last_name"]').value = patient.last_name || '';
-
-        // Заполняем телефон
-        if (patient.phone_number) {
-            document.querySelector('[name="phone_number"]').value = patient.phone_number;
-        }
-
-        // Заполняем дату рождения (конвертируем формат если нужно)
-        if (patient.date_of_birth) {
-            try {
-                // Пытаемся преобразовать разные форматы даты
-                const dateStr = patient.date_of_birth;
-                let formattedDate = dateStr;
-
-                // Формат DD.MM.YYYY -> YYYY-MM-DD
-                if (dateStr.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
-                    const parts = dateStr.split('.');
-                    formattedDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
-                }
-                // Формат YYYY-MM-DD остается как есть
-
-                document.querySelector('[name="date_of_birth"]').value = formattedDate;
-            } catch (e) {
-                console.error('Error formatting date:', e);
-            }
-        }
-
-        // Показываем карточку пациента
-        showPatientCard(patient);
-    }
-
-    // Показ карточки пациента
-    function showPatientCard(patient) {
-        const cardSection = document.getElementById('patientCardSection');
-        const cardContent = document.getElementById('patientCardContent');
-
-        let html = `
-            <div class="row">
-                <div class="col-md-6">
-                    <p class="mb-1"><strong>ФИО:</strong> ${patient.full_name}</p>
-                    ${patient.date_of_birth ? `<p class="mb-1"><strong>Дата рождения:</strong> ${patient.date_of_birth}</p>` : ''}
-                </div>
-                <div class="col-md-6">
-                    ${patient.phone_number ? `<p class="mb-1"><strong>Телефон:</strong> ${patient.phone_number}</p>` : ''}
-                    ${patient.card_number ? `<p class="mb-1"><strong>Номер карты:</strong> ${patient.card_number}</p>` : ''}
-                </div>
-            </div>
-        `;
-
-        cardContent.innerHTML = html;
-        cardSection.style.display = 'block';
-
-        // Добавляем обработчик для кнопки очистки
-        const clearBtn = document.getElementById('clearPatientBtn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', clearPatientCard);
-        }
-    }
-
-    // Очистка карточки пациента
-    function clearPatientCard() {
-        document.getElementById('patientCardSection').style.display = 'none';
-        document.getElementById('patientCardContent').innerHTML = '';
-    }
-
-    // Функция для получения CSRF токена
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-});
+    // Передаем контекстные данные в JavaScript
+    window.RESERVE_PATIENT_FORM = {
+        isEditMode: {{ readonly_mode|yesno:"true,false" }},
+        csrfToken: '{{ csrf_token }}'
+    };
 </script>
 
+<!-- Подключаем внешний JS файл -->
+<script src="/static/js/reserve_patient_form.js?v={% now 'U' %}"></script>
 {% endblock %}
