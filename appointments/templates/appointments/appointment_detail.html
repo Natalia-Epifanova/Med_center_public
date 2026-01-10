@@ -251,18 +251,18 @@
                 <div class="col-12">
                     <div class="d-flex flex-wrap gap-2">
                         <!-- Основные кнопки -->
-                        {% if appointment.cabinet.number == 6 and "забор крови" in appointment.service.name.lower %}
-                        <!-- Для процедурной записи "Забор крови" -->
-                        <a href="{% url 'appointments:appointment_update_procedural' appointment.pk %}"
-                           class="btn btn-warning">
-                            <i class="fas fa-edit"></i> Изменить процедурную запись
-                        </a>
+                        {% if appointment.cabinet.number == 6 %}
+                            <!-- Для ВСЕХ записей в процедурном кабинете (кабинет №6) -->
+                            <a href="{% url 'appointments:appointment_update_procedural' appointment.pk %}"
+                               class="btn btn-warning">
+                                <i class="fas fa-edit"></i> Изменить процедурную запись
+                            </a>
                         {% else %}
-                        <!-- Для обычной записи -->
-                        <a href="{% url 'appointments:appointment_edit_simple' appointment.pk %}"
-                           class="btn btn-warning">
-                            <i class="fas fa-edit"></i> Изменить запись
-                        </a>
+                            <!-- Для обычной записи -->
+                            <a href="{% url 'appointments:appointment_edit_simple' appointment.pk %}"
+                               class="btn btn-warning">
+                                <i class="fas fa-edit"></i> Изменить запись
+                            </a>
                         {% endif %}
 
                         <a href="{% url 'appointments:appointment_delete' appointment.pk %}"

@@ -107,8 +107,8 @@
                 </div>
 
                 <!-- ВСТАВКА ДЛЯ ВЫБОРА АНАЛИЗОВ КРОВИ -->
-                <!-- Изменено: показываем блок всегда для процедурных записей -->
-                <div class="card mb-4" id="bloodTestSelectionSection">
+                <!-- Блок показывается ТОЛЬКО если выбрана услуга "Забор крови" -->
+                <div class="card mb-4" id="bloodTestSelectionSection" style="display: none;">
                     <div class="card-header bg-light d-flex justify-content-between align-items-center">
                         <h6 class="mb-0"><i class="fas fa-vial"></i> Выбор анализов крови</h6>
                         <div>
@@ -207,7 +207,6 @@
     </div>
 </div>
 {% endblock %}
-
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -216,13 +215,35 @@
         const initialTestIds = {{ initial_test_ids|safe|default:"[]" }};
         console.log('Initial test IDs:', initialTestIds);
 
-        // Обязательно показываем блок выбора анализов
         const bloodTestSection = document.getElementById('bloodTestSelectionSection');
-        if (bloodTestSection) {
-            bloodTestSection.style.display = 'block';
+        const serviceSelect = document.getElementById('id_service');
+
+        // Функция для проверки, является ли услуга "Забор крови"
+        function isBloodTestService(serviceName) {
+            if (!serviceName) return false;
+            return serviceName.toLowerCase().includes('забор крови');
         }
 
-        // Инициализация выбора анализов
+        // Функция для обновления видимости блока с анализами
+        function updateBloodTestSectionVisibility() {
+            if (!serviceSelect || !bloodTestSection) return;
+
+            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+            const isBloodTest = selectedOption && isBloodTestService(selectedOption.text);
+
+            // Показываем/скрываем блок в зависимости от выбранной услуги
+            bloodTestSection.style.display = isBloodTest ? 'block' : 'none';
+
+            console.log(`Service: ${selectedOption ? selectedOption.text : 'none'}, isBloodTest: ${isBloodTest}`);
+
+            // Если выбрана не услуга "Забор крови", очищаем выбранные анализы
+            if (!isBloodTest && window.bloodTestSelection) {
+                console.log('Clearing blood tests because service is not "Забор крови"');
+                window.bloodTestSelection.clearAllTests();
+            }
+        }
+
+        // Инициализация выбора анализов (если скрипт доступен)
         if (typeof BloodTestSelection !== 'undefined') {
             console.log('BloodTestSelection class found, initializing...');
 
@@ -230,20 +251,29 @@
                 initialTests: initialTestIds
             });
 
-            // Добавляем обработчик изменения услуги для обновления суммы
-            const serviceSelect = document.getElementById('id_service');
+            // Добавляем обработчик изменения услуги
             if (serviceSelect) {
                 serviceSelect.addEventListener('change', function() {
-                    console.log('Service changed, updating total sum...');
+                    console.log('Service changed, updating...');
+                    updateBloodTestSectionVisibility();
+
+                    // Обновляем сумму после изменения услуги
                     setTimeout(() => {
                         if (window.bloodTestSelection) {
                             window.bloodTestSelection.updateTotalSum();
                         }
                     }, 100);
                 });
+
+                // Проверяем текущую услугу при загрузке
+                updateBloodTestSectionVisibility();
             }
         } else {
             console.error('BloodTestSelection class not found!');
+            // Если скрипт не загружен, все равно проверяем видимость
+            if (serviceSelect) {
+                updateBloodTestSectionVisibility();
+            }
         }
 
         // Добавляем функцию проверки доступности времени
