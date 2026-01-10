@@ -7,6 +7,7 @@ class BloodTestSelection {
         this.currentCategoryId = 'all';
         this.searchTerm = '';
         this.bloodCollectionPrice = 150;
+        this.selectedTests = options.initialTests || [];
 
         console.log('=== BloodTestSelection Constructor ===');
         console.log('Initial tests:', this.initialTests);
@@ -108,7 +109,14 @@ class BloodTestSelection {
             this.updateTotalSum();
         });
     }
-
+    // Метод для очистки всех выбранных анализов
+    clearAllTests() {
+        console.log('Clearing all selected blood tests');
+        this.selectedTests = [];
+        this.updateSelectedTestsDisplay();
+        this.updateFormField();
+        this.updateTotalSum();
+    }
     renderCategories() {
         const container = document.getElementById('bloodTestCategories');
         if (!container) {
