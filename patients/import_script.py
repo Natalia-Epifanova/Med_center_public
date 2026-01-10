@@ -58,13 +58,22 @@ def map_gender(gender_str):
 
 def clean_phone(phone):
     """Очистка номера телефона от лишних символов"""
-    if pd.isna(phone) or not phone:
+    if pd.isna(phone) or phone is None:
         return None
 
+    # Преобразуем в строку
     phone_str = str(phone).strip()
 
-    # Убираем все нецифровые символы кроме +
+    # Если строка пустая или содержит только пробелы
+    if not phone_str:
+        return None
+
+    # Удаляем все пробелы, скобки, тире и другие нецифровые символы кроме +
     cleaned = "".join(c for c in phone_str if c.isdigit() or c == "+")
+
+    # Если после очистки ничего не осталось
+    if not cleaned:
+        return None
 
     # Проверяем и корректируем формат
     if cleaned.startswith("+7") and len(cleaned) == 12:
@@ -75,9 +84,12 @@ def clean_phone(phone):
         return "+7" + cleaned[1:]
     elif len(cleaned) == 10:
         return "+7" + cleaned
+    elif len(cleaned) > 12:
+        # Если слишком длинный, берем первые 12 символов
+        return cleaned[:12]
     else:
-        # Если не соответствует формату, возвращаем None
-        return None
+        # Если формат не распознан, все равно возвращаем очищенный номер
+        return cleaned
 
 
 def update_patient(patient, row, card_number_int):
@@ -107,13 +119,30 @@ def update_patient(patient, row, card_number_int):
             updated = True
             changes.append(f"добавлен пол: {gender}")
 
-    # Телефон
-    if not patient.phone_number:
-        phone = clean_phone(row.get("телефон"))
-        if phone:
-            patient.phone_number = phone
+    # Телефон - ВАЖНО: проверяем не только если пустое, но и формат
+    phone_from_excel = clean_phone(row.get("телефон"))
+    if phone_from_excel:
+        # Если в базе нет телефона ИЛИ телефон в базе отличается от Excel
+        if not patient.phone_number:
+            patient.phone_number = phone_from_excel
             updated = True
-            changes.append("добавлен телефон")
+            changes.append(f"добавлен телефон: {phone_from_excel}")
+        elif patient.phone_number != phone_from_excel:
+            # Проверяем, не просто ли разный формат (например, +79091234567 vs 89091234567)
+            # Приводим к общему формату для сравнения
+            db_phone_clean = "".join(
+                c for c in patient.phone_number if c.isdigit() or c == "+"
+            )
+            excel_phone_clean = "".join(
+                c for c in phone_from_excel if c.isdigit() or c == "+"
+            )
+
+            if db_phone_clean != excel_phone_clean:
+                # Телефоны действительно разные
+                changes.append(
+                    f"телефон в базе отличается: {patient.phone_number} vs Excel: {phone_from_excel}"
+                )
+                # Не обновляем автоматически разные телефоны
 
     # Адресные данные - проверяем каждое поле отдельно
     address_fields = {
@@ -132,7 +161,7 @@ def update_patient(patient, row, card_number_int):
 
             # Проверяем, нужно ли обновить поле
             if not current_value or str(current_value).strip() == "":
-                if new_value and new_value != "nan":
+                if new_value and new_value.lower() != "nan":
                     setattr(patient, field, new_value)
                     updated = True
                     changes.append(f"добавлен {field}: {new_value}")
@@ -151,11 +180,22 @@ def import_patients_from_excel(file_path):
         # Чтение Excel файла
         print(f"Чтение файла: {file_path}")
 
-        df = pd.read_excel(file_path)
+        # Читаем Excel с указанием типа данных для колонки телефона
+        df = pd.read_excel(file_path, dtype={"телефон": str})
         df.columns = df.columns.str.strip()
 
         print(f"Загружено {len(df)} записей из файла")
         print(f"Колонки в файле: {list(df.columns)}")
+
+        # Проверяем первые несколько строк для отладки
+        print("\nПервые 5 строк данных для проверки:")
+        for i in range(min(5, len(df))):
+            row = df.iloc[i]
+            print(
+                f"Строка {i+2}: ФИО: {row.get('Фамилия', '')} {row.get('Имя', '')}, "
+                f"Телефон: '{row.get('телефон', '')}', "
+                f"Тип телефона: {type(row.get('телефон'))}"
+            )
 
         # Проверяем наличие обязательных колонок
         required_columns = ["НОМЕР КАРТЫ", "Фамилия", "Имя"]
@@ -178,7 +218,7 @@ def import_patients_from_excel(file_path):
         manual_check_patients = []  # Пациенты для ручной проверки
 
         # Загружаем существующих пациентов
-        print("Загрузка существующих пациентов для быстрого поиска...")
+        print("\nЗагрузка существующих пациентов для быстрого поиска...")
         existing_patients = Patient.objects.all()
         existing_names_cache = {}
 
@@ -260,6 +300,10 @@ def import_patients_from_excel(file_path):
                         patient = Patient.objects.filter(
                             card_number=card_number_int
                         ).first()
+                        if patient:
+                            print(
+                                f"Строка {index + 2}: найден по номеру карты {card_number_int}"
+                            )
 
                     # 2. Если нашли по номеру карты - обновляем
                     if patient:
@@ -319,6 +363,10 @@ def import_patients_from_excel(file_path):
 
                     # Если нашли пациента по ФИО (без номера карты)
                     if found_patient and found_by_name:
+                        print(
+                            f"Строка {index + 2}: найден по ФИО: {found_patient.full_name}"
+                        )
+
                         # Проверяем даты рождения для дополнительной проверки
                         excel_date_of_birth = parse_date(row.get("Дата рождения"))
                         db_date_of_birth = found_patient.date_of_birth
@@ -381,8 +429,11 @@ def import_patients_from_excel(file_path):
                     if gender:
                         patient.gender = gender
 
-                    # Телефон
+                    # Телефон - ВАЖНО: проверяем перед сохранением
                     phone = clean_phone(row.get("телефон"))
+                    print(
+                        f"Строка {index + 2}: исходный телефон: '{row.get('телефон')}', очищенный: '{phone}'"
+                    )
                     if phone:
                         patient.phone_number = phone
 
@@ -408,6 +459,8 @@ def import_patients_from_excel(file_path):
                         print(
                             f"Строка {index + 2}: СОЗДАН новый пациент {patient.full_name} (карта: {card_number_int})"
                         )
+                        if phone:
+                            print(f"       Телефон добавлен: {phone}")
                         stats["created"] += 1
 
                         # Добавляем в кэш

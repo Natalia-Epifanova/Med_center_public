@@ -6,7 +6,7 @@ from patients.import_script import backup_patients, import_patients_from_excel
 
 # Добавляем путь к проекту
 sys.path.append("C:/Users/user/PycharmProjects/Revmamed")
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "your_project.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django
 
