@@ -1332,6 +1332,24 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         if self.current_appointment and self.instance.pk:
             self._set_initial_values()
 
+            # Обновляем queryset для услуги
+            self._update_service_queryset()
+
+    def _update_service_queryset(self):
+        """Обновляет queryset услуг после инициализации формы"""
+        from timetable.models import MedicalServiceCategory
+
+        nurse_categories = [
+            MedicalServiceCategory.MEDICAL_BLOCKADES,
+            MedicalServiceCategory.ANALYZES,
+        ]
+
+        nurse_services = MedicalService.objects.filter(
+            category__in=nurse_categories, is_active=True
+        )
+
+        self.fields["service"].queryset = nurse_services
+
     def _set_initial_values(self):
         """Устанавливает начальные значения для формы"""
 
