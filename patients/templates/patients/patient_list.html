@@ -1,3 +1,4 @@
+<!-- patients/templates/patients/patient_list.html -->
 {% extends "timetable/base.html" %}
 {% load static %}
 
@@ -41,26 +42,48 @@
         <div class="col-md-10 mx-auto">
             <div class="card timetable-form-card">
                 <div class="card-body">
-                    <form method="get" class="row g-3 align-items-center">
-                        <div class="col-md-8">
-                            <label for="search" class="form-label">Поиск пациентов:</label>
-                            <input type="text" name="search" id="search" class="form-control"
-                                   placeholder="Поиск по ФИО, телефону или номеру карты..."
-                                   value="{{ request.GET.search }}">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-10">
+                            <label for="live-search" class="form-label">Поиск пациентов:</label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text"
+                                       id="live-search"
+                                       class="form-control"
+                                       placeholder="Введите ФИО, телефон, дату рождения или номер карты..."
+                                       autocomplete="off">
+                                <button class="btn btn-outline-secondary" type="button" id="clear-search">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Поиск начнется автоматически после ввода 3 символов</div>
                         </div>
-                        <div class="col-md-4">
-                            <button type="submit" class="btn timetable-btn-primary mt-md-4 w-100">
-                                <i class="fas fa-search"></i> Найти
+                        <div class="col-md-2 d-flex align-items-end">
+                            <button type="button" id="reset-search" class="btn btn-outline-secondary w-100 mt-md-0">
+                                <i class="fas fa-undo"></i> Сбросить
                             </button>
                         </div>
-                    </form>
+                    </div>
+                    <!-- Результаты поиска -->
+                    <div id="search-results" class="mt-3" style="display: none;">
+                        <div class="card border-info">
+                            <div class="card-header bg-info text-white py-2">
+                                <h6 class="mb-0"><i class="fas fa-users"></i> Результаты поиска (<span id="results-count">0</span>)</h6>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="results-container" class="list-group list-group-flush"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Таблица пациентов -->
-    <div class="row">
+    <!-- Таблица пациентов (скрыта при поиске) -->
+    <div class="row" id="patients-table-section">
         <div class="col-md-10 mx-auto">
             <div class="card timetable-form-card">
                 <div class="card-body p-0">
@@ -124,9 +147,9 @@
         </div>
     </div>
 
-    <!-- Пагинация -->
-    {% if is_paginated %}
-    <div class="row mt-4">
+    <!-- Пагинация (скрыта при поиске) -->
+    {% if is_paginated and not request.GET.search %}
+    <div class="row mt-4" id="pagination-section">
         <div class="col-md-10 mx-auto">
             <nav aria-label="Page navigation">
                 <ul class="pagination justify-content-center">
@@ -176,4 +199,36 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .patient-search-result {
+        transition: all 0.2s;
+    }
+    .patient-search-result:hover {
+        background-color: #f8f9fa;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .search-highlight {
+        background-color: #fff3cd;
+        font-weight: bold;
+    }
+    #search-results .list-group-item {
+        border-left: none;
+        border-right: none;
+        border-radius: 0;
+    }
+    #search-results .list-group-item:first-child {
+        border-top: none;
+    }
+    #search-results .list-group-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/patient_live_search.js' %}?v={% now 'U' %}"></script>
 {% endblock %}
