@@ -1,3 +1,74 @@
+// Функция для инициализации поиска услуг
+function initializeServiceSearch() {
+    console.log('Initializing service search...');
+    console.log('Cabinet number:', cabinetNumber);
+
+    // Получаем все select элементы с услугами
+    const serviceSelects = document.querySelectorAll('select[id$="service"]');
+
+    console.log('Found service selects:', serviceSelects.length);
+
+    if (serviceSelects.length === 0) {
+        console.warn('No service select elements found');
+        return;
+    }
+
+    serviceSelects.forEach((select, index) => {
+        console.log(`Initializing select #${index} with ${select.options.length} options`);
+
+        // Для всех кабинетов делаем базовый Select2
+        $(select).select2({
+            placeholder: "Начните вводить название услуги...",
+            allowClear: false,
+            width: '100%',
+            language: {
+                noResults: function() {
+                    return "Услуги не найдены";
+                },
+                searching: function() {
+                    return "Поиск...";
+                }
+            }
+        });
+
+        // Для кабинета №5 делаем дополнительные настройки
+        if (cabinetNumber === 5) {
+            console.log('Cabinet 5 detected, enabling enhanced search');
+            $(select).select2('destroy'); // Удаляем старую инициализацию
+
+            $(select).select2({
+                placeholder: "Введите название услуги для поиска...",
+                allowClear: false,
+                width: '100%',
+                minimumInputLength: 2,  // Минимум 2 символа для поиска
+                language: {
+                    noResults: function() {
+                        return "Ничего не найдено. Попробуйте другой запрос";
+                    },
+                    searching: function() {
+                        return "Идет поиск...";
+                    },
+                    inputTooShort: function(args) {
+                        var remainingChars = args.minimum - args.input.length;
+                        return "Введите еще " + remainingChars + " символ" + (remainingChars === 1 ? "" : "а");
+                    }
+                }
+            });
+        }
+    });
+
+    // Также инициализируем для дополнительных услуг, если они есть
+    const additionalServiceSelect = document.getElementById('id_additional_service');
+    if (additionalServiceSelect) {
+        console.log('Found additional service select');
+        $(additionalServiceSelect).select2({
+            placeholder: "Начните вводить название услуги...",
+            allowClear: false,
+            width: '100%'
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Инициализация форматирования телефона
     const phoneInput = document.getElementById('id_phone_number');
@@ -47,6 +118,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 14. Инициализация автоматического поиска пациента
     initializeAutoPatientSearch();
+
+    // Инициализация Select2 для поиска услуг
+    initializeServiceSearch();
 });
 
 // НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ВРАЧА
@@ -1322,6 +1396,28 @@ function initializeTimeSlotSelector() {
         }
     }
 
+
+    // Функция для форматирования опций (опционально)
+    function formatServiceOption(service) {
+        if (!service.id) {
+            return service.text;
+        }
+
+        // Можно добавить группировку по категориям
+        const $option = $(service.element);
+        const category = $option.data('category');
+
+        if (category) {
+            return $('<span><small class="text-muted">[' + category + '] </small>' + service.text + '</span>');
+        }
+
+        return service.text;
+    }
+
+    // Функция для форматирования выбранного элемента
+    function formatServiceSelection(service) {
+        return service.text;
+    }
     function resetTimeSelection() {
         const allowTimeChangeInput = document.getElementById('id_allow_time_change');
         const newTimeSlotIdInput = document.getElementById('id_new_time_slot_id');
