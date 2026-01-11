@@ -9,7 +9,23 @@
     </p>
 </div>
 {% endblock %}
-
+{% block extra_css %}
+<!-- Добавьте этот стиль -->
+<style>
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        border: 1px solid #ced4da;
+        border-radius: 0.375rem;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 36px;
+        padding-left: 12px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+</style>
+{% endblock %}
 {% block content %}
 <div class="container">
     <div class="row justify-content-center">
@@ -440,6 +456,12 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Подключаем jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Подключаем Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
 <script>
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
     const availableSlotsUrl = "{% url 'appointments:api_available_slots_for_doctor' %}";
@@ -450,8 +472,8 @@
     const originalTime = "{{ time_slot.start_time|time:'H:i' }}-{{ time_slot.end_time|time:'H:i' }}";
     const originalCabinet = "{{ time_slot.cabinet.number }}";
     const originalCabinetName = "{{ time_slot.cabinet.name_of_cabinet|default:'' }}";
-    // ВАЖНО: Используем |escapejs фильтр
     const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
+    const cabinetNumber = {{ time_slot.cabinet.number }};
 </script>
 
 <!-- Подключаем общие утилиты -->
@@ -460,6 +482,4 @@
 <script src="/static/js/appointment_chain_manager.js?v={% now 'U' %}"></script>
 <!-- Подключаем основной скрипт создания записи -->
 <script src="/static/js/appointment_create.js?v={% now 'U' %}"></script>
-
-
 {% endblock %}
