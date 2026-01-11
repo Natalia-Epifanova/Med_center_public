@@ -1,16 +1,19 @@
 class BloodTestSelection {
     constructor(options = {}) {
+        console.log('=== BloodTestSelection Constructor ===');
+        console.log('Initial tests:', options.initialTests);
+
+        // Инициализируем как Set для эффективной работы
         this.selectedTests = new Set();
+
+        // Сохраняем initialTests для инициализации
         this.initialTests = options.initialTests || [];
+
         this.allTests = [];
         this.categories = [];
         this.currentCategoryId = 'all';
         this.searchTerm = '';
         this.bloodCollectionPrice = 150;
-        this.selectedTests = options.initialTests || [];
-
-        console.log('=== BloodTestSelection Constructor ===');
-        console.log('Initial tests:', this.initialTests);
 
         this.init();
     }

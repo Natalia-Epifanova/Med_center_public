@@ -1,8 +1,14 @@
 from django import forms
 from django.contrib import admin
 
-from timetable.models import (BloodTest, BloodTestCategory, Cabinet, Doctor,
-                              MedicalService, MedicalServiceCategory)
+from timetable.models import (
+    BloodTest,
+    BloodTestCategory,
+    Cabinet,
+    Doctor,
+    MedicalService,
+    MedicalServiceCategory,
+)
 
 
 @admin.register(Cabinet)
@@ -178,3 +184,4 @@ class BloodTestAdmin(admin.ModelAdmin):
         "price",
     )
     list_filter = ("category",)
+    search_fields = ("name", "code")
