@@ -184,4 +184,4 @@ class BloodTestAdmin(admin.ModelAdmin):
         "price",
     )
     list_filter = ("category",)
-    search_fields = ("name", "code", "category", "biomaterial")
+    search_fields = ("name", "code")
