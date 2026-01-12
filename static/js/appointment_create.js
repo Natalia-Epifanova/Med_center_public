@@ -55,6 +55,26 @@ function initializeServiceSearch() {
                 }
             });
         }
+
+        // ВАЖНО: Добавляем обработчик изменения для Select2
+        $(select).on('select2:select', function(e) {
+            console.log('Select2 changed:', e.params.data);
+
+            // Симулируем стандартное событие change
+            const event = new Event('change', { bubbles: true });
+            select.dispatchEvent(event);
+
+            // Дополнительно вызываем проверку для процедурного кабинета
+            if (window.AppointmentUtils && window.AppointmentUtils.ProceduralManager) {
+                const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
+                if (needsProceduralCheckbox) {
+                    window.AppointmentUtils.ProceduralManager.updateProceduralCheckbox(
+                        select,
+                        needsProceduralCheckbox
+                    );
+                }
+            }
+        });
     });
 
     // Также инициализируем для дополнительных услуг, если они есть
@@ -65,6 +85,15 @@ function initializeServiceSearch() {
             placeholder: "Начните вводить название услуги...",
             allowClear: false,
             width: '100%'
+        });
+
+        // Добавляем обработчик для дополнительной услуги
+        $(additionalServiceSelect).on('select2:select', function(e) {
+            console.log('Additional Select2 changed:', e.params.data);
+
+            // Симулируем стандартное событие change
+            const event = new Event('change', { bubbles: true });
+            additionalServiceSelect.dispatchEvent(event);
         });
     }
 }
@@ -83,6 +112,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 3. Инициализация проверки пациента
     initializePatientChecker();
+    // Инициализация Select2 для поиска услуг
+    initializeServiceSearch();
 
     // 4. Инициализация процедурного кабинета для ОСНОВНОЙ услуги
     if (window.AppointmentUtils) {
@@ -119,8 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 14. Инициализация автоматического поиска пациента
     initializeAutoPatientSearch();
 
-    // Инициализация Select2 для поиска услуг
-    initializeServiceSearch();
+
 });
 
 // НОВАЯ ФУНКЦИЯ ДЛЯ ПОЛУЧЕНИЯ ИМЕНИ ВРАЧА
