@@ -225,17 +225,29 @@ class Appointment(models.Model):
     def save(self, *args, **kwargs):
         """Переопределяем save для сохранения цены на момент записи и установки типа цепочки"""
 
-        # Если запись создается и у нее есть услуга
-        if not self.pk and self.service and not self.price_at_appointment:
-            self.price_at_appointment = self.service.price
+        # ВАЖНОЕ ИСПРАВЛЕНИЕ: Всегда обновляем price_at_appointment при изменении услуги
+        # Получаем текущий объект из БД (если он существует)
+        if self.pk:
+            try:
+                old_instance = Appointment.objects.get(pk=self.pk)
+                # Если услуга изменилась - обновляем цену
+                if old_instance.service != self.service:
+                    self.price_at_appointment = self.service.price
+            except Appointment.DoesNotExist:
+                pass
+        else:
+            # Для новой записи
+            if self.service and not self.price_at_appointment:
+                self.price_at_appointment = self.service.price
 
-        # Если обновляется услуга
-        elif self.service and not self.price_at_appointment:
-            self.price_at_appointment = self.service.price
+        # Обновляем итоговую сумму с анализами
+        if self.pk:
+            tests_price = self.get_tests_price
+            service_price = (
+                self.price_at_appointment or self.service.price if self.service else 0
+            )
+            self.total_with_blood_tests = tests_price + service_price
 
-        # Определяем тип цепочки для новых записей с предыдущей записью
-        if not self.pk and self.previous_appointment:
-            self.chain_type = self.ChainType.SAME_DOCTOR
         super().save(*args, **kwargs)
 
     def get_consecutive_appointments(self):

@@ -333,16 +333,14 @@
                                             {% endif %}
                                         </td>
                                         <td onclick="window.open('{% url 'appointments:appointment_detail' appointment.pk %}', '_blank')">
-                                            <!-- ОТОБРАЖАЕМ СОХРАНЕННУЮ СУММУ С АНАЛИЗАМИ -->
-                                            {% if appointment.total_with_blood_tests %}
-                                                <div class="fw-bold">{{ appointment.total_with_blood_tests }} руб.</div>
-                                                {% if appointment.selected_blood_tests.exists %}
-                                                    <small class="text-muted">
-                                                        (с анализами)
-                                                    </small>
-                                                {% endif %}
-                                            {% else %}
+                                            <!-- ВАЖНО: Всегда используем price_at_appointment -->
+                                            <div class="fw-bold">
                                                 {{ appointment.price_at_appointment|default:appointment.service.price }} руб.
+                                            </div>
+                                            {% if appointment.total_with_blood_tests and appointment.total_with_blood_tests != appointment.price_at_appointment %}
+                                                <small class="text-muted">
+                                                    (итого: {{ appointment.total_with_blood_tests }} руб.)
+                                                </small>
                                             {% endif %}
                                         </td>
                                         <td onclick="window.open('{% url 'appointments:appointment_detail' appointment.pk %}', '_blank')">
