@@ -324,113 +324,89 @@ class BloodTestSelection {
         }
     }
 
-    updateFormField() {
-        let field = document.getElementById('id_selected_blood_tests');
-
-        if (!field) {
-            console.log('Creating hidden field...');
-            field = document.createElement('input');
-            field.type = 'hidden';
-            field.id = 'id_selected_blood_tests';
-            field.name = 'selected_blood_tests_input';
-
-            const form = document.getElementById('appointmentForm');
-            if (form) {
-                form.appendChild(field);
-            } else {
-                console.error('Form not found!');
-                return;
-            }
-        }
-
-        const selectedIds = Array.from(this.selectedTests);
-        field.value = selectedIds.join(',');
-
-        console.log('Updated hidden field with IDs:', field.value);
-        console.log('Selected tests count:', selectedIds.length);
-
-        // Триггерим события
-        field.dispatchEvent(new Event('change', { bubbles: true }));
-        field.dispatchEvent(new Event('input', { bubbles: true }));
-    }
 
     // НОВАЯ ФУНКЦИЯ: Обновление итоговой суммы
-    updateTotalSum(customSum = null) {
-        const totalField = document.getElementById('id_total_sum');
-        const serviceSelect = document.getElementById('id_service');
-
-        if (!totalField) {
-            // Создаем поле если его нет
-            console.log('Creating total sum field...');
-            const field = document.createElement('input');
-            field.type = 'hidden';
-            field.id = 'id_total_sum';
-            field.name = 'total_sum';
-
-            const form = document.getElementById('appointmentForm');
-            if (form) {
-                form.appendChild(field);
-                console.log('Total sum field created');
-            } else {
-                console.error('Form not found! Cannot create total sum field');
-                return;
-            }
-        }
-
-        // Если передана кастомная сумма (например, 0 при очистке)
-        if (customSum !== null) {
-            document.getElementById('id_total_sum').value = customSum.toFixed(2);
-            console.log('Total sum set to custom value:', customSum);
-            return;
-        }
-
-        if (!serviceSelect) {
-            console.error('Service select not found!');
-            return;
-        }
+    updateTotalSum() {
+        console.log('=== updateTotalSum called ===');
 
         // Считаем сумму анализов
-        let testsTotal = 0;
-        this.selectedTests.forEach(id => {
-            const test = this.allTests.find(t => t.id === id);
-            if (test && test.price) {
-                testsTotal += test.price;
-            }
-        });
+        const testsPrice = this.getTotalPrice();
 
-        // Определяем стоимость услуги
+        // Получаем цену услуги - ИСПРАВЛЕНИЕ
         let servicePrice = 0;
-        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-        const isBloodTest = selectedOption && selectedOption.text.toLowerCase().includes('забор крови');
 
-        if (isBloodTest) {
-            // Пытаемся получить цену из data-атрибута или используем фиксированную
-            servicePrice = selectedOption.dataset.price ? parseFloat(selectedOption.dataset.price) : this.bloodCollectionPrice;
+        // Способ 1: Пробуем получить цену из фиксированного значения (для услуги "Забор крови")
+        const serviceSelect = document.getElementById('id_service');
+        if (serviceSelect && serviceSelect.value) {
+            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+            const serviceName = selectedOption.textContent.toLowerCase();
+
+            // Для услуги "Забор крови" используем фиксированную цену 150
+            if (serviceName.includes('забор крови')) {
+                servicePrice = 150;
+            } else {
+                // Для других услуг пытаемся извлечь цену из текста
+                const priceMatch = selectedOption.textContent.match(/[\d\s]+руб\.?/);
+                if (priceMatch) {
+                    const priceStr = priceMatch[0].replace(/[^\d]/g, '');
+                    servicePrice = parseInt(priceStr) || 0;
+                }
+            }
         }
 
-        // Итоговая сумма
-        const total = testsTotal + servicePrice;
-        document.getElementById('id_total_sum').value = total.toFixed(2);
+        // Общая сумма
+        const totalSum = servicePrice + testsPrice;
 
-        console.log('Total sum updated:', {
-            testsTotal: testsTotal,
-            servicePrice: servicePrice,
-            total: total
+        console.log('Calculating total sum:', {
+            servicePrice,
+            testsPrice,
+            totalSum
         });
 
-        // Создаем событие для обновления UI (опционально)
-        const event = new CustomEvent('totalSumUpdated', {
-            detail: {
-                total: total,
-                testsTotal: testsTotal,
-                servicePrice: servicePrice
-            }
-        });
-        document.dispatchEvent(event);
+        // Обновляем отображение
+        const totalElement = document.getElementById('selectedTestsPrice');
+        if (totalElement) {
+            totalElement.textContent = totalSum + ' руб.';
+        }
 
-        return total;
+        // Обновляем скрытое поле
+        const totalField = document.getElementById('id_total_sum');
+        if (totalField) {
+            totalField.value = totalSum;
+            // ВАЖНОЕ ИСПРАВЛЕНИЕ: устанавливаем атрибут value для DOM
+            totalField.setAttribute('value', totalSum);
+            console.log('Updated total_sum field value:', totalSum);
+        }
+
+        return totalSum;
+    }
+
+    // Добавьте метод getTotalPrice для подсчета суммы анализов
+    getTotalPrice() {
+        const selectedTestsArray = Array.from(this.selectedTests)
+            .map(id => this.allTests.find(test => test.id === id))
+            .filter(Boolean);
+
+        return selectedTestsArray.reduce((sum, test) => sum + (parseFloat(test.price) || 0), 0);
+    }
+
+    // Добавьте функцию для правильного обновления формы
+    updateFormField() {
+        const selectedIds = Array.from(this.selectedTests.values());
+        const field = document.getElementById('id_selected_blood_tests');
+
+        if (field) {
+            field.value = selectedIds.join(',');
+            console.log('Updated selected_blood_tests_input:', field.value);
+
+            // Небольшая задержка для гарантии обновления
+            setTimeout(() => {
+                this.updateTotalSum();
+            }, 50); // 50ms задержка
+        }
     }
 }
+
 
 // Экспорт класса для использования
 if (typeof module !== 'undefined' && module.exports) {
@@ -450,3 +426,26 @@ function handleServiceChangeForBloodTests() {
         window.bloodTestSelection.updateTotalSum();
     }
 }
+
+
+// Обработчик события перед отправкой формы
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form[method="post"]');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            // Принудительно обновляем total_sum перед отправкой БЕЗ отмены отправки
+            if (window.bloodTestSelection && typeof window.bloodTestSelection.updateTotalSum === 'function') {
+                window.bloodTestSelection.updateTotalSum();
+            }
+
+            // Мгновенно обновляем значение в DOM
+            const totalField = document.getElementById('id_total_sum');
+            if (totalField) {
+                // Принудительно обновляем атрибут value
+                totalField.setAttribute('value', totalField.value);
+            }
+
+            console.log('Form submitted with total_sum:', document.getElementById('id_total_sum').value);
+        });
+    }
+});
