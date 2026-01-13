@@ -7,11 +7,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Проверка формы при отправке
     initializeFormValidation();
 
-    // Инициализация автопоиска пациента
-    initializeAutoPatientSearch();
+    // Инициализация ручного поиска (первая - как в обычной записи)
+    initializePatientSearch();
 
-    // Инициализация ручного поиска
-    initializeManualPatientSearch();
+    // Инициализация автопоиска пациента (вторая)
+    initializeAutoPatientSearch();
 
     // Инициализация проверки пациента
     initializePatientCheck();
@@ -21,7 +21,6 @@ function initializePhoneFormatting() {
     const phoneInput = document.querySelector('[name="phone_number"]');
 
     if (phoneInput) {
-        // Автоматическое добавление +7
         phoneInput.addEventListener('input', function(e) {
             let value = e.target.value.replace(/[^\d+]/g, '');
 
@@ -35,7 +34,6 @@ function initializePhoneFormatting() {
                 }
             }
 
-            // Ограничиваем длину
             if (value.length > 12) {
                 value = value.substring(0, 12);
             }
@@ -43,7 +41,6 @@ function initializePhoneFormatting() {
             e.target.value = value;
         });
 
-        // Проверка при потере фокуса
         phoneInput.addEventListener('blur', function(e) {
             let value = e.target.value.replace(/[^\d+]/g, '');
 
@@ -76,7 +73,6 @@ function initializeFormValidation() {
                 return false;
             }
 
-            // Проверяем обязательные поля
             const requiredFields = ['surname', 'first_name', 'phone_number'];
             for (const fieldName of requiredFields) {
                 const field = document.querySelector(`[name="${fieldName}"]`);
@@ -91,6 +87,174 @@ function initializeFormValidation() {
     }
 }
 
+// === ОСНОВНАЯ ФУНКЦИЯ РУЧНОГО ПОИСКА (аналогично обычной записи) ===
+function initializePatientSearch() {
+    const searchInput = document.getElementById('patient-search-input');
+    const searchBtn = document.getElementById('patient-search-btn');
+    const resultsContainer = document.getElementById('patient-search-results');
+    const resultsList = document.getElementById('patient-results-list');
+
+    if (!searchInput || !searchBtn || !resultsContainer || !resultsList) {
+        console.log('Patient search elements not found');
+        return;
+    }
+
+    console.log('initializePatientSearch called - ручной поиск');
+
+    async function performSearch() {
+        const query = searchInput.value.trim();
+
+        if (query.length < 2) {
+            alert('Введите хотя бы 2 символа для поиска');
+            return;
+        }
+
+        searchBtn.disabled = true;
+        searchBtn.innerHTML = '<i class="bi bi-search"></i> <span class="spinner-border spinner-border-sm" role="status"></span>';
+        resultsList.innerHTML = '<div class="text-center py-3"><i class="bi bi-hourglass"></i> Поиск...</div>';
+        resultsContainer.style.display = 'block';
+
+        try {
+            const searchUrl = "/patients/api/search-patients/";
+            const response = await fetch(`${searchUrl}?q=${encodeURIComponent(query)}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            resultsList.innerHTML = '';
+
+            if (data.error) {
+                resultsList.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                return;
+            }
+
+            if (data.count === 0) {
+                resultsList.innerHTML = '<div class="alert alert-info">Пациенты не найдены</div>';
+                return;
+            }
+
+            // Отображаем найденных пациентов - КАК В ОБЫЧНОЙ ЗАПИСИ
+            data.patients.forEach(patient => {
+                const item = document.createElement('button');
+                item.type = 'button';
+                item.className = 'list-group-item list-group-item-action';
+
+                item.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${patient.full_name}</strong><br>
+                            <small class="text-muted">
+                                ${patient.card_number ? `Номер карты: ${patient.card_number}` : 'Без карты'}
+                                ${patient.date_of_birth ? ` | Дата рождения: ${patient.date_of_birth}` : ''}
+                                ${patient.phone_number ? ` | Телефон: ${patient.phone_number}` : ''}
+                            </small>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary use-patient-btn"
+                                data-patient-id="${patient.id}">
+                            Выбрать
+                        </button>
+                    </div>
+                `;
+
+                // Используем ту же функцию, что и в обычной записи
+                item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectPatientFromSearch(patient);
+                });
+
+                // Также добавляем возможность выбора по клику на всю строку
+                item.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('use-patient-btn')) {
+                        selectPatientFromSearch(patient);
+                    }
+                });
+
+                resultsList.appendChild(item);
+            });
+
+        } catch (error) {
+            resultsList.innerHTML = `<div class="alert alert-danger">Ошибка поиска: ${error.message}</div>`;
+        } finally {
+            searchBtn.disabled = false;
+            searchBtn.innerHTML = '<i class="bi bi-search"></i> Найти';
+        }
+    }
+
+    function selectPatientFromSearch(patient) {
+        console.log('Пациент выбран из ручного поиска:', patient);
+
+        // Заполняем поля формы
+        fillFormWithPatientData(patient);
+
+        // Скрываем результаты поиска
+        const resultsContainer = document.getElementById('patient-search-results');
+        if (resultsContainer) resultsContainer.style.display = 'none';
+
+        const searchInput = document.getElementById('patient-search-input');
+        if (searchInput) searchInput.value = '';
+
+        // Показываем сообщение о выборе
+        const resultContainer = document.getElementById('patientCheckResult');
+        if (resultContainer) {
+            resultContainer.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>Пациент выбран:</strong> ${patient.full_name}
+                    ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
+                </div>
+            `;
+            resultContainer.style.display = 'block';
+        }
+
+        // Показываем карточку пациента
+        showPatientCard(patient);
+
+        // Автоматическая проверка пациента
+        setTimeout(() => {
+            const checkBtn = document.getElementById('checkPatientBtn');
+            if (checkBtn) {
+                checkBtn.click();
+            }
+        }, 500);
+    }
+
+    // Обработчики событий
+    searchBtn.addEventListener('click', performSearch);
+
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            performSearch();
+        }
+    });
+
+    // Автопоиск при вводе (с задержкой)
+    let searchTimeout;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query.length >= 3) {
+            searchTimeout = setTimeout(performSearch, 500);
+        } else {
+            resultsContainer.style.display = 'none';
+        }
+    });
+
+    // Клик вне результатов скрывает их
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) &&
+            !resultsContainer.contains(e.target) &&
+            !searchBtn.contains(e.target)) {
+            resultsContainer.style.display = 'none';
+        }
+    });
+}
+
+// === ФУНКЦИЯ АВТОПОИСКА (как в обычной записи) ===
 function initializeAutoPatientSearch() {
     const surnameInput = document.getElementById('id_surname');
     const firstNameInput = document.getElementById('id_first_name');
@@ -98,11 +262,12 @@ function initializeAutoPatientSearch() {
     const searchResults = document.getElementById('patient-search-results');
     const resultsList = document.getElementById('patient-results-list');
 
-    // Проверяем, что мы в режиме создания (не редактирования)
-    const form = document.getElementById('reservePatientForm');
-    if (!form || !surnameInput || !firstNameInput || !searchResults || !resultsList) {
+    if (!surnameInput || !firstNameInput || !searchResults || !resultsList) {
+        console.log('Auto patient search elements not found');
         return;
     }
+
+    console.log('initializeAutoPatientSearch called - автопоиск');
 
     let searchTimeout;
     let lastSearchData = {
@@ -135,7 +300,6 @@ function initializeAutoPatientSearch() {
         lastSearchData = { surname, firstName, lastName };
 
         try {
-            // Ищем только по фамилии - это даст больше результатов
             const searchUrl = "/patients/api/search-patients/";
             const response = await fetch(`${searchUrl}?q=${encodeURIComponent(surname)}`);
 
@@ -155,13 +319,11 @@ function initializeAutoPatientSearch() {
 
             if (data.count > 0 && filteredPatients.length > 0) {
                 filteredPatients = filteredPatients.filter(patient => {
-                    // Проверяем совпадение имени (регистронезависимо)
                     const patientFirstName = patient.first_name || '';
                     if (!patientFirstName.toLowerCase().includes(firstName.toLowerCase())) {
                         return false;
                     }
 
-                    // Если введено отчество, проверяем его
                     if (lastName && lastName.length > 0) {
                         const patientLastName = patient.last_name || '';
                         if (!patientLastName.toLowerCase().includes(lastName.toLowerCase())) {
@@ -173,8 +335,8 @@ function initializeAutoPatientSearch() {
                 });
             }
 
-            // Всегда показываем результаты (даже если пустые)
-            displaySearchResults(filteredPatients);
+            // Отображаем результаты
+            displayAutoSearchResults(filteredPatients, surname, firstName, lastName);
             if (filteredPatients.length > 0 || surname.length > 0) {
                 searchResults.style.display = 'block';
             }
@@ -187,14 +349,10 @@ function initializeAutoPatientSearch() {
         }
     }
 
-    function displaySearchResults(patients) {
+    function displayAutoSearchResults(patients, surname, firstName, lastName) {
         resultsList.innerHTML = '';
 
         if (!patients || patients.length === 0) {
-            const surname = surnameInput.value.trim();
-            const firstName = firstNameInput.value.trim();
-            const lastName = lastNameInput.value.trim();
-
             if (surname.length > 0) {
                 resultsList.innerHTML = `
                     <div class="alert alert-info">
@@ -206,40 +364,37 @@ function initializeAutoPatientSearch() {
             return;
         }
 
+        // Отображаем как в обычной записи
         patients.forEach(patient => {
-            const item = document.createElement('div');
+            const item = document.createElement('button');
+            item.type = 'button';
             item.className = 'list-group-item list-group-item-action';
-            item.style.cursor = 'pointer';
 
             item.innerHTML = `
-                <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex justify-content-between align-items-center">
                     <div>
-                        <strong>${patient.full_name}</strong>
-                        ${patient.date_of_birth ? `<div class="text-muted small">${patient.date_of_birth}</div>` : ''}
-                        ${patient.phone_number ? `<div class="small"><i class="bi bi-telephone"></i> ${patient.phone_number}</div>` : ''}
-                        ${patient.card_number ? `<div class="small"><i class="bi bi-card-text"></i> Карта: ${patient.card_number}</div>` : ''}
+                        <strong>${patient.full_name}</strong><br>
+                        <small class="text-muted">
+                            ${patient.card_number ? `Карта: ${patient.card_number}` : 'Без карты'}
+                            ${patient.date_of_birth ? ` | Дата рождения: ${patient.date_of_birth}` : ''}
+                            ${patient.phone_number ? ` | Телефон: ${patient.phone_number}` : ''}
+                        </small>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary select-patient-btn"
-                            data-patient-id="${patient.id}"
-                            data-patient-data='${JSON.stringify(patient)}'>
-                        <i class="bi bi-check-lg"></i> Выбрать
+                    <button type="button" class="btn btn-sm btn-outline-primary use-patient-btn"
+                            data-patient-id="${patient.id}">
+                        Выбрать
                     </button>
                 </div>
             `;
 
-            // Обработчик для кнопки выбора
-            item.querySelector('.select-patient-btn').addEventListener('click', function(e) {
+            item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
-                const patientData = JSON.parse(this.getAttribute('data-patient-data'));
-                selectPatient(patientData);
+                selectPatientFromSearch(patient);
             });
 
-            // Обработчик клика на всю строку
-            item.addEventListener('click', function(e) {
-                if (!e.target.classList.contains('select-patient-btn')) {
-                    const btn = this.querySelector('.select-patient-btn');
-                    const patientData = JSON.parse(btn.getAttribute('data-patient-data'));
-                    selectPatient(patientData);
+            item.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('use-patient-btn')) {
+                    selectPatientFromSearch(patient);
                 }
             });
 
@@ -288,110 +443,7 @@ function initializeAutoPatientSearch() {
     }
 }
 
-function initializeManualPatientSearch() {
-    const searchInput = document.getElementById('patient-search-input');
-    const searchBtn = document.getElementById('patient-search-btn');
-    const searchResults = document.getElementById('patient-search-results');
-    const resultsList = document.getElementById('patient-results-list');
-
-    if (searchBtn && searchInput) {
-        searchBtn.addEventListener('click', searchPatients);
-        searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                searchPatients();
-            }
-        });
-    }
-
-    function searchPatients() {
-        const query = searchInput.value.trim();
-
-        if (!query || query.length < 2) {
-            alert('Введите хотя бы 2 символа для поиска');
-            return;
-        }
-
-        // Показываем индикатор загрузки
-        searchBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> Поиск...';
-        searchBtn.disabled = true;
-
-        // Очищаем предыдущие результаты
-        resultsList.innerHTML = '';
-        searchResults.style.display = 'block';
-
-        // Отправляем запрос на поиск
-        fetch(`/patients/api/search-patients/?q=${encodeURIComponent(query)}`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Ошибка поиска');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.error) {
-                    resultsList.innerHTML = `
-                        <div class="list-group-item text-danger">
-                            <i class="bi bi-exclamation-triangle"></i> ${data.error}
-                        </div>
-                    `;
-                    return;
-                }
-
-                if (data.count === 0) {
-                    resultsList.innerHTML = `
-                        <div class="list-group-item text-muted">
-                            <i class="bi bi-info-circle"></i> Пациенты не найдены
-                        </div>
-                    `;
-                    return;
-                }
-
-                // Отображаем найденных пациентов
-                data.patients.forEach(patient => {
-                    const item = document.createElement('div');
-                    item.className = 'list-group-item list-group-item-action';
-                    item.innerHTML = `
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <strong>${patient.full_name}</strong>
-                                ${patient.date_of_birth ? `<div class="text-muted small">${patient.date_of_birth}</div>` : ''}
-                                ${patient.phone_number ? `<div class="small"><i class="bi bi-telephone"></i> ${patient.phone_number}</div>` : ''}
-                                ${patient.card_number ? `<div class="small"><i class="bi bi-card-text"></i> Карта: ${patient.card_number}</div>` : ''}
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-primary select-patient-btn"
-                                    data-patient-id="${patient.id}"
-                                    data-patient-data='${JSON.stringify(patient)}'>
-                                <i class="bi bi-check-lg"></i> Выбрать
-                            </button>
-                        </div>
-                    `;
-                    resultsList.appendChild(item);
-                });
-
-                // Добавляем обработчики для кнопок выбора
-                document.querySelectorAll('.select-patient-btn').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const patientData = JSON.parse(this.getAttribute('data-patient-data'));
-                        fillFormWithPatientData(patientData);
-                        searchResults.style.display = 'none';
-                        searchInput.value = '';
-                    });
-                });
-            })
-            .catch(error => {
-                resultsList.innerHTML = `
-                    <div class="list-group-item text-danger">
-                        <i class="bi bi-exclamation-triangle"></i> Ошибка при поиске: ${error.message}
-                    </div>
-                `;
-            })
-            .finally(() => {
-                searchBtn.innerHTML = '<i class="bi bi-search"></i> Найти';
-                searchBtn.disabled = false;
-            });
-    }
-}
-
+// === ФУНКЦИЯ ПРОВЕРКИ ПАЦИЕНТА ===
 function initializePatientCheck() {
     const checkPatientBtn = document.getElementById('checkPatientBtn');
     const checkResult = document.getElementById('patientCheckResult');
@@ -454,9 +506,9 @@ function initializePatientCheck() {
                     </div>
                 `;
 
-                // Добавляем обработчик для кнопки
                 document.getElementById('useExistingPatientBtn').addEventListener('click', function() {
                     fillFormWithPatientData(patient);
+                    showPatientCard(patient);
                     checkResult.style.display = 'none';
                 });
             } else {
@@ -483,37 +535,7 @@ function initializePatientCheck() {
     }
 }
 
-// Общие функции для всех форм
-function selectPatient(patient) {
-    fillFormWithPatientData(patient);
-    showPatientCard(patient);
-
-    // Скрываем результаты поиска
-    const searchResults = document.getElementById('patient-search-results');
-    if (searchResults) searchResults.style.display = 'none';
-
-    // Показываем сообщение о выборе
-    const resultContainer = document.getElementById('patientCheckResult');
-    if (resultContainer) {
-        resultContainer.innerHTML = `
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle"></i>
-                <strong>Данные пациента заполнены:</strong> ${patient.full_name}
-                ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
-            </div>
-        `;
-        resultContainer.style.display = 'block';
-    }
-
-    // Автоматическая проверка пациента
-    setTimeout(() => {
-        const checkBtn = document.getElementById('checkPatientBtn');
-        if (checkBtn) {
-            checkBtn.click();
-        }
-    }, 500);
-}
-
+// === ОБЩИЕ ФУНКЦИИ ===
 function fillFormWithPatientData(patient) {
     const fieldIds = {
         surname: 'id_surname',
@@ -536,7 +558,7 @@ function fillFormWithPatientData(patient) {
     setFieldValue(fieldIds.first_name, patient.first_name || '');
     setFieldValue(fieldIds.last_name, patient.last_name || '');
 
-    // Телефон (форматирование как +7...)
+    // Телефон
     if (patient.phone_number) {
         let phone = patient.phone_number.toString();
         if (!phone.startsWith('+')) {
@@ -600,7 +622,6 @@ function showPatientCard(patient) {
         clearBtn.onclick = function() {
             cardSection.style.display = 'none';
             cardContent.innerHTML = '';
-            // Очищаем только поля пациента
             const fields = ['surname', 'first_name', 'last_name', 'phone_number', 'date_of_birth'];
             fields.forEach(field => {
                 const el = document.getElementById(`id_${field}`);
