@@ -2,11 +2,12 @@ import json
 from datetime import datetime
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -495,3 +496,37 @@ def update_appointment_status(request, pk):
         )
     except Exception as e:
         return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+@medical_admin_or_admin_required
+@require_POST
+def update_payment_method(request, pk):
+    """Обновление способа оплаты записи"""
+    appointment = get_object_or_404(Appointment, pk=pk)
+
+    # Проверяем права
+    if not (request.user.is_superuser or request.user.is_medical_admin):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Недостаточно прав для изменения способа оплаты",
+            }
+        )
+
+    payment_method = request.POST.get("payment_method")
+
+    # Валидация значения
+    valid_methods = dict(Appointment.PaymentMethod.choices).keys()
+    if payment_method in valid_methods:
+        appointment.payment_method = payment_method
+        appointment.save()
+
+        return JsonResponse(
+            {
+                "success": True,
+                "payment_method": appointment.payment_method,
+                "payment_method_display": appointment.get_payment_method_display(),
+            }
+        )
+
+    return JsonResponse({"success": False, "error": "Некорректный способ оплаты"})

@@ -754,3 +754,57 @@
 .reserve-month-empty:hover {
     opacity: 0.8;
 }
+
+/* ===== СТИЛИ ДЛЯ ВЫБОРА СПОСОБА ОПЛАТЫ ===== */
+
+/* Контейнер для выбора оплаты */
+.payment-method-selector {
+    transition: all 0.3s ease;
+}
+
+/* Базовые стили кнопок - НЕАКТИВНЫЕ СОСТОЯНИЯ */
+.payment-method-btn {
+    font-size: 0.7rem !important;
+    padding: 0.2rem 0.3rem !important;
+    transition: all 0.2s ease;
+    border-radius: 4px !important;
+    border-width: 1px !important;
+    background-color: white !important;
+    font-weight: 500;
+}
+
+/* Кнопка "Наличные" - НЕАКТИВНАЯ */
+.payment-method-btn[data-method="cash"] {
+    border-color: #dee2e6 !important;
+    color: #6c757d !important;
+}
+
+/* Кнопка "Карта" - НЕАКТИВНАЯ */
+.payment-method-btn[data-method="card"] {
+    border-color: #dee2e6 !important;
+    color: #6c757d !important;
+}
+
+/* Ховер эффект для неактивных кнопок */
+.payment-method-btn:not(.active-cash):not(.active-card):hover {
+    background-color: #f8f9fa !important;
+    border-color: #adb5bd !important;
+}
+
+/* АКТИВНАЯ КНОПКА "Наличные" - ЗЕЛЕНЫЙ ФОН, БЕЛЫЙ ТЕКСТ */
+.payment-method-btn.active-cash {
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+    color: white !important;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+    font-weight: bold;
+}
+
+/* АКТИВНАЯ КНОПКА "Карта" - ГОЛУБОЙ ФОН, БЕЛЫЙ ТЕКСТ */
+.payment-method-btn.active-card {
+    background-color: #17a2b8 !important; /* Голубой Bootstrap */
+    border-color: #17a2b8 !important;
+    color: white !important;
+    box-shadow: 0 0 0 2px rgba(23, 162, 184, 0.25);
+    font-weight: bold;
+}
