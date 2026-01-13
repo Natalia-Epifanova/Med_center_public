@@ -247,51 +247,50 @@ function initializeStatusSelectStyles() {
 
 function updateAppointmentStatus(appointmentId, newStatus, element) {
     const csrfToken = getCSRFToken();
-    console.log('CSRF Token:', csrfToken ? 'Available' : 'Missing');
 
     // Показываем индикатор загрузки
     const originalValue = element.value;
     element.disabled = true;
     element.classList.add('loading');
 
-    // Временно меняем стиль для мгновенной обратной связи
+    // Временно меняем стиль
     updateStatusSelectStyle(element, newStatus);
 
-    // Используем FormData для правильной работы с CSRF
     const formData = new FormData();
     formData.append('status', newStatus);
     formData.append('csrfmiddlewaretoken', csrfToken);
 
-    console.log(`Sending request to update appointment ${appointmentId} to status: ${newStatus}`);
-
     fetch(`/appointments/${appointmentId}/update-status/`, {
         method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
         body: formData
     })
     .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
     })
     .then(data => {
-        console.log('Response data:', data);
         if (data.success) {
-            showNotification(`Статус изменен на: ${data.new_status_display}`, 'success');
+            let message = `Статус изменен на: ${data.new_status_display}`;
 
-            // Обновляем стиль окончательно
+            // Если была синхронизация с процедурной записью
+            if (data.synced_procedural) {
+                message += `\n✓ Статус также обновлен в процедурном кабинете (${data.synced_procedural.new_status_display})`;
+            }
+
+            showNotification(message, 'success');
+
+            // Обновляем стиль
             updateStatusSelectStyle(element, newStatus);
             element.value = newStatus;
 
-            console.log('Status updated successfully - no page reload');
+            // Если нужно, можно обновить статус и в процедурном кабинете на той же странице
+            if (data.synced_procedural) {
+                updateProceduralStatusOnPage(appointmentId, newStatus, data.synced_procedural.id);
+            }
+
         } else {
-            console.error('Server returned error:', data.error);
-            showNotification('Ошибка при изменении статуса: ' + data.error, 'error');
-            // Возвращаем предыдущее значение и стиль
+            showNotification('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
             element.value = originalValue;
             updateStatusSelectStyle(element, originalValue);
         }
@@ -299,7 +298,6 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
     .catch(error => {
         console.error('Fetch error:', error);
         showNotification('Ошибка соединения: ' + error.message, 'error');
-        // Возвращаем предыдущее значение и стиль
         element.value = originalValue;
         updateStatusSelectStyle(element, originalValue);
     })
@@ -307,6 +305,24 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
         element.disabled = false;
         element.classList.remove('loading');
     });
+}
+
+function updateProceduralStatusOnPage(mainAppointmentId, newStatus, proceduralAppointmentId) {
+    // Находим select статуса для процедурной записи и обновляем его
+    const proceduralSelect = document.querySelector(
+        `.appointment-status-select[data-appointment-id="${proceduralAppointmentId}"]`
+    );
+
+    if (proceduralSelect && proceduralSelect.value !== newStatus) {
+        proceduralSelect.value = newStatus;
+        updateStatusSelectStyle(proceduralSelect, newStatus);
+
+        // Можно показать небольшую анимацию
+        proceduralSelect.parentElement.style.backgroundColor = '#e8f5e8';
+        setTimeout(() => {
+            proceduralSelect.parentElement.style.backgroundColor = '';
+        }, 1000);
+    }
 }
 
 function updateStatusSelectStyle(selectElement, status) {

@@ -406,6 +406,58 @@ class Appointment(models.Model):
         """Есть ли связанные записи"""
         return AppointmentChain.objects.filter(main_appointment=self).exists()
 
+    def get_procedural_counterpart(self):
+        """
+        Находит процедурную запись, которая является копией этой записи.
+        Проверяет через previous_appointment связь.
+        """
+        # Ищем запись в процедурном кабинете (кабинет №6)
+        # которая ссылается на эту запись как previous_appointment
+        return Appointment.objects.filter(
+            previous_appointment=self,
+            time_slot__cabinet__number=6,
+        ).first()
+
+    def sync_status_with_procedural(self, new_status, request_user=None):
+        """
+        Синхронизирует статус с процедурной записью.
+        """
+        procedural_appointment = self.get_procedural_counterpart()
+
+        if procedural_appointment and procedural_appointment.status != new_status:
+            old_status_display = procedural_appointment.get_status_display()
+
+            # Обновляем статус
+            procedural_appointment.status = new_status
+            procedural_appointment.save()
+
+            # Логируем изменение
+            try:
+                from django.contrib.admin.models import LogEntry, CHANGE
+                from django.contrib.contenttypes.models import ContentType
+                from django.utils.encoding import force_str
+
+                if request_user:
+                    LogEntry.objects.log_action(
+                        user_id=request_user.pk,
+                        content_type_id=ContentType.objects.get_for_model(
+                            procedural_appointment
+                        ).pk,
+                        object_id=procedural_appointment.pk,
+                        object_repr=force_str(procedural_appointment),
+                        action_flag=CHANGE,
+                        change_message=f"Статус автоматически синхронизирован с основной записью #{self.id}. "
+                        f"Изменен с '{old_status_display}' "
+                        f"на '{procedural_appointment.get_status_display()}'.",
+                    )
+            except Exception as e:
+                # Если логирование не удалось, просто продолжаем
+                print(f"Не удалось залогировать изменение статуса: {e}")
+
+            return procedural_appointment
+
+        return None
+
 
 class AppointmentBloodTest(models.Model):
     """Связь между записью и выбранными анализами крови"""
