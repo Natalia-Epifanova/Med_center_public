@@ -460,7 +460,7 @@
                                     </td>
                                     <td>
                                     {% if slot.slot_type == 'working' %}
-                                        {% if is_admin or is_medical_admin %}
+
                                             {% get_appointment slot as appointment %}
                                             {% if appointment %}
 
@@ -509,7 +509,7 @@
                                                     </a>
                                                 {% endif %}
                                             {% endif %}
-                                        {% endif %}
+
                                     {% else %}
                                         <small class="text-muted">Недоступно для записи</small>
                                     {% endif %}
