@@ -2,11 +2,12 @@ import json
 from datetime import datetime
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.http import HttpResponseRedirect, JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
@@ -459,7 +460,7 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
 @csrf_exempt
 @medical_admin_or_admin_required
 def update_appointment_status(request, pk):
-    """AJAX view для обновления статуса записи"""
+    """AJAX view для обновления статуса записи с синхронизацией процедурной"""
     try:
         # Проверяем аутентификацию
         if not request.user.is_authenticated:
@@ -467,31 +468,103 @@ def update_appointment_status(request, pk):
                 {"success": False, "error": "Требуется авторизация"}, status=403
             )
 
-        appointment = Appointment.objects.get(pk=pk)
-
-        # Получаем статус из POST данных (не из JSON)
+        appointment = get_object_or_404(Appointment, pk=pk)
         new_status = request.POST.get("status")
 
-        if new_status in dict(Appointment.AppointmentStatus.choices):
-            appointment.status = new_status
-            appointment.save()
-
-            return JsonResponse(
-                {
-                    "success": True,
-                    "new_status": appointment.status,
-                    "new_status_display": appointment.get_status_display(),
-                    "status_class": get_status_badge_class(appointment.status),
-                }
-            )
-        else:
+        if new_status not in dict(Appointment.AppointmentStatus.choices):
             return JsonResponse(
                 {"success": False, "error": "Неверный статус"}, status=400
             )
+
+        old_status = appointment.status
+        appointment.status = new_status
+        appointment.save()
+
+        # СИНХРОНИЗАЦИЯ: Пробуем найти и обновить процедурную запись
+        synced_procedural = None
+        procedural_info = None
+
+        # Проверяем, находится ли текущая запись в процедурном кабинете?
+        is_procedural = (
+            appointment.cabinet.number == 6 if appointment.cabinet else False
+        )
+
+        if not is_procedural:
+            # Если это не процедурная запись, ищем связанную процедурную
+            synced_procedural = appointment.sync_status_with_procedural(
+                new_status, request.user
+            )
+
+            if synced_procedural:
+                procedural_info = {
+                    "id": synced_procedural.id,
+                    "cabinet": (
+                        synced_procedural.cabinet.number
+                        if synced_procedural.cabinet
+                        else "?"
+                    ),
+                    "old_status": old_status,
+                    "new_status": synced_procedural.status,
+                    "new_status_display": synced_procedural.get_status_display(),
+                }
+
+        response_data = {
+            "success": True,
+            "new_status": appointment.status,
+            "new_status_display": appointment.get_status_display(),
+            "status_class": get_status_badge_class(appointment.status),
+        }
+
+        # Добавляем информацию о синхронизации, если она была
+        if synced_procedural and procedural_info:
+            response_data["synced_procedural"] = procedural_info
+
+        return JsonResponse(response_data)
 
     except Appointment.DoesNotExist:
         return JsonResponse(
             {"success": False, "error": "Запись не найдена"}, status=404
         )
     except Exception as e:
-        return JsonResponse({"success": False, "error": str(e)}, status=500)
+        # ВЫВОДИМ ПОДРОБНУЮ ОШИБКУ для отладки
+        import traceback
+
+        error_details = traceback.format_exc()
+        print(f"ERROR in update_appointment_status: {e}\n{error_details}")
+        return JsonResponse(
+            {"success": False, "error": f"Ошибка сервера: {str(e)}"}, status=500
+        )
+
+
+@medical_admin_or_admin_required
+@require_POST
+def update_payment_method(request, pk):
+    """Обновление способа оплаты записи"""
+    appointment = get_object_or_404(Appointment, pk=pk)
+
+    # Проверяем права
+    if not (request.user.is_superuser or request.user.is_medical_admin):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": "Недостаточно прав для изменения способа оплаты",
+            }
+        )
+
+    payment_method = request.POST.get("payment_method")
+
+    # Валидация значения
+    valid_methods = dict(Appointment.PaymentMethod.choices).keys()
+    if payment_method in valid_methods:
+        appointment.payment_method = payment_method
+        appointment.save()
+
+        return JsonResponse(
+            {
+                "success": True,
+                "payment_method": appointment.payment_method,
+                "payment_method_display": appointment.get_payment_method_display(),
+            }
+        )
+
+    return JsonResponse({"success": False, "error": "Некорректный способ оплаты"})

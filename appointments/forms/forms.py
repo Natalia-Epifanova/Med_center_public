@@ -677,6 +677,12 @@ class AppointmentSimpleEditForm(forms.ModelForm):
     def save(self, commit=True):
         """Сохраняет запись с проверкой процедурного кабинета"""
         appointment = super().save(commit=False)
+        service_changed = False
+        if self.instance.pk:
+            original_service = self.instance.service
+            new_service = self.cleaned_data.get("service") or appointment.service
+            if original_service != new_service:
+                service_changed = True
 
         # Проверяем, нужно ли создать процедурную запись
         needs_procedural = self.cleaned_data.get("needs_procedural", False)
@@ -707,6 +713,8 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
                 # Обрабатываем процедурную запись
                 self._handle_procedural_appointment(appointment, needs_procedural)
+                if service_changed and hasattr(self, "_update_procedural_service"):
+                    self._update_procedural_service(appointment)
 
             except forms.ValidationError as e:
                 raise forms.ValidationError(str(e))
@@ -1525,24 +1533,47 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
             self.cleaned_data.get("insurance_type") or appointment.insurance_type
         )
 
-        # 5. Сохраняем комментарий как есть (без добавления информации об анализах)
+        # 5. Сохраняем комментарий
         user_comment = self.cleaned_data.get("comment", "")
         if user_comment != appointment.comment:
             appointment.comment = user_comment
-        # 6. Сохраняем общую сумму
-        total_sum = self.cleaned_data.get("total_sum")
-        if total_sum:
-            appointment.total_with_blood_tests = total_sum
-        elif not appointment.total_with_blood_tests:
-            # Если сумма не установлена, вычисляем ее
-            tests_price = appointment.get_tests_price
-            service_price = appointment.service.price if appointment.service else 0
-            appointment.total_with_blood_tests = tests_price + service_price
-        # 7. Сохраняем запись
+
+        # 6. Устанавливаем цену услуги
+        if appointment.service and not appointment.price_at_appointment:
+            appointment.price_at_appointment = appointment.service.price
+
+        # 7. УДАЛИТЕ весь блок с form_total_sum и замените на:
+        selected_blood_tests_input = self.cleaned_data.get(
+            "selected_blood_tests_input", ""
+        )
+        tests_price = 0
+
+        if selected_blood_tests_input and selected_blood_tests_input.strip():
+            test_ids = [
+                int(id.strip())
+                for id in selected_blood_tests_input.split(",")
+                if id.strip() and id.strip().isdigit()
+            ]
+
+            if test_ids:
+                tests_price = sum(
+                    BloodTest.objects.filter(id__in=test_ids).values_list(
+                        "price", flat=True
+                    )
+                )
+
+        service_price = appointment.price_at_appointment or (
+            appointment.service.price if appointment.service else 0
+        )
+        appointment.total_with_blood_tests = tests_price + service_price
+
+        # 8. Сохраняем запись
         if commit:
             appointment.save()
-            # 8. Обновляем анализы крови
+
+            # 9. Обновляем анализы крови
             self._update_blood_tests(appointment)
+            appointment.save()
 
         return appointment
 

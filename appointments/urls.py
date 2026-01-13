@@ -9,6 +9,7 @@ from appointments.views import (
     ProceduralAppointmentCreateView,
     ProceduralAppointmentUpdateView,
     update_appointment_status,
+    update_payment_method,
 )
 from appointments.views_api import (  # check_procedural_availability,
     api_get_next_slot,
@@ -78,5 +79,10 @@ urlpatterns = [
         "api/check-procedural-availability/",
         check_procedural_availability,
         name="api_check_procedural_availability",
+    ),
+    path(
+        "<int:pk>/update-payment-method/",
+        update_payment_method,
+        name="update_payment_method",
     ),
 ]
