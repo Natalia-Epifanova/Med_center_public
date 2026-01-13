@@ -475,7 +475,26 @@
                                                     </option>
                                                     {% endfor %}
                                                 </select>
-
+                                                {% if is_admin or is_medical_admin %}
+                                                <!-- Блок выбора способа оплаты (скрыт по умолчанию) -->
+                                                <div class="payment-method-selector mt-1 d-none"
+                                                     data-appointment-id="{{ appointment.pk }}">
+                                                    <div class="d-flex gap-1">
+                                                        <button type="button"
+                                                                class="btn btn-sm payment-method-btn flex-fill {% if appointment.payment_method == 'cash' %}active-cash{% endif %}"
+                                                                data-method="cash"
+                                                                title="Наличные">
+                                                            <i class="fas fa-money-bill-wave me-1"></i>Нал
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-sm payment-method-btn flex-fill {% if appointment.payment_method == 'card' %}active-card{% endif %}"
+                                                                data-method="card"
+                                                                title="Карта">
+                                                            <i class="fas fa-credit-card me-1"></i>Карта
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
                                                 <!-- Блок действий -->
                                                 <div class="btn-group btn-group-sm mt-1" role="group">
                                                     <!-- Кнопка просмотра записи -->

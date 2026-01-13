@@ -64,6 +64,7 @@ class Appointment(models.Model):
         CONFIRMED = "confirmed", _("Подтвержден")
         COMPLETED = "completed", _("Завершен")
         APPROACHED = "approached", _("Подошел")
+        IN_ROOM = "in_room", _("В кабинете")
         NOT_CALLED = "not_called", _("Не дозвонились")
         NO_RECEPTION = (
             "no_reception",
@@ -84,6 +85,17 @@ class Appointment(models.Model):
         MULTIPLE_DOCTORS = "multiple_doctors", _("Записи к разным врачам")
         PROCEDURAL = "procedural", _("С процедурным кабинетом")
 
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Наличные"
+        CARD = "card", "Карта"
+        NONE = "none", "Не выбрано"  # Добавляем значение по умолчанию
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.NONE,
+        verbose_name="Способ оплаты",
+    )
     # Основные связи
     time_slot = models.ForeignKey(
         TimeSlot,
