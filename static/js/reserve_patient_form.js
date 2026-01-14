@@ -87,7 +87,147 @@ function initializeFormValidation() {
     }
 }
 
-// === ОСНОВНАЯ ФУНКЦИЯ РУЧНОГО ПОИСКА (аналогично обычной записи) ===
+// === ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ВЫБОРА ПАЦИЕНТА ===
+
+// Функция выбора пациента из результатов поиска
+function selectPatientFromSearch(patient) {
+    console.log('Пациент выбран из поиска:', patient);
+
+    // Заполняем поля формы
+    fillFormWithPatientData(patient);
+
+    // Скрываем результаты поиска
+    const resultsContainer = document.getElementById('patient-search-results');
+    if (resultsContainer) resultsContainer.style.display = 'none';
+
+    const searchInput = document.getElementById('patient-search-input');
+    if (searchInput) searchInput.value = '';
+
+    // Показываем сообщение о выборе
+    const resultContainer = document.getElementById('patientCheckResult');
+    if (resultContainer) {
+        resultContainer.innerHTML = `
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i>
+                <strong>Пациент выбран:</strong> ${patient.full_name}
+                ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
+            </div>
+        `;
+        resultContainer.style.display = 'block';
+    }
+
+    // Показываем карточку пациента
+    showPatientCard(patient);
+
+    // Автоматическая проверка пациента
+    setTimeout(() => {
+        const checkBtn = document.getElementById('checkPatientBtn');
+        if (checkBtn) {
+            checkBtn.click();
+        }
+    }, 500);
+}
+
+// Функция заполнения формы данными пациента
+function fillFormWithPatientData(patient) {
+    const fieldIds = {
+        surname: 'id_surname',
+        first_name: 'id_first_name',
+        last_name: 'id_last_name',
+        phone_number: 'id_phone_number',
+        date_of_birth: 'id_date_of_birth'
+    };
+
+    function setFieldValue(fieldId, value) {
+        const field = document.getElementById(fieldId);
+        if (field && value !== undefined && value !== null) {
+            field.value = value;
+            // Триггерим события изменения для обновления автопоиска
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    }
+
+    // Основные поля
+    setFieldValue(fieldIds.surname, patient.surname || '');
+    setFieldValue(fieldIds.first_name, patient.first_name || '');
+    setFieldValue(fieldIds.last_name, patient.last_name || '');
+
+    // Телефон
+    if (patient.phone_number) {
+        let phone = patient.phone_number.toString();
+        if (!phone.startsWith('+')) {
+            if (phone.startsWith('8')) {
+                phone = '+7' + phone.slice(1);
+            } else if (phone.startsWith('7')) {
+                phone = '+' + phone;
+            } else {
+                phone = '+7' + phone;
+            }
+        }
+        setFieldValue(fieldIds.phone_number, phone);
+    }
+
+    // Дата рождения
+    if (patient.date_of_birth) {
+        try {
+            const dateStr = patient.date_of_birth;
+            if (dateStr.includes('.')) {
+                const parts = dateStr.split('.');
+                if (parts.length === 3) {
+                    const [day, month, year] = parts;
+                    const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    setFieldValue(fieldIds.date_of_birth, formattedDate);
+                }
+            } else {
+                setFieldValue(fieldIds.date_of_birth, dateStr);
+            }
+        } catch (e) {
+            console.warn('Ошибка форматирования даты:', e);
+            setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
+        }
+    }
+}
+
+// Функция показа карточки пациента
+function showPatientCard(patient) {
+    const cardSection = document.getElementById('patientCardSection');
+    const cardContent = document.getElementById('patientCardContent');
+
+    if (!cardSection || !cardContent) return;
+
+    let html = `
+        <div class="row">
+            <div class="col-md-6">
+                <p class="mb-1"><strong>ФИО:</strong> ${patient.full_name}</p>
+                ${patient.date_of_birth ? `<p class="mb-1"><strong>Дата рождения:</strong> ${patient.date_of_birth}</p>` : ''}
+            </div>
+            <div class="col-md-6">
+                ${patient.phone_number ? `<p class="mb-1"><strong>Телефон:</strong> ${patient.phone_number}</p>` : ''}
+                ${patient.card_number ? `<p class="mb-1"><strong>Номер карты:</strong> ${patient.card_number}</p>` : ''}
+            </div>
+        </div>
+    `;
+
+    cardContent.innerHTML = html;
+    cardSection.style.display = 'block';
+
+    // Добавляем обработчик для кнопки очистки
+    const clearBtn = document.getElementById('clearPatientBtn');
+    if (clearBtn) {
+        clearBtn.onclick = function() {
+            cardSection.style.display = 'none';
+            cardContent.innerHTML = '';
+            const fields = ['surname', 'first_name', 'last_name', 'phone_number', 'date_of_birth'];
+            fields.forEach(field => {
+                const el = document.getElementById(`id_${field}`);
+                if (el) el.value = '';
+            });
+        };
+    }
+}
+
+// === ОСНОВНАЯ ФУНКЦИЯ РУЧНОГО ПОИСКА ===
 function initializePatientSearch() {
     const searchInput = document.getElementById('patient-search-input');
     const searchBtn = document.getElementById('patient-search-btn');
@@ -136,7 +276,7 @@ function initializePatientSearch() {
                 return;
             }
 
-            // Отображаем найденных пациентов - КАК В ОБЫЧНОЙ ЗАПИСИ
+            // Отображаем найденных пациентов
             data.patients.forEach(patient => {
                 const item = document.createElement('button');
                 item.type = 'button';
@@ -159,7 +299,7 @@ function initializePatientSearch() {
                     </div>
                 `;
 
-                // Используем ту же функцию, что и в обычной записи
+                // Используем глобальную функцию selectPatientFromSearch
                 item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
                     selectPatientFromSearch(patient);
@@ -181,44 +321,6 @@ function initializePatientSearch() {
             searchBtn.disabled = false;
             searchBtn.innerHTML = '<i class="bi bi-search"></i> Найти';
         }
-    }
-
-    function selectPatientFromSearch(patient) {
-        console.log('Пациент выбран из ручного поиска:', patient);
-
-        // Заполняем поля формы
-        fillFormWithPatientData(patient);
-
-        // Скрываем результаты поиска
-        const resultsContainer = document.getElementById('patient-search-results');
-        if (resultsContainer) resultsContainer.style.display = 'none';
-
-        const searchInput = document.getElementById('patient-search-input');
-        if (searchInput) searchInput.value = '';
-
-        // Показываем сообщение о выборе
-        const resultContainer = document.getElementById('patientCheckResult');
-        if (resultContainer) {
-            resultContainer.innerHTML = `
-                <div class="alert alert-success">
-                    <i class="bi bi-check-circle"></i>
-                    <strong>Пациент выбран:</strong> ${patient.full_name}
-                    ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
-                </div>
-            `;
-            resultContainer.style.display = 'block';
-        }
-
-        // Показываем карточку пациента
-        showPatientCard(patient);
-
-        // Автоматическая проверка пациента
-        setTimeout(() => {
-            const checkBtn = document.getElementById('checkPatientBtn');
-            if (checkBtn) {
-                checkBtn.click();
-            }
-        }, 500);
     }
 
     // Обработчики событий
@@ -254,7 +356,7 @@ function initializePatientSearch() {
     });
 }
 
-// === ФУНКЦИЯ АВТОПОИСКА (как в обычной записи) ===
+// === ФУНКЦИЯ АВТОПОИСКА ===
 function initializeAutoPatientSearch() {
     const surnameInput = document.getElementById('id_surname');
     const firstNameInput = document.getElementById('id_first_name');
@@ -320,7 +422,7 @@ function initializeAutoPatientSearch() {
             if (data.count > 0 && filteredPatients.length > 0) {
                 filteredPatients = filteredPatients.filter(patient => {
                     const patientFirstName = patient.first_name || '';
-                    if (!patientFirstName.toLowerCase().includes(firstName.toLowerCase())) {
+                    if (firstName && !patientFirstName.toLowerCase().includes(firstName.toLowerCase())) {
                         return false;
                     }
 
@@ -364,7 +466,7 @@ function initializeAutoPatientSearch() {
             return;
         }
 
-        // Отображаем как в обычной записи
+        // Отображаем результаты
         patients.forEach(patient => {
             const item = document.createElement('button');
             item.type = 'button';
@@ -387,6 +489,7 @@ function initializeAutoPatientSearch() {
                 </div>
             `;
 
+            // Используем глобальную функцию selectPatientFromSearch
             item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 selectPatientFromSearch(patient);
@@ -496,21 +599,13 @@ function initializePatientCheck() {
                                 ${patient.phone_number ? `<p class="mb-1"><strong>Телефон:</strong> ${patient.phone_number}</p>` : ''}
                                 ${patient.card_number ? `<p class="mb-1"><strong>Карта:</strong> ${patient.card_number}</p>` : ''}
                                 ${patient.date_of_birth ? `<p class="mb-1"><strong>Дата рождения:</strong> ${patient.date_of_birth}</p>` : ''}
-                                <p class="mb-0 mt-2">
-                                    <button type="button" class="btn btn-sm btn-warning" id="useExistingPatientBtn">
-                                        Использовать этого пациента
-                                    </button>
-                                </p>
+
                             </div>
                         </div>
                     </div>
                 `;
 
-                document.getElementById('useExistingPatientBtn').addEventListener('click', function() {
-                    fillFormWithPatientData(patient);
-                    showPatientCard(patient);
-                    checkResult.style.display = 'none';
-                });
+
             } else {
                 checkResult.innerHTML = `
                     <div class="alert alert-success">
@@ -535,102 +630,7 @@ function initializePatientCheck() {
     }
 }
 
-// === ОБЩИЕ ФУНКЦИИ ===
-function fillFormWithPatientData(patient) {
-    const fieldIds = {
-        surname: 'id_surname',
-        first_name: 'id_first_name',
-        last_name: 'id_last_name',
-        phone_number: 'id_phone_number',
-        date_of_birth: 'id_date_of_birth'
-    };
-
-    function setFieldValue(fieldId, value) {
-        const field = document.getElementById(fieldId);
-        if (field && value !== undefined && value !== null) {
-            field.value = value;
-            field.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-    }
-
-    // Основные поля
-    setFieldValue(fieldIds.surname, patient.surname || '');
-    setFieldValue(fieldIds.first_name, patient.first_name || '');
-    setFieldValue(fieldIds.last_name, patient.last_name || '');
-
-    // Телефон
-    if (patient.phone_number) {
-        let phone = patient.phone_number.toString();
-        if (!phone.startsWith('+')) {
-            if (phone.startsWith('8')) {
-                phone = '+7' + phone.slice(1);
-            } else if (phone.startsWith('7')) {
-                phone = '+' + phone;
-            } else {
-                phone = '+7' + phone;
-            }
-        }
-        setFieldValue(fieldIds.phone_number, phone);
-    }
-
-    // Дата рождения
-    if (patient.date_of_birth) {
-        try {
-            const dateStr = patient.date_of_birth;
-            if (dateStr.includes('.')) {
-                const parts = dateStr.split('.');
-                if (parts.length === 3) {
-                    const [day, month, year] = parts;
-                    const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                    setFieldValue(fieldIds.date_of_birth, formattedDate);
-                }
-            } else {
-                setFieldValue(fieldIds.date_of_birth, dateStr);
-            }
-        } catch (e) {
-            console.warn('Ошибка форматирования даты:', e);
-            setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
-        }
-    }
-}
-
-function showPatientCard(patient) {
-    const cardSection = document.getElementById('patientCardSection');
-    const cardContent = document.getElementById('patientCardContent');
-
-    if (!cardSection || !cardContent) return;
-
-    let html = `
-        <div class="row">
-            <div class="col-md-6">
-                <p class="mb-1"><strong>ФИО:</strong> ${patient.full_name}</p>
-                ${patient.date_of_birth ? `<p class="mb-1"><strong>Дата рождения:</strong> ${patient.date_of_birth}</p>` : ''}
-            </div>
-            <div class="col-md-6">
-                ${patient.phone_number ? `<p class="mb-1"><strong>Телефон:</strong> ${patient.phone_number}</p>` : ''}
-                ${patient.card_number ? `<p class="mb-1"><strong>Номер карты:</strong> ${patient.card_number}</p>` : ''}
-            </div>
-        </div>
-    `;
-
-    cardContent.innerHTML = html;
-    cardSection.style.display = 'block';
-
-    // Добавляем обработчик для кнопки очистки
-    const clearBtn = document.getElementById('clearPatientBtn');
-    if (clearBtn) {
-        clearBtn.onclick = function() {
-            cardSection.style.display = 'none';
-            cardContent.innerHTML = '';
-            const fields = ['surname', 'first_name', 'last_name', 'phone_number', 'date_of_birth'];
-            fields.forEach(field => {
-                const el = document.getElementById(`id_${field}`);
-                if (el) el.value = '';
-            });
-        };
-    }
-}
-
+// === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {

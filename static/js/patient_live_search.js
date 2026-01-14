@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Отображение результатов
-    function displayResults(patients, query) {
+    function displayResults(patients, query, total_count) {
         // Скрываем таблицу и пагинацию
         if (patientsTable) patientsTable.style.display = 'none';
         if (paginationSection) paginationSection.style.display = 'none';
@@ -124,6 +124,22 @@ document.addEventListener('DOMContentLoaded', function() {
         // Обновляем счетчик
         resultsCount.textContent = patients.length;
 
+        // Добавляем информацию об общем количестве, если есть
+        let countInfo = '';
+        if (total_count && total_count > patients.length) {
+            countInfo = `<div class="alert alert-info alert-sm mb-2">
+                <i class="fas fa-info-circle"></i> Показано ${patients.length} из ${total_count} найденных пациентов.
+                Уточните запрос для более точного поиска.
+            </div>`;
+        }
+
+        // Добавляем заголовок с информацией
+        if (countInfo) {
+            const infoDiv = document.createElement('div');
+            infoDiv.innerHTML = countInfo;
+            resultsContainer.appendChild(infoDiv);
+        }
+
         // Добавляем каждого пациента
         patients.forEach(patient => {
             const resultItem = createResultItem(patient, query);
@@ -134,6 +150,39 @@ document.addEventListener('DOMContentLoaded', function() {
         searchResults.style.display = 'block';
     }
 
+    // Выполнение поиска
+    function performSearch(query) {
+        if (query === currentSearch) return;
+
+        currentSearch = query;
+
+        // Показываем индикатор загрузки
+        showLoading();
+
+        // Выполняем поиск
+        fetch(`/patients/api/search-patients/?q=${encodeURIComponent(query)}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Ошибка поиска');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    showError(data.error);
+                    return;
+                }
+
+                displayResults(data.patients || [], query, data.total_count);
+            })
+            .catch(error => {
+                showError(`Ошибка при поиске: ${error.message}`);
+            })
+            .finally(() => {
+                // Скрываем индикатор загрузки
+                hideLoading();
+            });
+    }
     // Создание элемента результата
     function createResultItem(patient, query) {
         const item = document.createElement('div');
