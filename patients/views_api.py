@@ -87,7 +87,7 @@ def check_patient_api(request):
 @csrf_exempt
 @require_http_methods(["GET"])
 def search_patients_api(request):
-    """API для поиска пациентов с поиском по дате рождения (простая версия)"""
+    """API для поиска пациентов с поиском по дате рождения"""
     try:
         search_query = request.GET.get("q", "").strip()
 
@@ -96,79 +96,142 @@ def search_patients_api(request):
                 {"error": "Введите хотя бы 2 символа для поиска"}, status=400
             )
 
-        from django.db import connection
         from django.db.models import Q
 
-        # Начинаем с пустого queryset
-        patients = Patient.objects.none()
+        # Разбиваем поисковый запрос на слова
+        search_words = search_query.split()
 
-        print(f"Поиск: '{search_query}'")
+        # Начинаем с базового queryset
+        query = Q()
 
-        # 1. Пробуем найти по точной дате в разных форматах
-        date_formats = ["%d.%m.%Y", "%Y-%m-%d", "%d.%m.%y", "%Y%m%d", "%d%m%Y"]
-
-        for fmt in date_formats:
-            try:
-                date_obj = datetime.strptime(search_query, fmt).date()
-                print(f"Найдена дата в формате {fmt}: {date_obj}")
-                patients = Patient.objects.filter(date_of_birth=date_obj)[:10]
-                if patients.exists():
-                    print(f"Найдено по точной дате: {patients.count()}")
-                    break
-            except ValueError:
-                continue
-
-        # 2. Если не нашли по точной дате, ищем по текстовым полям
-        if not patients.exists():
-            print("Ищем по текстовым полям и частичным датам")
-
-            # Создаем базовый queryset для текстового поиска
-            text_search = Patient.objects.filter(
-                Q(surname__icontains=search_query)
-                | Q(first_name__icontains=search_query)
-                | Q(last_name__icontains=search_query)
-                | Q(phone_number__icontains=search_query)
-                | Q(card_number__icontains=search_query)
+        # Создаем условия для поиска по каждому слову
+        for word in search_words:
+            word_query = Q(
+                Q(surname__icontains=word)
+                | Q(first_name__icontains=word)
+                | Q(last_name__icontains=word)
+                | Q(phone_number__icontains=word)
+                | Q(card_number__icontains=word)
+                | Q(card_number_IP__icontains=word)
+                | Q(card_number_OMS__icontains=word)
             )
 
-            # 3. ДОБАВЛЯЕМ: поиск по дате рождения через аннотацию
-            from django.db.models import CharField, Value
-            from django.db.models.functions import Cast, Concat
-
+            # 1. Поиск по полной дате в формате дд.мм.гггг
             try:
-                # Преобразуем дату в строку для поиска
-                if search_query.replace(".", "").replace("-", "").isdigit():
-                    # Для SQLite
-                    if connection.vendor == "sqlite":
-                        date_search = Patient.objects.extra(
-                            where=["strftime('%%d.%%m.%%Y', date_of_birth) LIKE %s"],
-                            params=[f"%{search_query}%"],
-                        )
-                    # Для PostgreSQL
-                    elif connection.vendor == "postgresql":
-                        date_search = Patient.objects.extra(
-                            where=["to_char(date_of_birth, 'DD.MM.YYYY') LIKE %s"],
-                            params=[f"%{search_query}%"],
-                        )
-                    # Для MySQL
-                    else:
-                        date_search = Patient.objects.extra(
-                            where=["DATE_FORMAT(date_of_birth, '%%d.%%m.%%Y') LIKE %s"],
-                            params=[f"%{search_query}%"],
-                        )
+                date_obj = datetime.strptime(word, "%d.%m.%Y").date()
+                word_query |= Q(date_of_birth=date_obj)
+            except ValueError:
+                pass
 
-                    # Объединяем результаты
-                    patients = (text_search | date_search).distinct()[:10]
-                    print(f"Найдено по тексту и дате: {patients.count()}")
+            # 2. Поиск по частичным датам с 2 точками (дд.мм.гг, дд.мм.г, дд.мм.ггг)
+            if word.count(".") == 2:
+                parts = word.split(".")
+
+                # Проверяем, что все три части - числа
+                if len(parts) == 3 and all(p.isdigit() for p in parts):
+                    try:
+                        day = int(parts[0])
+                        month = int(parts[1])
+                        year_part = parts[2]
+
+                        # Проверяем день и месяц на валидность
+                        if 1 <= day <= 31 and 1 <= month <= 12:
+                            # Проверяем разные варианты года
+                            if len(year_part) == 4:
+                                # Полный год (гггг)
+                                year = int(year_part)
+                                if 1900 <= year <= 2100:
+                                    word_query |= Q(
+                                        date_of_birth__day=day,
+                                        date_of_birth__month=month,
+                                        date_of_birth__year=year,
+                                    )
+                            elif len(year_part) <= 3:
+                                # Частичный год (г, гг, ггг) - ищем через LIKE
+                                # Для PostgreSQL используем to_char
+                                pattern = f"{year_part}%"
+                                patients = Patient.objects.extra(
+                                    where=[
+                                        "EXTRACT(DAY FROM date_of_birth) = %s AND "
+                                        "EXTRACT(MONTH FROM date_of_birth) = %s AND "
+                                        "to_char(date_of_birth, 'YYYY') LIKE %s"
+                                    ],
+                                    params=[day, month, pattern],
+                                )
+                                word_query |= Q(id__in=patients.values("id"))
+                    except (ValueError, IndexError):
+                        pass
+
+            # 3. Поиск по формату "день.месяц" (04.03)
+            elif "." in word and word.count(".") == 1:
+                parts = word.split(".")
+                if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                    try:
+                        day = int(parts[0])
+                        month = int(parts[1])
+                        if 1 <= day <= 31 and 1 <= month <= 12:
+                            word_query |= Q(
+                                date_of_birth__day=day, date_of_birth__month=month
+                            )
+                    except ValueError:
+                        pass
+
+            # 4. Поиск по году (4 цифры или 1-3 цифры)
+            if word.isdigit() and len(word) <= 4:
+                # Для полного года (4 цифры)
+                if len(word) == 4:
+                    try:
+                        year = int(word)
+                        if 1900 <= year <= 2100:
+                            word_query |= Q(date_of_birth__year=year)
+                    except ValueError:
+                        pass
+                # Для части года (1-3 цифры) - ищем год, который начинается с этих цифр
                 else:
-                    patients = text_search[:10]
-                    print(f"Найдено только по тексту: {patients.count()}")
+                    patients = Patient.objects.extra(
+                        where=["to_char(date_of_birth, 'YYYY') LIKE %s"],
+                        params=[f"{word}%"],
+                    )
+                    word_query |= Q(id__in=patients.values("id"))
 
-            except Exception as db_error:
-                print(f"Ошибка поиска по дате: {db_error}")
-                patients = text_search[:10]
+            # 5. Поиск по месяцу (число 1-12)
+            if word.isdigit() and 1 <= int(word) <= 12:
+                word_query |= Q(date_of_birth__month=int(word))
 
-        # 4. Формируем ответ
+            # 6. Поиск по дню (число 1-31)
+            if word.isdigit() and 1 <= int(word) <= 31:
+                word_query |= Q(date_of_birth__day=int(word))
+
+            # 7. Простой поиск по вхождению в строковое представление даты
+            # (для случаев когда не распознали как дату, но есть цифры)
+            if any(char.isdigit() for char in word):
+                # Ищем вхождение слова в строку формата "дд.мм.гггг"
+                patients = Patient.objects.extra(
+                    where=["to_char(date_of_birth, 'DD.MM.YYYY') LIKE %s"],
+                    params=[f"%{word}%"],
+                )
+                word_query |= Q(id__in=patients.values("id"))
+
+            # Добавляем условия в основной запрос
+            if word_query:
+                query &= word_query
+
+        # Если нет условий
+        if query == Q():
+            query = Q(surname__icontains=search_query) | Q(
+                first_name__icontains=search_query
+            )
+
+        # Выполняем поиск
+        patients = Patient.objects.filter(query).distinct()
+
+        # Подсчитываем общее количество
+        total_count = patients.count()
+
+        # Берем результаты с разумным ограничением
+        patients = patients[:200]
+
+        # Формируем ответ
         patients_list = []
         for patient in patients:
             patients_list.append(
@@ -179,6 +242,8 @@ def search_patients_api(request):
                     "last_name": patient.last_name or "",
                     "full_name": patient.get_full_name(),
                     "card_number": patient.card_number,
+                    "card_number_IP": patient.card_number_IP,
+                    "card_number_OMS": patient.card_number_OMS,
                     "phone_number": patient.phone_number,
                     "date_of_birth": (
                         patient.date_of_birth.strftime("%d.%m.%Y")
@@ -191,6 +256,7 @@ def search_patients_api(request):
         return JsonResponse(
             {
                 "count": len(patients_list),
+                "total_count": total_count,
                 "patients": patients_list,
             }
         )
