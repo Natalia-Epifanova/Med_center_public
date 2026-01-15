@@ -38,8 +38,9 @@ from users.permissions.mixins import (
 )
 
 
-class HomeView(TemplateView):
+class HomeView(LoginRequiredMixin, TemplateView):
     template_name = "timetable/home.html"
+    login_url = "/users/login/"
 
 
 class TimeSlotCreateView(AdminRequiredMixin, FormView):
@@ -164,6 +165,7 @@ class TimeSlotDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
 
 class ScheduleDayView(LoginRequiredMixin, TemplateView):
     template_name = "timetable/schedule_day.html"
+    login_url = "/users/login/"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
