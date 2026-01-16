@@ -31,6 +31,8 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
             "insurance_type",
             "needs_reschedule",
             "comment",
+            "selected_blood_tests_input",  # Добавьте это
+            "total_sum",  # Добавьте это
         ]
 
     allow_time_change = forms.BooleanField(
@@ -48,6 +50,19 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
         required=False,
         widget=forms.HiddenInput(attrs={"id": "id_new_appointment_date"}),
         label="Новая дата приема",
+    )
+    selected_blood_tests_input = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_selected_blood_tests"}),
+        label="Выбранные анализы крови",
+    )
+
+    total_sum = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.HiddenInput(attrs={"id": "id_total_sum"}),
+        label="Итоговая сумма",
     )
 
     def __init__(self, *args, **kwargs):
@@ -167,6 +182,39 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
 
                 # ВАЖНО: Сохраняем основную запись сразу для получения ID
                 appointment.save()
+                selected_blood_tests_input = self.cleaned_data.get(
+                    "selected_blood_tests_input", ""
+                )
+                selected_test_ids = []
+
+                if selected_blood_tests_input and selected_blood_tests_input.strip():
+                    try:
+                        test_ids = [
+                            int(id.strip())
+                            for id in selected_blood_tests_input.split(",")
+                            if id.strip() and id.strip().isdigit()
+                        ]
+                        selected_test_ids = test_ids
+
+                        # Добавляем анализы к записи
+                        for test_id in selected_test_ids:
+                            AppointmentBloodTest.objects.create(
+                                appointment=appointment, blood_test_id=test_id
+                            )
+
+                        # Обновляем комментарий если есть анализы
+                        if selected_test_ids and appointment.comment:
+                            tests = BloodTest.objects.filter(id__in=selected_test_ids)
+                            if tests.exists():
+                                tests_list = ", ".join([test.name for test in tests])
+                                if "Анализы:" not in appointment.comment:
+                                    appointment.comment = (
+                                        f"{appointment.comment}\nАнализы: {tests_list}"
+                                    )
+                                    appointment.save()
+
+                    except (ValueError, TypeError) as e:
+                        print(f"Error parsing blood test IDs: {e}")
 
                 if appointment_chain_type in ["another_doctor", "multiple"]:
                     if not appointment.comment:
