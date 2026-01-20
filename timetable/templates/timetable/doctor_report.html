@@ -4,13 +4,14 @@
 <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
     <h1 class="display-6">Отчет по врачам</h1>
     <p class="lead">За {{ report_date|date:"d.m.Y" }}</p>
+    <p class="text-muted small">Только завершенные приемы</p>
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="container">
     <div class="row mb-4">
-        <div class="col-md-10 mx-auto">
+        <div class="col-md-12 mx-auto">
             <div class="card">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <h5 class="mb-0">
@@ -28,30 +29,130 @@
                 </div>
                 <div class="card-body">
                     {% if report_data %}
-                        {% for doctor, services in report_data.items %}
-                        <div class="doctor-report mb-4 p-3 border rounded">
-                            <h5 class="text-primary mb-3">
-                                <strong>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</strong>
-                                <small class="text-muted">({{ doctor.get_specialization_display }})</small>
-                            </h5>
-
-                            <div class="services-list">
-                                {% for service_name, count in services.items %}
-                                <div class="service-item d-flex justify-content-between align-items-center py-2 border-bottom">
-                                    <span>{{ service_name }}</span>
-                                    <span class="badge bg-primary rounded-pill">{{ count }}</span>
-                                </div>
-                                {% endfor %}
+                        {% for doctor, data in report_data.items %}
+                        <div class="doctor-report mb-4 p-3 border rounded bg-light">
+                            <div class="doctor-header mb-3">
+                                <h5 class="text-primary mb-2">
+                                    <small>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</small>
+                                    <small class="text-muted">({{ doctor.get_specialization_display }})</small>
+                                </h5>
                             </div>
+
+                            <!-- Только для ревматологов показываем ОМС отдельно -->
+                            {% if data.oms_total > 0 %}
+                            <div class="oms-section mb-3">
+                                <h6 class="text-success mb-2">
+                                    <i class="fas fa-hospital"></i> ОМС
+                                </h6>
+
+                                <div class="row mb-2">
+                                    <div class="col-md-4">
+                                        <div class="card bg-light border-success">
+                                            <div class="card-body py-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span>Всего ОМС консультаций:</span>
+                                                    <span class="badge bg-success rounded-pill">{{ data.oms_total }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-light border-success">
+                                            <div class="card-body py-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span>Первичные ОМС конс:</span>
+                                                    <span class="badge bg-info rounded-pill">{{ data.oms_primary }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="card bg-light border-success">
+                                            <div class="card-body py-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span>Повторные ОМС конс:</span>
+                                                    <span class="badge bg-warning rounded-pill">{{ data.oms_repeat }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Манипуляции (для всех врачей) -->
+                            {% if data.manipulations > 0 or data.prp_therapy > 0 %}
+                            <div class="manipulations-section mb-3">
+                                <h6 class="text-danger mb-2">
+                                    <i class="fas fa-syringe"></i> Манипуляции
+                                </h6>
+
+                                <div class="row mb-2">
+                                    {% if data.manipulations > 0 %}
+                                    <div class="col-md-{% if data.prp_therapy > 0 %}6{% else %}12{% endif %}">
+                                        <div class="card bg-light border-danger">
+                                            <div class="card-body py-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span>Манипуляции:</span>
+                                                    <span class="badge bg-danger rounded-pill">{{ data.manipulations }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if data.prp_therapy > 0 %}
+                                    <div class="col-md-{% if data.manipulations > 0 %}6{% else %}12{% endif %}">
+                                        <div class="card bg-light border-warning">
+                                            <div class="card-body py-2">
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <span>PRP терапия:</span>
+                                                    <span class="badge bg-warning rounded-pill">{{ data.prp_therapy }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Все остальные услуги (для всех врачей) -->
+                            {% if data.other_services %}
+                            <div class="services-section">
+                                <h6 class="text-primary mb-2">
+                                    <i class="fas fa-stethoscope"></i>
+                                    {% if doctor.specialization == "rheumatologist" %}
+                                        Другие услуги
+                                    {% else %}
+                                        Оказанные услуги
+                                    {% endif %}
+                                </h6>
+
+                                <div class="services-list">
+                                    {% for service_name, count in data.other_services.items %}
+                                    <div class="service-item d-flex justify-content-between align-items-center py-2 border-bottom">
+                                        <span>{{ service_name }}</span>
+                                        <span class="badge bg-primary rounded-pill">{{ count }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            <!-- Если у врача вообще нет услуг -->
+                            {% if data.oms_total == 0 and data.manipulations == 0 and data.prp_therapy == 0 and not data.other_services %}
+                            <div class="text-center py-3">
+                                <span class="text-muted">Нет завершенных приемов</span>
+                            </div>
+                            {% endif %}
                         </div>
                         {% endfor %}
-
-
                     {% else %}
                         <div class="text-center py-5">
                             <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
                             <h5 class="text-muted">Нет данных для отчета</h5>
-                            <p class="text-muted">На выбранную дату нет записей на прием</p>
+                            <p class="text-muted">На выбранную дату нет завершенных приемов</p>
                         </div>
                     {% endif %}
                 </div>
@@ -59,4 +160,43 @@
         </div>
     </div>
 </div>
+
+<style>
+.doctor-report {
+    background-color: #f8f9fa;
+}
+
+.oms-section .card,
+.manipulations-section .card {
+    transition: transform 0.2s;
+}
+
+.oms-section .card:hover,
+.manipulations-section .card:hover {
+    transform: translateY(-2px);
+}
+
+.service-item {
+    transition: background-color 0.2s;
+}
+
+.service-item:hover {
+    background-color: #e9ecef;
+}
+
+.badge {
+    min-width: 50px;
+}
+
+@media print {
+    .btn {
+        display: none !important;
+    }
+
+    .doctor-report {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+}
+</style>
 {% endblock %}
