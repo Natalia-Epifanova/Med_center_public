@@ -1,0 +1,210 @@
+{% extends "timetable/base.html" %}
+{% load static %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Отчет по врачам за период</h1>
+    <p class="lead">Выберите период для формирования отчета</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-md-6 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt"></i> Выбор периода
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" action="{% url 'timetable:doctor_report' %}" id="reportForm">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="start_date" class="form-label">
+                                    <i class="fas fa-calendar-day"></i> Дата начала
+                                </label>
+                                <input type="date" 
+                                       class="form-control" 
+                                       id="start_date" 
+                                       name="start_date"
+                                       value="{{ default_start|date:'Y-m-d' }}"
+                                       required>
+                                <div class="form-text">Выберите начальную дату периода</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="end_date" class="form-label">
+                                    <i class="fas fa-calendar-day"></i> Дата окончания
+                                </label>
+                                <input type="date" 
+                                       class="form-control" 
+                                       id="end_date" 
+                                       name="end_date"
+                                       value="{{ default_end|date:'Y-m-d' }}"
+                                       required>
+                                <div class="form-text">Выберите конечную дату периода</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="quickPeriods">
+                                <label class="form-check-label" for="quickPeriods">
+                                    Быстрый выбор периода
+                                </label>
+                            </div>
+                            
+                            <div id="quickPeriodsContainer" style="display: none;" class="mt-2">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-secondary" onclick="setPeriod('today')">
+                                        Сегодня
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="setPeriod('week')">
+                                        Эта неделя
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="setPeriod('month')">
+                                        Этот месяц
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary" onclick="setPeriod('prev_month')">
+                                        Прошлый месяц
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{% url 'timetable:schedule_day' %}" class="btn btn-secondary me-md-2">
+                                <i class="fas fa-arrow-left"></i> Назад
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-chart-bar"></i> Сформировать отчет
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle"></i> Информация
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">
+                        <strong>Отчет включает:</strong>
+                    </p>
+                    <ul class="mb-0">
+                        <li>Только завершенные приемы</li>
+                        <li>Разделение услуг по категориям</li>
+                        <li>Отдельный учет ОМС для ревматологов</li>
+                        <li>Отдельный учет манипуляций и PRP терапии</li>
+                        <li>Статистику по всем врачам</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Показать/скрыть быстрый выбор периодов
+    const quickPeriodsCheck = document.getElementById('quickPeriods');
+    const quickPeriodsContainer = document.getElementById('quickPeriodsContainer');
+    
+    quickPeriodsCheck.addEventListener('change', function() {
+        quickPeriodsContainer.style.display = this.checked ? 'block' : 'none';
+    });
+    
+    // Установить максимальную дату как сегодня
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('start_date').max = today;
+    document.getElementById('end_date').max = today;
+});
+
+function setPeriod(period) {
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const today = new Date();
+    
+    let startDate = new Date();
+    let endDate = new Date();
+    
+    switch(period) {
+        case 'today':
+            // Сегодня
+            break;
+        case 'week':
+            // Эта неделя (понедельник - сегодня)
+            const day = startDate.getDay();
+            const diff = startDate.getDate() - day + (day === 0 ? -6 : 1);
+            startDate.setDate(diff);
+            break;
+        case 'month':
+            // Этот месяц (1-е число - сегодня)
+            startDate.setDate(1);
+            break;
+        case 'prev_month':
+            // Прошлый месяц (1-е число - последний день прошлого месяца)
+            startDate.setMonth(startDate.getMonth() - 1);
+            startDate.setDate(1);
+            endDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+            break;
+    }
+    
+    // Форматируем даты в YYYY-MM-DD
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+    
+    startDateInput.value = formatDate(startDate);
+    endDateInput.value = formatDate(endDate);
+}
+
+// Проверка, что дата начала не позже даты окончания
+document.getElementById('reportForm').addEventListener('submit', function(e) {
+    const startDate = new Date(document.getElementById('start_date').value);
+    const endDate = new Date(document.getElementById('end_date').value);
+    
+    if (startDate > endDate) {
+        e.preventDefault();
+        alert('Дата начала не может быть позже даты окончания!');
+        return false;
+    }
+    
+    // Проверка, что период не слишком большой (максимум 1 год)
+    const diffTime = Math.abs(endDate - startDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 365) {
+        e.preventDefault();
+        alert('Максимальный период для отчета - 1 год!');
+        return false;
+    }
+    
+    return true;
+});
+</script>
+
+<style>
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.btn-group .btn {
+    border-radius: 5px;
+}
+
+.form-label {
+    font-weight: 500;
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+</style>
+{% endblock %}
