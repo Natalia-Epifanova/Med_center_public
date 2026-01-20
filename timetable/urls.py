@@ -16,6 +16,7 @@ from timetable.views import (
     TimeSlotUpdateView,
     save_day_comment,
     save_cabinet_day_comment,
+    DoctorReportPeriodView,
 )
 from timetable.views_api import week_schedule_preview, delete_all_doctor_slots
 
@@ -47,7 +48,20 @@ urlpatterns = [
         name="reschedule_requests",
     ),
     path("day-comment/save/", save_day_comment, name="save_day_comment"),
-    path("doctor-report/<str:date>/", DoctorReportView.as_view(), name="doctor_report"),
+    # Отчеты по врачам - два URL: с датой и без (для выбора периода через GET параметры)
+    path(
+        "doctor-report/", DoctorReportView.as_view(), name="doctor_report"
+    ),  # <-- ДОБАВЬТЕ ЭТОТ URL
+    path(
+        "doctor-report/<str:date>/",
+        DoctorReportView.as_view(),
+        name="doctor_report_date",
+    ),
+    path(
+        "doctor-report/period/",
+        DoctorReportPeriodView.as_view(),
+        name="doctor_report_period",
+    ),
     path("copy-schedule/", CopyScheduleView.as_view(), name="copy_schedule"),
     path(
         "copy-weekly-schedule/",

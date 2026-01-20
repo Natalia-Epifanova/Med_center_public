@@ -522,36 +522,79 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        date_str = self.kwargs.get("date")
+        context["today"] = timezone.now().date()
 
-        try:
-            report_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            report_date = datetime.now().date()
+        # Проверяем, есть ли дата в kwargs (если доступ через URL с датой)
+        date_from_url = kwargs.get("date")
 
-        # Получаем только завершенные записи на указанную дату
-        appointments = Appointment.objects.filter(
-            time_slot__date=report_date, status="completed"
-        ).select_related(
-            "time_slot__doctor",
-            "service",
-            "patient",
-        )
+        if date_from_url:
+            # Если доступ через URL типа /doctor-report/2026-01-21/
+            try:
+                start_date = datetime.strptime(date_from_url, "%Y-%m-%d").date()
+                end_date = start_date
+                is_period = False
+                start_date_str = date_from_url
+                end_date_str = date_from_url
+            except ValueError:
+                start_date = timezone.now().date()
+                end_date = start_date
+                is_period = False
+                start_date_str = ""
+                end_date_str = ""
+                messages.error(self.request, "Неверный формат даты")
+        else:
+            # Получаем даты из GET параметров
+            start_date_str = self.request.GET.get("start_date", "")
+            end_date_str = self.request.GET.get("end_date", "")
+
+            # Если не указаны даты, используем сегодняшнюю дату
+            if not start_date_str:
+                start_date = timezone.now().date()
+                end_date = start_date
+                is_period = False
+            else:
+                try:
+                    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    if end_date_str:
+                        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                    else:
+                        end_date = start_date
+                    is_period = True
+                except ValueError:
+                    start_date = timezone.now().date()
+                    end_date = start_date
+                    is_period = False
+                    messages.error(self.request, "Неверный формат даты")
 
         # Определяем названия ОМС услуг (только для ревматологов)
         OMS_PRIMARY = "Прием (осмотр, консультация) врача-ревматолога первичный"
         OMS_REPEAT = "Прием (осмотр, консультация) врача-ревматолога повторный (не позднее месяца от первичного)"
 
-        # Определяем названия услуг для особой обработки
+        # Определяем ключевые слова для PRP терапии
         PRP_KEYWORDS = ["PRP терапия", "PRP-терапия", "плазмолифтинг"]
+
+        # Получаем записи за период
+        appointments = (
+            Appointment.objects.filter(
+                time_slot__date__gte=start_date,
+                time_slot__date__lte=end_date,
+                status="completed",
+            )
+            .select_related(
+                "time_slot__doctor",
+                "service",
+                "patient",
+            )
+            .order_by("time_slot__date")
+        )
 
         # Группируем по врачам
         report_data = {}
 
         for appointment in appointments:
             doctor = appointment.time_slot.doctor
-            service = appointment.service  # Получаем объект услуги
-            service_name = service.name
+            service = appointment.service
+            service_name = service.name if service else ""
             service_category = service.category if service else None
             insurance_type = appointment.insurance_type
 
@@ -560,9 +603,9 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                     "oms_total": 0,
                     "oms_primary": 0,
                     "oms_repeat": 0,
-                    "manipulations": 0,  # Манипуляции (кроме PRP)
-                    "prp_therapy": 0,  # PRP терапия отдельно
-                    "other_services": {},  # Остальные услуги
+                    "manipulations": 0,
+                    "prp_therapy": 0,
+                    "other_services": {},
                 }
 
             # Проверяем тип оплаты через insurance_type
@@ -570,6 +613,8 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
 
             # Проверяем категорию услуги
             is_medical_blockade = service_category == "medical_blockades"
+
+            # Проверяем, является ли услуга PRP терапией
             is_prp_therapy = any(
                 keyword.lower() in service_name.lower() for keyword in PRP_KEYWORDS
             )
@@ -577,13 +622,11 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
             # Если это медицинская блокада (манипуляция)
             if is_medical_blockade:
                 if is_prp_therapy:
-                    # PRP терапия отдельно
                     report_data[doctor]["prp_therapy"] += 1
                 else:
-                    # Остальные манипуляции
                     report_data[doctor]["manipulations"] += 1
             else:
-                # Для ревматологов считаем ОМС отдельно (только для консультаций)
+                # Для ревматологов считаем ОМС отдельно
                 if doctor.specialization == "rheumatologist" and is_oms:
                     report_data[doctor]["oms_total"] += 1
 
@@ -593,23 +636,42 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                     elif service_name == OMS_REPEAT:
                         report_data[doctor]["oms_repeat"] += 1
                     else:
-                        # Для других ОМС услуг добавляем в общие услуги
                         if service_name not in report_data[doctor]["other_services"]:
                             report_data[doctor]["other_services"][service_name] = 0
                         report_data[doctor]["other_services"][service_name] += 1
                 else:
-                    # Все остальные услуги (платные для ревматологов и все для других врачей)
                     if service_name not in report_data[doctor]["other_services"]:
                         report_data[doctor]["other_services"][service_name] = 0
                     report_data[doctor]["other_services"][service_name] += 1
 
         context.update(
             {
-                "report_date": report_date,
+                "start_date": start_date,
+                "end_date": end_date,
+                "is_period": is_period,
                 "report_data": report_data,
-                "selected_date": report_date,
+                "selected_start_date": start_date_str,
+                "selected_end_date": end_date_str,
             }
         )
+        return context
+
+
+class DoctorReportPeriodView(AdminRequiredMixin, TemplateView):
+    """Страница выбора периода для отчета по врачам"""
+
+    template_name = "timetable/doctor_report_period.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Устанавливаем даты по умолчанию
+        today = timezone.now().date()
+        first_day_of_month = today.replace(day=1)
+
+        context["default_start"] = first_day_of_month
+        context["default_end"] = today
+
         return context
 
 

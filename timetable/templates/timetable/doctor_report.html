@@ -1,15 +1,95 @@
 {% extends "timetable/base.html" %}
+{% load static %}
 
 {% block header %}
 <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
     <h1 class="display-6">Отчет по врачам</h1>
-    <p class="lead">За {{ report_date|date:"d.m.Y" }}</p>
+    {% if is_period %}
+        <p class="lead">За период с {{ start_date|date:"d.m.Y" }} по {{ end_date|date:"d.m.Y" }}</p>
+    {% else %}
+        <p class="lead">За {{ start_date|date:"d.m.Y" }}</p>
+    {% endif %}
     <p class="text-muted small">Только завершенные приемы</p>
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="container">
+    <!-- Кнопка выбора периода -->
+    <div class="row mb-3">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            {% if is_period %}
+                                <span class="badge bg-info me-2">
+                                    <i class="fas fa-calendar-alt"></i> Период: {{ start_date|date:"d.m.Y" }} - {{ end_date|date:"d.m.Y" }}
+                                </span>
+                            {% endif %}
+
+                        </div>
+                        <div>
+                            <a href="{% url 'timetable:doctor_report_period' %}" class="btn btn-outline-primary btn-sm me-2">
+                                <i class="fas fa-calendar-alt"></i> Выбрать другой период
+                            </a>
+                            <a href="{% url 'timetable:schedule_day' %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-arrow-left"></i> Назад к расписанию
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Форма быстрого перехода к другой дате -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header py-2 bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-search"></i> Быстрый переход
+                    </h6>
+                </div>
+                <div class="card-body py-2">
+                    <form method="get" action="{% url 'timetable:doctor_report' %}" class="row g-2">
+                        <div class="col-md-3">
+                            <input type="date"
+                                   class="form-control form-control-sm"
+                                   name="start_date"
+                                   value="{{ selected_start_date|default:'' }}"
+                                   placeholder="Начало периода">
+                        </div>
+                        <div class="col-md-3">
+                            <input type="date"
+                                   class="form-control form-control-sm"
+                                   name="end_date"
+                                   value="{{ selected_end_date|default:'' }}"
+                                   placeholder="Конец периода">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary btn-sm w-100">
+                                <i class="fas fa-redo"></i> Обновить
+                            </button>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="btn-group btn-group-sm w-100" role="group">
+                                <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ start_date|date:'Y-m-d' }}"
+                                   class="btn btn-outline-secondary">День</a>
+                                <a href="?start_date={{ start_date|date:'Y-m-d' }}&end_date={{ end_date|date:'Y-m-d' }}"
+                                   class="btn btn-outline-secondary">Период</a>
+                                <a href="?start_date={{ today|date:'Y-m-d' }}&end_date={{ today|date:'Y-m-d' }}"
+                                   class="btn btn-outline-secondary">Сегодня</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной отчет -->
     <div class="row mb-4">
         <div class="col-md-12 mx-auto">
             <div class="card">
@@ -21,10 +101,9 @@
                         <button class="btn btn-light btn-sm" onclick="window.print()">
                             <i class="fas fa-print"></i> Печать
                         </button>
-                        <a href="{% url 'timetable:schedule_day' %}?date={{ report_date|date:'Y-m-d' }}"
-                           class="btn btn-light btn-sm">
-                            <i class="fas fa-arrow-left"></i> Назад к расписанию
-                        </a>
+                        <button class="btn btn-light btn-sm ms-2" onclick="exportToExcel()">
+                            <i class="fas fa-file-excel"></i> Excel
+                        </button>
                     </div>
                 </div>
                 <div class="card-body">
@@ -39,7 +118,7 @@
                             </div>
 
                             <!-- Только для ревматологов показываем ОМС отдельно -->
-                            {% if data.oms_total > 0 %}
+                            {% if doctor.specialization == "rheumatologist" and data.oms_total > 0 %}
                             <div class="oms-section mb-3">
                                 <h6 class="text-success mb-2">
                                     <i class="fas fa-hospital"></i> ОМС
@@ -50,7 +129,7 @@
                                         <div class="card bg-light border-success">
                                             <div class="card-body py-2">
                                                 <div class="d-flex justify-content-between align-items-center">
-                                                    <span>Всего ОМС консультаций:</span>
+                                                    <span>Всего ОМС:</span>
                                                     <span class="badge bg-success rounded-pill">{{ data.oms_total }}</span>
                                                 </div>
                                             </div>
@@ -60,7 +139,7 @@
                                         <div class="card bg-light border-success">
                                             <div class="card-body py-2">
                                                 <div class="d-flex justify-content-between align-items-center">
-                                                    <span>Первичные ОМС конс:</span>
+                                                    <span>Первичные:</span>
                                                     <span class="badge bg-info rounded-pill">{{ data.oms_primary }}</span>
                                                 </div>
                                             </div>
@@ -70,7 +149,7 @@
                                         <div class="card bg-light border-success">
                                             <div class="card-body py-2">
                                                 <div class="d-flex justify-content-between align-items-center">
-                                                    <span>Повторные ОМС конс:</span>
+                                                    <span>Повторные:</span>
                                                     <span class="badge bg-warning rounded-pill">{{ data.oms_repeat }}</span>
                                                 </div>
                                             </div>
@@ -80,7 +159,7 @@
                             </div>
                             {% endif %}
 
-                            <!-- Манипуляции (для всех врачей) -->
+                            <!-- Манипуляции и PRP терапия -->
                             {% if data.manipulations > 0 or data.prp_therapy > 0 %}
                             <div class="manipulations-section mb-3">
                                 <h6 class="text-danger mb-2">
@@ -117,7 +196,7 @@
                             </div>
                             {% endif %}
 
-                            <!-- Все остальные услуги (для всех врачей) -->
+                            <!-- Все остальные услуги -->
                             {% if data.other_services %}
                             <div class="services-section">
                                 <h6 class="text-primary mb-2">
@@ -152,7 +231,7 @@
                         <div class="text-center py-5">
                             <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
                             <h5 class="text-muted">Нет данных для отчета</h5>
-                            <p class="text-muted">На выбранную дату нет завершенных приемов</p>
+                            <p class="text-muted">На выбранный период нет завершенных приемов</p>
                         </div>
                     {% endif %}
                 </div>
@@ -160,6 +239,61 @@
         </div>
     </div>
 </div>
+
+<script>
+function exportToExcel() {
+    // Создаем HTML таблицу
+    let table = '<table border="1">';
+    table += '<tr><th>Врач</th><th>Специализация</th><th>ОМС всего</th><th>ОМС первичные</th><th>ОМС повторные</th><th>Манипуляции</th><th>PRP терапия</th><th>Другие услуги</th></tr>';
+
+    {% for doctor, data in report_data.items %}
+    table += '<tr>';
+    table += '<td>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</td>';
+    table += '<td>{{ doctor.get_specialization_display }}</td>';
+    table += '<td>{{ data.oms_total }}</td>';
+    table += '<td>{{ data.oms_primary }}</td>';
+    table += '<td>{{ data.oms_repeat }}</td>';
+    table += '<td>{{ data.manipulations }}</td>';
+    table += '<td>{{ data.prp_therapy }}</td>';
+    table += '<td>';
+    {% for service_name, count in data.other_services.items %}
+    table += '{{ service_name }}: {{ count }}<br>';
+    {% endfor %}
+    table += '</td>';
+    table += '</tr>';
+    {% endfor %}
+
+    table += '</table>';
+
+    // Создаем Blob и скачиваем
+    const blob = new Blob([table], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    {% if is_period %}
+    a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}_по_{{ end_date|date:"Y-m-d" }}.xls';
+    {% else %}
+    a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}.xls';
+    {% endif %}
+
+    a.href = url;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+// Автоматически устанавливаем даты в быстрой форме
+document.addEventListener('DOMContentLoaded', function() {
+    const startInput = document.querySelector('input[name="start_date"]');
+    const endInput = document.querySelector('input[name="end_date"]');
+
+    if (startInput && !startInput.value) {
+        startInput.value = '{{ start_date|date:"Y-m-d" }}';
+    }
+    if (endInput && !endInput.value) {
+        endInput.value = '{{ end_date|date:"Y-m-d" }}';
+    }
+});
+</script>
 
 <style>
 .doctor-report {
@@ -188,14 +322,33 @@
     min-width: 50px;
 }
 
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+
+.btn-group .btn {
+    border-radius: 5px;
+}
+
 @media print {
-    .btn {
+    .btn,
+    .card:not(.doctor-report) {
         display: none !important;
     }
 
     .doctor-report {
         break-inside: avoid;
         page-break-inside: avoid;
+        border: 1px solid #ddd !important;
+    }
+
+    h5, h6 {
+        color: black !important;
     }
 }
 </style>
