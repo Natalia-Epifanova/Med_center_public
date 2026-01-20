@@ -529,30 +529,79 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
         except ValueError:
             report_date = datetime.now().date()
 
-        # Получаем все записи на указанную дату с правильными связями
+        # Получаем только завершенные записи на указанную дату
         appointments = Appointment.objects.filter(
-            time_slot__date=report_date,
-            status__in=[
-                "scheduled",
-                "confirmed",
-                "completed",
-            ],
-        ).select_related("time_slot__doctor", "service", "patient")
+            time_slot__date=report_date, status="completed"
+        ).select_related(
+            "time_slot__doctor",
+            "service",
+            "patient",
+        )
 
-        # Группируем по врачам и услугам
+        # Определяем названия ОМС услуг (только для ревматологов)
+        OMS_PRIMARY = "Прием (осмотр, консультация) врача-ревматолога первичный"
+        OMS_REPEAT = "Прием (осмотр, консультация) врача-ревматолога повторный (не позднее месяца от первичного)"
+
+        # Определяем названия услуг для особой обработки
+        PRP_KEYWORDS = ["PRP терапия", "PRP-терапия", "плазмолифтинг"]
+
+        # Группируем по врачам
         report_data = {}
+
         for appointment in appointments:
-            # Получаем врача через time_slot
             doctor = appointment.time_slot.doctor
-            service_name = appointment.service.name
+            service = appointment.service  # Получаем объект услуги
+            service_name = service.name
+            service_category = service.category if service else None
+            insurance_type = appointment.insurance_type
 
             if doctor not in report_data:
-                report_data[doctor] = {}
+                report_data[doctor] = {
+                    "oms_total": 0,
+                    "oms_primary": 0,
+                    "oms_repeat": 0,
+                    "manipulations": 0,  # Манипуляции (кроме PRP)
+                    "prp_therapy": 0,  # PRP терапия отдельно
+                    "other_services": {},  # Остальные услуги
+                }
 
-            if service_name not in report_data[doctor]:
-                report_data[doctor][service_name] = 0
+            # Проверяем тип оплаты через insurance_type
+            is_oms = insurance_type == "oms"
 
-            report_data[doctor][service_name] += 1
+            # Проверяем категорию услуги
+            is_medical_blockade = service_category == "medical_blockades"
+            is_prp_therapy = any(
+                keyword.lower() in service_name.lower() for keyword in PRP_KEYWORDS
+            )
+
+            # Если это медицинская блокада (манипуляция)
+            if is_medical_blockade:
+                if is_prp_therapy:
+                    # PRP терапия отдельно
+                    report_data[doctor]["prp_therapy"] += 1
+                else:
+                    # Остальные манипуляции
+                    report_data[doctor]["manipulations"] += 1
+            else:
+                # Для ревматологов считаем ОМС отдельно (только для консультаций)
+                if doctor.specialization == "rheumatologist" and is_oms:
+                    report_data[doctor]["oms_total"] += 1
+
+                    # Проверяем тип консультации для ОМС
+                    if service_name == OMS_PRIMARY:
+                        report_data[doctor]["oms_primary"] += 1
+                    elif service_name == OMS_REPEAT:
+                        report_data[doctor]["oms_repeat"] += 1
+                    else:
+                        # Для других ОМС услуг добавляем в общие услуги
+                        if service_name not in report_data[doctor]["other_services"]:
+                            report_data[doctor]["other_services"][service_name] = 0
+                        report_data[doctor]["other_services"][service_name] += 1
+                else:
+                    # Все остальные услуги (платные для ревматологов и все для других врачей)
+                    if service_name not in report_data[doctor]["other_services"]:
+                        report_data[doctor]["other_services"][service_name] = 0
+                    report_data[doctor]["other_services"][service_name] += 1
 
         context.update(
             {
