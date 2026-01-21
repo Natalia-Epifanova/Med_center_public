@@ -1,0 +1,52 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">Удаление приема врача</h1>
+    <p class="lead">Подтвердите удаление записи о приеме</p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card timetable-form-card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Внимание!
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">Вы уверены, что хотите удалить этот прием?</h5>
+                        <hr>
+                        <div class="mb-3">
+                            <strong>Пациент:</strong> {{ object.appointment.patient.full_name }}<br>
+                            <strong>Дата приема:</strong> {{ object.appointment.time_slot.date|date:"d.m.Y" }}<br>
+                            <strong>Врач:</strong> {{ object.appointment.time_slot.doctor.surname }}<br>
+                            <strong>Услуга:</strong> {{ object.appointment.service.name }}
+                        </div>
+                        <p class="mb-0">
+                            <i class="fas fa-exclamation-circle"></i>
+                            Это действие нельзя отменить. Все данные приема будут удалены безвозвратно.
+                        </p>
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Да, удалить
+                            </button>
+                            <a href="{% url 'treatment:treatment_detail' object.id %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
