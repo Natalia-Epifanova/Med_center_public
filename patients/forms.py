@@ -93,6 +93,7 @@ class PatientFullForm(BasePatientForm):
             "gender",
             # Контактные данные
             "phone_number",
+            "email",
             # Номера карт
             "card_number",
             "card_number_IP",
