@@ -503,7 +503,6 @@
                                                        class="btn btn-outline-info" title="Просмотр записи">
                                                        <i class="fas fa-eye"></i>
                                                     </a>
-                                                    {% endif %}
                                                     <!-- Индикатор перезаписи -->
                                                     {% if appointment.needs_reschedule %}
                                                     <span class="btn btn-outline-info position-relative"
@@ -513,6 +512,7 @@
                                                             <span class="visually-hidden">Требуется перезапись</span>
                                                         </span>
                                                     </span>
+                                                    {% endif %}
                                                     {% endif %}
                                                     {% if is_doctor or is_admin %}
                                                     <a href="{% url 'treatment:treatment_create' appointment.id %}" class="btn btn-success">
