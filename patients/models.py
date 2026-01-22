@@ -58,6 +58,13 @@ class Patient(models.Model):
         ],
     )
 
+    email = models.EmailField(
+        verbose_name="Email",
+        blank=True,
+        null=True,
+        help_text="Электронная почта пациента",
+    )
+
     # === НОМЕРА КАРТ ===
     card_number = models.PositiveIntegerField(
         blank=True,
