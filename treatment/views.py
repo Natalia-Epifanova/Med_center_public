@@ -1,7 +1,11 @@
+import os
+
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.generic import (
     CreateView,
     DetailView,
@@ -12,6 +16,7 @@ from django.views.generic import (
 
 from treatment.forms import DoctorTreatmentForm
 from treatment.models import MKB10Diagnosis, DoctorTreatment
+from treatment.services import TreatmentDocumentGenerator
 
 
 class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
@@ -53,6 +58,15 @@ class DoctorTreatmentUpdateView(LoginRequiredMixin, UpdateView):
     model = DoctorTreatment
     form_class = DoctorTreatmentForm
     template_name = "treatment/treatment_form.html"
+
+    def get_context_data(self, **kwargs):
+        """Добавляем appointment в контекст"""
+        context = super().get_context_data(**kwargs)
+        # Получаем объект лечения
+        treatment = self.get_object()
+        # Добавляем appointment в контекст
+        context["appointment"] = treatment.appointment
+        return context
 
     def get_success_url(self):
         return reverse_lazy("treatment:treatment_detail", kwargs={"pk": self.object.id})
@@ -98,6 +112,41 @@ class PatientTreatmentListView(LoginRequiredMixin, ListView):
 
         context["patient"] = Patient.objects.get(id=patient_id)
         return context
+
+
+class TreatmentPrintView(LoginRequiredMixin, View):
+    """Генерация Word документа для приема врача"""
+
+    def get(self, request, *args, **kwargs):
+        from .models import DoctorTreatment
+
+        treatment = get_object_or_404(DoctorTreatment, pk=kwargs["pk"])
+
+        try:
+            # Генерируем Word документ
+            filepath, filename = TreatmentDocumentGenerator.generate_treatment_docx(
+                treatment
+            )
+
+            # Читаем файл и возвращаем как ответ
+            with open(filepath, "rb") as f:
+                response = HttpResponse(
+                    f.read(),
+                    content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+                response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+            # Удаляем временный файл
+            try:
+                os.remove(filepath)
+            except:
+                pass
+
+            return response
+
+        except Exception as e:
+            # В случае ошибки возвращаем сообщение
+            return HttpResponse(f"Ошибка при генерации документа: {str(e)}", status=500)
 
 
 @login_required

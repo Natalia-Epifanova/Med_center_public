@@ -7,6 +7,7 @@ from treatment.views import (
     DoctorTreatmentDeleteView,
     PatientTreatmentListView,
     mkb10_search,
+    TreatmentPrintView,
 )
 
 app_name = TreatmentConfig.name
@@ -31,5 +32,8 @@ urlpatterns = [
         PatientTreatmentListView.as_view(),
         name="patient_treatments",
     ),
+    path(
+        "print/<int:pk>/", TreatmentPrintView.as_view(), name="treatment_print"
+    ),  # Новая URL
     path("mkb10-search/", mkb10_search, name="mkb10_search"),
 ]

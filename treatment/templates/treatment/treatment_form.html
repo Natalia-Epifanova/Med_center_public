@@ -2,8 +2,12 @@
 
 {% block header %}
 <div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
-    <h1 class="display-6">Оформление приема врача</h1>
-    <p class="lead">Заполните данные о приеме пациента</p>
+    <h1 class="display-6">
+        {% if object %}Редактирование приема врача{% else %}Оформление приема врача{% endif %}
+    </h1>
+    <p class="lead">
+        {% if object %}Изменение данных о приеме пациента{% else %}Заполните данные о приеме пациента{% endif %}
+    </p>
 </div>
 {% endblock %}
 
@@ -15,7 +19,10 @@
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-stethoscope"></i>
-                        Прием врача: {{ appointment.time_slot.doctor.surname }} {{ appointment.time_slot.doctor.first_name }} {{ appointment.time_slot.doctor.last_name }}
+                        {% if object %}Редактирование приема{% else %}Новый прием{% endif %}:
+                        {{ appointment.time_slot.doctor.surname }}
+                        {{ appointment.time_slot.doctor.first_name }}
+                        {{ appointment.time_slot.doctor.last_name }}
                     </h5>
                 </div>
                 <div class="card-body">
@@ -69,7 +76,6 @@
                             <div class="col-md-12">
                                 <h5 class="border-bottom pb-2 mb-3">Жалобы</h5>
                                 <div class="form-group">
-
                                     {{ form.complaints }}
                                     {% if form.complaints.errors %}
                                     <div class="text-danger small">{{ form.complaints.errors }}</div>
@@ -86,7 +92,6 @@
                             <div class="col-md-6">
                                 <h5 class="border-bottom pb-2 mb-3">Анамнез жизни</h5>
                                 <div class="form-group">
-
                                     {{ form.life_anamnesis }}
                                     {% if form.life_anamnesis.errors %}
                                     <div class="text-danger small">{{ form.life_anamnesis.errors }}</div>
@@ -99,7 +104,6 @@
                             <div class="col-md-6">
                                 <h5 class="border-bottom pb-2 mb-3">Анамнез заболевания</h5>
                                 <div class="form-group">
-
                                     {{ form.disease_anamnesis }}
                                     {% if form.disease_anamnesis.errors %}
                                     <div class="text-danger small">{{ form.disease_anamnesis.errors }}</div>
@@ -116,7 +120,6 @@
                             <div class="col-md-12">
                                 <h5 class="border-bottom pb-2 mb-3">Объективный статус</h5>
                                 <div class="form-group">
-
                                     {{ form.objective_status }}
                                     {% if form.objective_status.errors %}
                                     <div class="text-danger small">{{ form.objective_status.errors }}</div>
@@ -135,7 +138,6 @@
 
                                 <!-- Клинический диагноз -->
                                 <div class="form-group mb-3">
-
                                     {{ form.diagnosis }}
                                     {% if form.diagnosis.errors %}
                                     <div class="text-danger small">{{ form.diagnosis.errors }}</div>
@@ -185,7 +187,6 @@
                             <div class="col-md-12">
                                 <h5 class="border-bottom pb-2 mb-3">Рекомендации</h5>
                                 <div class="form-group">
-
                                     {{ form.recommendations }}
                                     {% if form.recommendations.errors %}
                                     <div class="text-danger small">{{ form.recommendations.errors }}</div>
@@ -199,11 +200,22 @@
 
                         <div class="d-flex justify-content-between">
                             <button type="submit" class="btn timetable-btn-success">
-                                <i class="fas fa-save"></i> Сохранить прием
+                                <i class="fas fa-save"></i>
+                                {% if object %}Сохранить изменения{% else %}Сохранить прием{% endif %}
                             </button>
-                            <a href="{% url 'appointments:appointment_detail' appointment.id %}" class="btn btn-outline-secondary">
-                                <i class="fas fa-times"></i> Отмена
-                            </a>
+
+                            <!-- ИСПРАВЛЕННАЯ КНОПКА ОТМЕНЫ -->
+                            {% if object %}
+                                <!-- Для UpdateView: ссылка на детальный просмотр текущего лечения -->
+                                <a href="{% url 'treatment:treatment_detail' object.id %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Отмена
+                                </a>
+                            {% else %}
+                                <!-- Для CreateView: ссылка на запись на прием -->
+                                <a href="{% url 'appointments:appointment_detail' appointment.id %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Отмена
+                                </a>
+                            {% endif %}
                         </div>
                     </form>
                 </div>
