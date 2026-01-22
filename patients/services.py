@@ -15,7 +15,6 @@ class PatientService:
     @transaction.atomic
     def get_or_create_patient(patient_data: Dict[str, Any]) -> Tuple[Patient, bool]:
         """Создание или поиск пациента с обновлением данных"""
-        # Очистка данных
         cleaned_data = PatientService.clean_patient_data(patient_data)
 
         surname = cleaned_data.get("surname")
@@ -27,7 +26,51 @@ class PatientService:
         if not surname or not first_name:
             raise ValidationError("Фамилия и имя обязательны")
 
-        # ПЕРВЫЙ ПОИСК: по ФИО (без учета даты рождения)
+        # ВАЖНОЕ ИЗМЕНЕНИЕ: Сначала ищем по ФИО + дате рождения
+        if date_of_birth:
+            # Строгий поиск: ФИО + дата рождения
+            query = Patient.objects.filter(
+                surname__iexact=surname,
+                first_name__iexact=first_name,
+                date_of_birth=date_of_birth,
+            )
+
+            if last_name:
+                query = query.filter(last_name__iexact=last_name)
+            else:
+                query = query.filter(
+                    models.Q(last_name="") | models.Q(last_name__isnull=True)
+                )
+
+            existing_patient = query.first()
+
+            if existing_patient:
+                # Нашли пациента с такими ФИО и датой рождения
+                update_fields = []
+
+                # Обновляем только пустые поля
+                phone = cleaned_data.get("phone_number")
+                if phone and (
+                    not existing_patient.phone_number
+                    or existing_patient.phone_number == ""
+                ):
+                    existing_patient.phone_number = phone
+                    update_fields.append("phone_number")
+
+                card_number = cleaned_data.get("card_number")
+                if card_number and not existing_patient.card_number:
+                    existing_patient.card_number = card_number
+                    update_fields.append("card_number")
+
+                if update_fields:
+                    existing_patient.save(update_fields=update_fields)
+                    print(
+                        f"DEBUG: Обновлен пациент {existing_patient.id}: {update_fields}"
+                    )
+
+                return existing_patient, False
+
+        # Если дата рождения не указана или не нашли - ищем только по ФИО
         query = Patient.objects.filter(
             surname__iexact=surname,
             first_name__iexact=first_name,
@@ -40,10 +83,27 @@ class PatientService:
                 models.Q(last_name="") | models.Q(last_name__isnull=True)
             )
 
+        # НОВОЕ: Если дата рождения УКАЗАНА, исключаем пациентов с другой датой рождения
+        if date_of_birth:
+            query = query.filter(
+                models.Q(date_of_birth=date_of_birth)
+                | models.Q(date_of_birth__isnull=True)
+            )
+
         existing_patient = query.first()
 
         if existing_patient:
-            # ЕСЛИ НАШЛИ ПАЦИЕНТА ПО ФИО - ОБНОВЛЯЕМ ЕГО ДАННЫЕ
+            # Проверяем, совпадает ли дата рождения
+            if existing_patient.date_of_birth and date_of_birth:
+                if existing_patient.date_of_birth != date_of_birth:
+                    # РАЗНЫЕ пациенты - создаем нового
+                    patient = Patient.objects.create(**cleaned_data)
+                    print(
+                        f"DEBUG: Создан новый пациент (разные даты рождения): {patient.id}"
+                    )
+                    return patient, True
+
+            # Обновляем существующего пациента
             update_fields = []
 
             # Обновляем дату рождения, если она есть в новых данных
@@ -65,51 +125,11 @@ class PatientService:
                 existing_patient.card_number = card_number
                 update_fields.append("card_number")
 
-            # Другие поля можно обновлять аналогично
-
             if update_fields:
                 existing_patient.save(update_fields=update_fields)
                 print(f"DEBUG: Обновлен пациент {existing_patient.id}: {update_fields}")
 
             return existing_patient, False
-
-        # ВТОРОЙ ПОИСК: по ФИО и дате рождения (если дата указана)
-        # Этот поиск нужен для случая, когда у пациента уже была дата рождения
-        if date_of_birth:
-            query_with_dob = Patient.objects.filter(
-                surname__iexact=surname,
-                first_name__iexact=first_name,
-                date_of_birth=date_of_birth,
-            )
-
-            if last_name:
-                query_with_dob = query_with_dob.filter(last_name__iexact=last_name)
-            else:
-                query_with_dob = query_with_dob.filter(
-                    models.Q(last_name="") | models.Q(last_name__isnull=True)
-                )
-
-            existing_patient_with_dob = query_with_dob.first()
-            if existing_patient_with_dob:
-                # Обновляем другие поля, если они пустые
-                update_fields = []
-                phone = cleaned_data.get("phone_number")
-                if phone and (
-                    not existing_patient_with_dob.phone_number
-                    or existing_patient_with_dob.phone_number == ""
-                ):
-                    existing_patient_with_dob.phone_number = phone
-                    update_fields.append("phone_number")
-
-                card_number = cleaned_data.get("card_number")
-                if card_number and not existing_patient_with_dob.card_number:
-                    existing_patient_with_dob.card_number = card_number
-                    update_fields.append("card_number")
-
-                if update_fields:
-                    existing_patient_with_dob.save(update_fields=update_fields)
-
-                return existing_patient_with_dob, False
 
         # Создание нового пациента
         patient = Patient.objects.create(**cleaned_data)

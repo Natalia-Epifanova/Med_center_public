@@ -514,6 +514,11 @@
                                                         </span>
                                                     </span>
                                                     {% endif %}
+                                                    {% if is_doctor or is_admin %}
+                                                    <a href="{% url 'treatment:treatment_create' appointment.id %}" class="btn btn-success">
+                                                        <i class="fas fa-stethoscope"></i> Оформить прием
+                                                    </a>
+                                                    {% endif %}
 
 
                                                 </div>
