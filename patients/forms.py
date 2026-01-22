@@ -144,6 +144,7 @@ class PatientFullForm(BasePatientForm):
             "gender": "Пол",
             # Контактные данные
             "phone_number": "Телефон",
+            "email": "Email",
             # Номера карт
             "card_number": "Номер карты",
             "card_number_IP": "Номер карты (ИП)",
