@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .apps import PatientsConfig
 from .views_api import (
     check_patient_api,
     search_patients_api,
@@ -8,7 +9,7 @@ from .views_api import (
     get_max_card_number,
 )
 
-app_name = "patients"
+app_name = PatientsConfig.name
 
 urlpatterns = [
     path("", views.PatientListView.as_view(), name="patient_list"),
