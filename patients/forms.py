@@ -93,6 +93,7 @@ class PatientFullForm(BasePatientForm):
             "gender",
             # Контактные данные
             "phone_number",
+            "email",
             # Номера карт
             "card_number",
             "card_number_IP",
@@ -143,6 +144,7 @@ class PatientFullForm(BasePatientForm):
             "gender": "Пол",
             # Контактные данные
             "phone_number": "Телефон",
+            "email": "Email",
             # Номера карт
             "card_number": "Номер карты",
             "card_number_IP": "Номер карты (ИП)",

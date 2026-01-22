@@ -106,6 +106,17 @@
                         </div>
                     </div>
                     {% endif %}
+                    <!-- Дополнительные обследования -->
+                    {% if treatment.additional_surveys %}
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <h5 class="border-bottom pb-2 mb-3">Дополнительные обследования</h5>
+                            <div class="bg-light p-3 rounded">
+                                {{ treatment.additional_surveys|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
 
                     <!-- Диагноз -->
                     {% if treatment.diagnosis or treatment.mkb10_diagnoses.exists %}
