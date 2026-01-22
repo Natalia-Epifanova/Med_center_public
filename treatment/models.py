@@ -90,10 +90,19 @@ class DoctorTreatment(models.Model):
         verbose_name="Объективный статус",
         help_text="Результаты общего осмотра",
     )
+    # Объективный статус
+    additional_surveys = models.TextField(
+        blank=True,
+        verbose_name="Дополнительные обследования",
+        help_text="Дополнительные обследования",
+    )
 
     # Диагноз
-    diagnosis = models.TextField(
-        blank=True, verbose_name="Диагноз", help_text="Клинический диагноз"
+    diagnosis = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="Диагноз",
+        help_text="Клинический диагноз",
     )
     mkb10_diagnoses = models.ManyToManyField(
         MKB10Diagnosis,
