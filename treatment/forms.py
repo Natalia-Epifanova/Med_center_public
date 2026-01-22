@@ -13,6 +13,7 @@ class DoctorTreatmentForm(StyleFormMixin, ModelForm):
             "life_anamnesis",
             "disease_anamnesis",
             "objective_status",
+            "additional_surveys",
             "diagnosis",
             "mkb10_diagnoses",
             "recommendations",

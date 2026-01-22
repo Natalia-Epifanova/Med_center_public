@@ -131,6 +131,22 @@
                             </div>
                         </div>
 
+                        <!-- Дополнительные обследования -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Дополнительные обследования</h5>
+                                <div class="form-group">
+                                    {{ form.additional_surveys }}
+                                    {% if form.additional_surveys.errors %}
+                                    <div class="text-danger small">{{ form.additional_surveys.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Дополнительные обследования
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Диагноз -->
                         <div class="row mb-4">
                             <div class="col-md-12">

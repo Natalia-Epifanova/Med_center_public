@@ -115,6 +115,7 @@ class TreatmentDocumentGenerator:
             "life_anamnesis": treatment.life_anamnesis or "",
             "disease_anamnesis": treatment.disease_anamnesis or "",
             "objective_status": treatment.objective_status or "",
+            "additional_surveys": treatment.additional_surveys or "",
             "diagnosis": treatment.diagnosis or "",
             "mkb10_diagnoses": mkb10_diagnoses,
             "recommendations": treatment.recommendations or "",
