@@ -10,6 +10,9 @@
                     <i class="fas fa-calendar-check me-1"></i> Резерв ОМС
                 </a>
                 {% if user.is_admin %}
+                {% if user.is_admin or user.is_medical_admin %}
+                <a class="nav-link" href="{% url 'timetable:reschedule_requests' %}">Желающие прийти раньше</a>
+                {% endif %}
                 <a class="nav-link" href="{% url 'timetable:doctor_report_period' %}" class="btn btn-info btn-sm">
                      Отчет за период
                 </a>
