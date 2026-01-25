@@ -98,8 +98,7 @@ class DoctorTreatment(models.Model):
     )
 
     # Диагноз
-    diagnosis = models.CharField(
-        max_length=200,
+    diagnosis = models.TextField(
         blank=True,
         verbose_name="Диагноз",
         help_text="Клинический диагноз",

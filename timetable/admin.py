@@ -176,6 +176,7 @@ class BloodTestCategoryAdmin(admin.ModelAdmin):
 @admin.register(BloodTest)
 class BloodTestAdmin(admin.ModelAdmin):
     list_display = (
+        "id",
         "code",
         "name",
         "category",
