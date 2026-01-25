@@ -2,7 +2,7 @@
 
 # Константы для записей на прием
 PROCEDURAL_CABINET_NUMBER = 6  # Номер процедурного кабинета
-SLOT_LOCK_TIMEOUT = 150  # 2,5 минуты в секундах
+SLOT_LOCK_TIMEOUT = 60  # 2,5 минуты в секундах
 
 # Ключи кэша
 CACHE_KEYS = {
