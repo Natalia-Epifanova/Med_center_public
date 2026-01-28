@@ -23,8 +23,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         patientChecker.initializeCheckButton('checkPatientBtn', 'patientCheckResult');
 
-        // ДОБАВИТЬ ИНИЦИАЛИЗАЦИЮ ПОИСКА ПАЦИЕНТА
-        initializePatientSearch();
+        // ИНИЦИАЛИЗАЦИЯ АВТОМАТИЧЕСКОГО ПОИСКА ПАЦИЕНТА
+        initializeAutoPatientSearch();
     }
 
     // 3. Инициализация выбора анализов крови
@@ -163,16 +163,22 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Form submitting...');
         });
     }
+
+    // 6. Инициализация ручного поиска пациента
+    initializePatientSearch();
 });
 
-// ДОБАВИТЬ ФУНКЦИЮ ПОИСКА ПАЦИЕНТА (скопировать из appointment_create.js)
+// ФУНКЦИЯ ДЛЯ РУЧНОГО ПОИСКА ПАЦИЕНТА
 function initializePatientSearch() {
     const searchInput = document.getElementById('patient-search-input');
     const searchBtn = document.getElementById('patient-search-btn');
     const resultsContainer = document.getElementById('patient-search-results');
     const resultsList = document.getElementById('patient-results-list');
 
-    if (!searchInput || !searchBtn || !resultsContainer || !resultsList) return;
+    if (!searchInput || !searchBtn || !resultsContainer || !resultsList) {
+        console.error('Patient search elements not found');
+        return;
+    }
 
     async function performSearch() {
         const query = searchInput.value.trim();
@@ -233,7 +239,14 @@ function initializePatientSearch() {
 
                 item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
                     e.stopPropagation();
-                    selectPatient(patient);
+                    selectPatient(patient); // Используем общую функцию
+                });
+
+                // Можно также добавить возможность выбора по клику на всю строку
+                item.addEventListener('click', (e) => {
+                    if (!e.target.classList.contains('use-patient-btn')) {
+                        selectPatient(patient); // Используем общую функцию
+                    }
                 });
 
                 resultsList.appendChild(item);
@@ -247,90 +260,6 @@ function initializePatientSearch() {
         }
     }
 
-    function selectPatient(patient) {
-        // ID полей в процедурной форме (должны совпадать с вашей формой)
-        const fieldIds = {
-            surname: 'id_surname',
-            first_name: 'id_first_name',
-            last_name: 'id_last_name',
-            phone_number: 'id_phone_number',
-            card_number: 'id_card_number',
-            date_of_birth: 'id_date_of_birth'
-        };
-
-        function setFieldValue(fieldId, value) {
-            const field = document.getElementById(fieldId);
-            if (field && value !== undefined && value !== null) {
-                field.value = value;
-                console.log(`Заполнено ${fieldId}: ${value}`);
-            }
-        }
-
-        // Заполняем поля
-        setFieldValue(fieldIds.surname, patient.surname || '');
-        setFieldValue(fieldIds.first_name, patient.first_name || '');
-        setFieldValue(fieldIds.last_name, patient.last_name || '');
-
-        // Телефон
-        if (patient.phone_number) {
-            let phone = patient.phone_number.toString();
-            if (!phone.startsWith('+')) {
-                if (phone.startsWith('8')) {
-                    phone = '+7' + phone.slice(1);
-                } else if (phone.startsWith('7')) {
-                    phone = '+' + phone;
-                } else {
-                    phone = '+7' + phone;
-                }
-            }
-            setFieldValue(fieldIds.phone_number, phone);
-        }
-
-        // Номер карты
-        setFieldValue(fieldIds.card_number, patient.card_number || '');
-
-        // Дата рождения
-        if (patient.date_of_birth) {
-            try {
-                const dateStr = patient.date_of_birth;
-                let formattedDate = dateStr;
-
-                if (dateStr.includes('.')) {
-                    const parts = dateStr.split('.');
-                    if (parts.length === 3) {
-                        const [day, month, year] = parts;
-                        formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-                    }
-                }
-
-                setFieldValue(fieldIds.date_of_birth, formattedDate);
-            } catch (e) {
-                console.warn('Ошибка форматирования даты:', e);
-                setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
-            }
-        }
-
-        // Скрываем результаты поиска
-        const resultsContainer = document.getElementById('patient-search-results');
-        if (resultsContainer) resultsContainer.style.display = 'none';
-
-        const searchInput = document.getElementById('patient-search-input');
-        if (searchInput) searchInput.value = '';
-
-        // Показываем сообщение о выборе
-        const resultContainer = document.getElementById('patientCheckResult');
-        if (resultContainer) {
-            resultContainer.innerHTML = `
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <strong>Пациент выбран:</strong> ${patient.full_name}
-                    ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
-                </div>
-            `;
-            resultContainer.style.display = 'block';
-        }
-    }
-
     // Обработчики событий
     searchBtn.addEventListener('click', performSearch);
 
@@ -341,7 +270,7 @@ function initializePatientSearch() {
         }
     });
 
-    // Автопоиск
+    // Автопоиск при вводе (с задержкой)
     let searchTimeout;
     searchInput.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
@@ -361,5 +290,287 @@ function initializePatientSearch() {
             !searchBtn.contains(e.target)) {
             resultsContainer.style.display = 'none';
         }
+    });
+}
+
+// ФУНКЦИЯ ДЛЯ ВЫБОРА ПАЦИЕНТА ИЗ РЕЗУЛЬТАТОВ ПОИСКА
+function selectPatient(patient) {
+    console.log('Selecting patient from manual search:', patient);
+
+    // 1. Используем те же ID полей что и в автоматическом поиске
+    const fieldIds = {
+        surname: 'id_surname',
+        first_name: 'id_first_name',
+        last_name: 'id_last_name',
+        phone_number: 'id_phone_number',
+        card_number: 'id_card_number',
+        date_of_birth: 'id_date_of_birth'
+    };
+
+    // 2. Функция для заполнения поля
+    function setFieldValue(fieldId, value) {
+        const field = document.getElementById(fieldId);
+        if (field && value !== undefined && value !== null) {
+            field.value = value;
+            // Вызываем событие input для обновления валидации
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (!field) {
+            console.warn(`Поле не найдено: ${fieldId}`);
+        }
+    }
+
+    // 3. Основные поля
+    setFieldValue(fieldIds.surname, patient.surname || '');
+    setFieldValue(fieldIds.first_name, patient.first_name || '');
+    setFieldValue(fieldIds.last_name, patient.last_name || '');
+
+    // 4. Телефон (форматирование как +7...)
+    if (patient.phone_number) {
+        let phone = patient.phone_number.toString();
+        if (!phone.startsWith('+')) {
+            if (phone.startsWith('8')) {
+                phone = '+7' + phone.slice(1);
+            } else if (phone.startsWith('7')) {
+                phone = '+' + phone;
+            } else {
+                phone = '+7' + phone;
+            }
+        }
+        setFieldValue(fieldIds.phone_number, phone);
+    }
+
+    // 5. Номер карты
+    setFieldValue(fieldIds.card_number, patient.card_number || '');
+
+    // 6. Дата рождения (преобразование формата DD.MM.YYYY -> YYYY-MM-DD)
+    if (patient.date_of_birth) {
+        try {
+            const dateStr = patient.date_of_birth;
+            if (dateStr.includes('.')) {
+                const parts = dateStr.split('.');
+                if (parts.length === 3) {
+                    const [day, month, year] = parts;
+                    const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                    setFieldValue(fieldIds.date_of_birth, formattedDate);
+                }
+            } else {
+                // Если дата уже в формате YYYY-MM-DD
+                setFieldValue(fieldIds.date_of_birth, dateStr);
+            }
+        } catch (e) {
+            console.warn('Ошибка форматирования даты:', e);
+            setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
+        }
+    }
+
+    // 7. Скрываем результаты поиска
+    const resultsContainer = document.getElementById('patient-search-results');
+    if (resultsContainer) resultsContainer.style.display = 'none';
+
+    const searchInput = document.getElementById('patient-search-input');
+    if (searchInput) searchInput.value = '';
+
+    // 8. Показываем сообщение о выборе
+    const resultContainer = document.getElementById('patientCheckResult');
+    if (resultContainer) {
+        resultContainer.innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i>
+                <strong>Пациент выбран:</strong> ${patient.full_name}
+                ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
+            </div>
+        `;
+        resultContainer.style.display = 'block';
+    }
+
+    // 9. Автоматическая проверка пациента (опционально)
+    setTimeout(() => {
+        const checkBtn = document.getElementById('checkPatientBtn');
+        if (checkBtn) {
+            console.log('Запускаем автоматическую проверку пациента...');
+            checkBtn.click();
+        }
+    }, 500);
+}
+
+// ФУНКЦИЯ ДЛЯ АВТОМАТИЧЕСКОГО ПОИСКА ПАЦИЕНТА
+function initializeAutoPatientSearch() {
+    const surnameInput = document.getElementById('id_surname');
+    const firstNameInput = document.getElementById('id_first_name');
+    const lastNameInput = document.getElementById('id_last_name');
+    const searchResults = document.getElementById('patient-search-results');
+    const resultsList = document.getElementById('patient-results-list');
+
+    if (!surnameInput || !firstNameInput || !searchResults || !resultsList) return;
+
+    let searchTimeout;
+    let lastSearchData = {
+        surname: '',
+        firstName: '',
+        lastName: ''
+    };
+
+    async function performAutoSearch() {
+        const surname = surnameInput.value.trim();
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+
+        // Ищем только если есть хотя бы 2 символа в фамилии
+        if (surname.length < 2) {
+            if (searchResults.style.display === 'block') {
+                searchResults.style.display = 'none';
+            }
+            return;
+        }
+
+        // Проверяем, изменились ли данные
+        if (surname === lastSearchData.surname &&
+            firstName === lastSearchData.firstName &&
+            lastName === lastSearchData.lastName &&
+            searchResults.style.display === 'block') {
+            return;
+        }
+
+        lastSearchData = { surname, firstName, lastName };
+
+        try {
+            // Ищем только по фамилии - это даст больше результатов
+            const searchUrl = "/patients/api/search-patients/";
+            const response = await fetch(`${searchUrl}?q=${encodeURIComponent(surname)}`);
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            if (data.error) {
+                if (searchResults.style.display === 'block') {
+                    searchResults.style.display = 'none';
+                }
+                return;
+            }
+
+            // Фильтруем результаты локально по имени и отчеству
+            let filteredPatients = data.patients || [];
+
+            if (data.count > 0 && filteredPatients.length > 0) {
+                filteredPatients = filteredPatients.filter(patient => {
+                    // Проверяем совпадение имени (регистронезависимо)
+                    const patientFirstName = patient.first_name || '';
+                    if (!patientFirstName.toLowerCase().includes(firstName.toLowerCase())) {
+                        return false;
+                    }
+
+                    // Если введено отчество, проверяем его
+                    if (lastName && lastName.length > 0) {
+                        const patientLastName = patient.last_name || '';
+                        if (!patientLastName.toLowerCase().includes(lastName.toLowerCase())) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+            }
+
+            // Всегда показываем результаты (даже если пустые)
+            displaySearchResults(filteredPatients);
+            if (filteredPatients.length > 0 || surname.length > 0) {
+                searchResults.style.display = 'block';
+            }
+
+        } catch (error) {
+            console.log('Auto-search error:', error);
+            if (searchResults.style.display === 'block') {
+                searchResults.style.display = 'none';
+            }
+        }
+    }
+
+    function displaySearchResults(patients) {
+        resultsList.innerHTML = '';
+
+        if (!patients || patients.length === 0) {
+            const surname = surnameInput.value.trim();
+            const firstName = firstNameInput.value.trim();
+            const lastName = lastNameInput.value.trim();
+
+            if (surname.length > 0) {
+                resultsList.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Пациентов с фамилией "${surname}"${firstName ? ` и именем "${firstName}"` : ''}${lastName ? ` и отчеством "${lastName}"` : ''} не найдено.
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        patients.forEach(patient => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item list-group-item-action';
+
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${patient.full_name}</strong><br>
+                        <small class="text-muted">
+                            ${patient.card_number ? `Карта: ${patient.card_number}` : 'Без карты'}
+                            ${patient.date_of_birth ? ` | Дата рождения: ${patient.date_of_birth}` : ''}
+                            ${patient.phone_number ? ` | Телефон: ${patient.phone_number}` : ''}
+                        </small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary use-patient-btn"
+                            data-patient-id="${patient.id}">
+                        Выбрать
+                    </button>
+                </div>
+            `;
+
+            item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectPatient(patient); // Используем ту же функцию
+            });
+
+            // Можно также добавить возможность выбора по клику на всю строку
+            item.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('use-patient-btn')) {
+                    selectPatient(patient); // Используем ту же функцию
+                }
+            });
+
+            resultsList.appendChild(item);
+        });
+    }
+
+    // Обработчики событий для полей ввода
+    [surnameInput, firstNameInput, lastNameInput].forEach(input => {
+        input.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performAutoSearch, 300);
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (!searchResults.matches(':hover')) {
+                    searchResults.style.display = 'none';
+                }
+            }, 200);
+        });
+    });
+
+    // Закрытие результатов при клике вне
+    document.addEventListener('click', (e) => {
+        if (!searchResults.contains(e.target) &&
+            !surnameInput.contains(e.target) &&
+            !firstNameInput.contains(e.target) &&
+            !lastNameInput.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Предотвращаем закрытие при клике внутри результатов
+    searchResults.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 }

@@ -1,3 +1,103 @@
+// Функция для инициализации поиска услуг
+function initializeServiceSearch() {
+    console.log('Initializing service search...');
+    console.log('Cabinet number:', cabinetNumber);
+
+    // Получаем все select элементы с услугами
+    const serviceSelects = document.querySelectorAll('select[id$="service"]');
+
+    console.log('Found service selects:', serviceSelects.length);
+
+    if (serviceSelects.length === 0) {
+        console.warn('No service select elements found');
+        return;
+    }
+
+    serviceSelects.forEach((select, index) => {
+        console.log(`Initializing select #${index} with ${select.options.length} options`);
+
+        // Для всех кабинетов делаем базовый Select2
+        $(select).select2({
+            placeholder: "Начните вводить название услуги...",
+            allowClear: false,
+            width: '100%',
+            language: {
+                noResults: function() {
+                    return "Услуги не найдены";
+                },
+                searching: function() {
+                    return "Поиск...";
+                }
+            }
+        });
+
+        // Для кабинета №5 делаем дополнительные настройки
+        if (cabinetNumber === 5) {
+            console.log('Cabinet 5 detected, enabling enhanced search');
+            $(select).select2('destroy'); // Удаляем старую инициализацию
+
+            $(select).select2({
+                placeholder: "Введите название услуги для поиска...",
+                allowClear: false,
+                width: '100%',
+                minimumInputLength: 2,  // Минимум 2 символа для поиска
+                language: {
+                    noResults: function() {
+                        return "Ничего не найдено. Попробуйте другой запрос";
+                    },
+                    searching: function() {
+                        return "Идет поиск...";
+                    },
+                    inputTooShort: function(args) {
+                        var remainingChars = args.minimum - args.input.length;
+                        return "Введите еще " + remainingChars + " символ" + (remainingChars === 1 ? "" : "а");
+                    }
+                }
+            });
+        }
+
+        // ВАЖНО: Добавляем обработчик изменения для Select2
+        $(select).on('select2:select', function(e) {
+            console.log('Select2 changed:', e.params.data);
+
+            // Симулируем стандартное событие change
+            const event = new Event('change', { bubbles: true });
+            select.dispatchEvent(event);
+
+            // Дополнительно вызываем проверку для процедурного кабинета
+            if (window.AppointmentUtils && window.AppointmentUtils.ProceduralManager) {
+                const needsProceduralCheckbox = document.getElementById('id_needs_procedural');
+                if (needsProceduralCheckbox) {
+                    window.AppointmentUtils.ProceduralManager.updateProceduralCheckbox(
+                        select,
+                        needsProceduralCheckbox
+                    );
+                }
+            }
+        });
+    });
+
+    // Также инициализируем для дополнительных услуг, если они есть
+    const additionalServiceSelect = document.getElementById('id_additional_service');
+    if (additionalServiceSelect) {
+        console.log('Found additional service select');
+        $(additionalServiceSelect).select2({
+            placeholder: "Начните вводить название услуги...",
+            allowClear: false,
+            width: '100%'
+        });
+
+        // Добавляем обработчик для дополнительной услуги
+        $(additionalServiceSelect).on('select2:select', function(e) {
+            console.log('Additional Select2 changed:', e.params.data);
+
+            // Симулируем стандартное событие change
+            const event = new Event('change', { bubbles: true });
+            additionalServiceSelect.dispatchEvent(event);
+        });
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Инициализация форматирования телефона
     const phoneInput = document.getElementById('id_phone_number');
@@ -12,6 +112,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 3. Инициализация проверки пациента
     initializePatientChecker();
+    // Инициализация Select2 для поиска услуг
+    initializeServiceSearch();
 
     // 4. Инициализация процедурного кабинета для ОСНОВНОЙ услуги
     if (window.AppointmentUtils) {
@@ -41,6 +143,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 12. Инициализация поиска пациента
     initializePatientSearch();
+
+    // 13. Очистка пустых форм перед отправкой
+    setupCleanupBeforeSubmit();
+
+    // 14. Инициализация автоматического поиска пациента
+    initializeAutoPatientSearch();
+    // 15. Инициализация выбора анализов крови
+    initializeBloodTestSelection();
 
 
 });
@@ -335,6 +445,16 @@ function initializePatientSearch() {
             }
         }
 
+
+        // 8. ДАТА РОЖДЕНИЯ - только если пустая в форме
+        const currentDobField = document.getElementById('id_date_of_birth');
+        if (patient.date_of_birth && (!currentDobField || !currentDobField.value)) {
+            // Заполняем только если поле пустое
+            setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
+        } else if (currentDobField && currentDobField.value && !patient.date_of_birth) {
+            // Если у пациента нет даты рождения, но мы ввели её вручную -
+            // оставляем введенное значение (будет обновлено в существующем пациенте)
+        }
         // 8. СКРЫВАЕМ РЕЗУЛЬТАТЫ ПОИСКА
         const resultsContainer = document.getElementById('patient-search-results');
         if (resultsContainer) resultsContainer.style.display = 'none';
@@ -395,6 +515,282 @@ function initializePatientSearch() {
             !searchBtn.contains(e.target)) {
             resultsContainer.style.display = 'none';
         }
+    });
+}
+
+// Добавьте эту функцию в ваш appointment_create.js
+function initializeAutoPatientSearch() {
+    const surnameInput = document.getElementById('id_surname');
+    const firstNameInput = document.getElementById('id_first_name');
+    const lastNameInput = document.getElementById('id_last_name');
+    const searchResults = document.getElementById('patient-search-results');
+    const resultsList = document.getElementById('patient-results-list');
+
+    if (!surnameInput || !firstNameInput || !searchResults || !resultsList) return;
+
+    let searchTimeout;
+    let lastSearchData = {
+        surname: '',
+        firstName: '',
+        lastName: ''
+    };
+
+    async function performAutoSearch() {
+        const surname = surnameInput.value.trim();
+        const firstName = firstNameInput.value.trim();
+        const lastName = lastNameInput.value.trim();
+
+        // Ищем только если есть хотя бы 2 символа в фамилии
+        if (surname.length < 2) {
+            if (searchResults.style.display === 'block') {
+                searchResults.style.display = 'none';
+            }
+            return;
+        }
+
+        // Проверяем, изменились ли данные
+        if (surname === lastSearchData.surname &&
+            firstName === lastSearchData.firstName &&
+            lastName === lastSearchData.lastName &&
+            searchResults.style.display === 'block') {
+            return;
+        }
+
+        lastSearchData = { surname, firstName, lastName };
+
+        try {
+            // Ищем только по фамилии - это даст больше результатов
+            const searchUrl = "/patients/api/search-patients/";
+            const response = await fetch(`${searchUrl}?q=${encodeURIComponent(surname)}`);
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+
+            if (data.error) {
+                if (searchResults.style.display === 'block') {
+                    searchResults.style.display = 'none';
+                }
+                return;
+            }
+
+            // Фильтруем результаты локально по имени и отчеству
+            let filteredPatients = data.patients || [];
+
+            if (data.count > 0 && filteredPatients.length > 0) {
+                filteredPatients = filteredPatients.filter(patient => {
+                    // Проверяем совпадение имени (регистронезависимо)
+                    const patientFirstName = patient.first_name || '';
+                    if (!patientFirstName.toLowerCase().includes(firstName.toLowerCase())) {
+                        return false;
+                    }
+
+                    // Если введено отчество, проверяем его
+                    if (lastName && lastName.length > 0) {
+                        const patientLastName = patient.last_name || '';
+                        if (!patientLastName.toLowerCase().includes(lastName.toLowerCase())) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+            }
+
+            // Всегда показываем результаты (даже если пустые)
+            displaySearchResults(filteredPatients);
+            if (filteredPatients.length > 0 || surname.length > 0) {
+                searchResults.style.display = 'block';
+            }
+
+        } catch (error) {
+            console.log('Auto-search error:', error);
+            if (searchResults.style.display === 'block') {
+                searchResults.style.display = 'none';
+            }
+        }
+    }
+
+    function displaySearchResults(patients) {
+        resultsList.innerHTML = '';
+
+        if (!patients || patients.length === 0) {
+            const surname = surnameInput.value.trim();
+            const firstName = firstNameInput.value.trim();
+            const lastName = lastNameInput.value.trim();
+
+            if (surname.length > 0) {
+                resultsList.innerHTML = `
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Пациентов с фамилией "${surname}"${firstName ? ` и именем "${firstName}"` : ''}${lastName ? ` и отчеством "${lastName}"` : ''} не найдено.
+                    </div>
+                `;
+            }
+            return;
+        }
+
+        patients.forEach(patient => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'list-group-item list-group-item-action';
+
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${patient.full_name}</strong><br>
+                        <small class="text-muted">
+                            ${patient.card_number ? `Карта: ${patient.card_number}` : 'Без карты'}
+                            ${patient.date_of_birth ? ` | Дата рождения: ${patient.date_of_birth}` : ''}
+                            ${patient.phone_number ? ` | Телефон: ${patient.phone_number}` : ''}
+                        </small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary use-patient-btn"
+                            data-patient-id="${patient.id}">
+                        Выбрать
+                    </button>
+                </div>
+            `;
+
+            item.querySelector('.use-patient-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectPatient(patient);
+            });
+
+            // Можно также добавить возможность выбора по клику на всю строку
+            item.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('use-patient-btn')) {
+                    selectPatient(patient);
+                }
+            });
+
+            resultsList.appendChild(item);
+        });
+    }
+
+    function selectPatient(patient) {
+        // Автоматически заполняем данные пациента
+        fillPatientData(patient);
+
+        // Скрываем результаты поиска
+        searchResults.style.display = 'none';
+
+        // Показываем сообщение о выборе
+        const resultContainer = document.getElementById('patientCheckResult');
+        if (resultContainer) {
+            resultContainer.innerHTML = `
+                <div class="alert alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    <strong>Данные пациента заполнены:</strong> ${patient.full_name}
+                    ${patient.card_number ? ` (Карта: ${patient.card_number})` : ''}
+                </div>
+            `;
+            resultContainer.style.display = 'block';
+        }
+
+        // Автоматическая проверка пациента
+        setTimeout(() => {
+            const checkBtn = document.getElementById('checkPatientBtn');
+            if (checkBtn) {
+                console.log('Запускаем автоматическую проверку пациента...');
+                checkBtn.click();
+            }
+        }, 500);
+    }
+
+    function fillPatientData(patient) {
+        const fieldIds = {
+            surname: 'id_surname',
+            first_name: 'id_first_name',
+            last_name: 'id_last_name',
+            phone_number: 'id_phone_number',
+            card_number: 'id_card_number',
+            date_of_birth: 'id_date_of_birth'
+        };
+
+        function setFieldValue(fieldId, value) {
+            const field = document.getElementById(fieldId);
+            if (field && value !== undefined && value !== null) {
+                field.value = value;
+                // Вызываем событие input для обновления валидации
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+
+        // Основные поля
+        setFieldValue(fieldIds.surname, patient.surname || '');
+        setFieldValue(fieldIds.first_name, patient.first_name || '');
+        setFieldValue(fieldIds.last_name, patient.last_name || '');
+
+        // Телефон (форматирование как +7...)
+        if (patient.phone_number) {
+            let phone = patient.phone_number.toString();
+            if (!phone.startsWith('+')) {
+                if (phone.startsWith('8')) {
+                    phone = '+7' + phone.slice(1);
+                } else if (phone.startsWith('7')) {
+                    phone = '+' + phone;
+                } else {
+                    phone = '+7' + phone;
+                }
+            }
+            setFieldValue(fieldIds.phone_number, phone);
+        }
+
+        // Номер карты
+        setFieldValue(fieldIds.card_number, patient.card_number || '');
+
+        // Дата рождения (преобразование формата DD.MM.YYYY -> YYYY-MM-DD)
+        if (patient.date_of_birth) {
+            try {
+                const dateStr = patient.date_of_birth;
+                if (dateStr.includes('.')) {
+                    const parts = dateStr.split('.');
+                    if (parts.length === 3) {
+                        const [day, month, year] = parts;
+                        const formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                        setFieldValue(fieldIds.date_of_birth, formattedDate);
+                    }
+                } else {
+                    // Если дата уже в формате YYYY-MM-DD
+                    setFieldValue(fieldIds.date_of_birth, dateStr);
+                }
+            } catch (e) {
+                console.warn('Ошибка форматирования даты:', e);
+                setFieldValue(fieldIds.date_of_birth, patient.date_of_birth);
+            }
+        }
+    }
+
+    // Обработчики событий для полей ввода
+    [surnameInput, firstNameInput, lastNameInput].forEach(input => {
+        input.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performAutoSearch, 300);
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (!searchResults.matches(':hover')) {
+                    searchResults.style.display = 'none';
+                }
+            }, 200);
+        });
+    });
+
+    // Закрытие результатов при клике вне
+    document.addEventListener('click', (e) => {
+        if (!searchResults.contains(e.target) &&
+            !surnameInput.contains(e.target) &&
+            !firstNameInput.contains(e.target) &&
+            !lastNameInput.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+
+    // Предотвращаем закрытие при клике внутри результатов
+    searchResults.addEventListener('click', (e) => {
+        e.stopPropagation();
     });
 }
 
@@ -470,6 +866,13 @@ function initializeAppointmentTypeManagerLegacy() {
         if (additionalProceduralSection) additionalProceduralSection.style.display = 'none';
         if (twoSlotsSection) twoSlotsSection.style.display = 'none';
 
+        // ИСПРАВЬТЕ: Также скрываем секции для других врачей
+        const anotherDoctorSection = document.getElementById('anotherDoctorSection');
+        const multipleSection = document.getElementById('multipleAppointmentsSection');
+
+        if (anotherDoctorSection) anotherDoctorSection.style.display = 'none';
+        if (multipleSection) multipleSection.style.display = 'none';
+
         if (value === 'additional' || value === 'two_slots') {
             if (sameDoctorSections) sameDoctorSections.style.display = 'block';
 
@@ -483,26 +886,19 @@ function initializeAppointmentTypeManagerLegacy() {
             } else if (value === 'two_slots' && twoSlotsSection) {
                 twoSlotsSection.style.display = 'block';
             }
+        } else if (value === 'another_doctor') {
+            if (anotherDoctorSection) anotherDoctorSection.style.display = 'block';
+        } else if (value === 'multiple') {
+            if (multipleSection) multipleSection.style.display = 'block';
         }
     }
 
     function handleAppointmentTypeChange(event) {
         updateSectionsVisibility(event.target.value);
-    }
 
-    function handleAdditionalServiceChange() {
-        if (!additionalProceduralSection) return;
-
-        if (this.value) {
-            additionalProceduralSection.style.display = 'block';
-        } else {
-            additionalProceduralSection.style.display = 'none';
-
-            const additionalProceduralCheckbox = document.getElementById('needs_procedural_additional_checkbox');
-            if (additionalProceduralCheckbox) additionalProceduralCheckbox.checked = false;
-
-            const hiddenField = document.getElementById('id_needs_procedural_additional');
-            if (hiddenField) hiddenField.value = 'false';
+        // ИСПРАВЬТЕ: Также вызываем метод цепочки
+        if (window.chainManager) {
+            window.chainManager.onChainTypeChange(event.target.value);
         }
     }
 
@@ -525,6 +921,60 @@ function initializeAppointmentTypeManagerLegacy() {
 
     if (additionalServiceSelect) {
         additionalServiceSelect.addEventListener('change', handleAdditionalServiceChange);
+    }
+}
+function handleAdditionalServiceChange(event) {
+    const additionalProceduralSection = document.getElementById('additionalServiceProceduralSection');
+    const additionalProceduralVisibleCheckbox = document.getElementById('needs_procedural_additional_checkbox');
+    const additionalServiceSelect = event.target;
+
+    if (!additionalProceduralSection || !additionalProceduralVisibleCheckbox) return;
+
+    // Показываем/скрываем секцию процедурного кабинета для дополнительной услуги
+    if (additionalServiceSelect.value) {
+        additionalProceduralSection.style.display = 'block';
+
+        // Автоматически отмечаем процедурный кабинет для определенных услуг
+        const selectedOption = additionalServiceSelect.options[additionalServiceSelect.selectedIndex];
+        const serviceName = selectedOption.text.toLowerCase();
+
+        const needsProcedural = serviceName.includes('блокада') ||
+                               serviceName.includes('укол') ||
+                               serviceName.includes('пункция') ||
+                               serviceName.includes('введение') ||
+                               serviceName.includes('инъекция') ||
+                               serviceName.includes('внутримышечно') ||
+                               serviceName.includes('внутрикожно') ||
+                               serviceName.includes('внутривенно');
+
+        if (needsProcedural && !additionalProceduralVisibleCheckbox.checked) {
+            additionalProceduralVisibleCheckbox.checked = true;
+
+            // Обновляем скрытое поле
+            const hiddenField = document.getElementById('id_needs_procedural_additional');
+            if (hiddenField) {
+                hiddenField.value = 'true';
+            }
+        } else if (!needsProcedural && additionalProceduralVisibleCheckbox.checked) {
+            additionalProceduralVisibleCheckbox.checked = false;
+
+            // Обновляем скрытое поле
+            const hiddenField = document.getElementById('id_needs_procedural_additional');
+            if (hiddenField) {
+                hiddenField.value = 'false';
+            }
+        }
+    } else {
+        additionalProceduralSection.style.display = 'none';
+        if (additionalProceduralVisibleCheckbox.checked) {
+            additionalProceduralVisibleCheckbox.checked = false;
+
+            // Обновляем скрытое поле
+            const hiddenField = document.getElementById('id_needs_procedural_additional');
+            if (hiddenField) {
+                hiddenField.value = 'false';
+            }
+        }
     }
 }
 
@@ -695,16 +1145,69 @@ function initializeProceduralManagerForAdditionalService() {
         }
     }
 }
+function setupCleanupBeforeSubmit() {
+    const appointmentForm = document.getElementById('appointmentForm');
+    if (!appointmentForm) return;
 
+    appointmentForm.addEventListener('submit', function() {
+        // Задержка для того, чтобы chainManager успел обновиться
+        setTimeout(() => {
+            if (window.chainManager) {
+                const chainTypeElement = document.querySelector('input[name="appointment_chain_type"]:checked');
+                if (chainTypeElement) {
+                    const chainType = chainTypeElement.value;
+
+                    // Очищаем hidden поле если тип не требует дополнительных записей
+                    const hiddenField = document.getElementById('id_additional_appointments_data');
+                    if (hiddenField) {
+                        if (chainType === 'single' || chainType === 'additional' || chainType === 'two_slots') {
+                            hiddenField.value = '';
+                        }
+                    }
+                }
+            }
+        }, 100);
+    });
+}
 function setupFormValidation() {
     const appointmentForm = document.getElementById('appointmentForm');
     if (!appointmentForm) return;
 
     appointmentForm.addEventListener('submit', function(e) {
+        console.log('=== FORM SUBMIT DEBUG ===');
+
         // Проверяем валидацию Пищелева перед отправкой
         if (!validatePishchelevBeforeSubmit()) {
             e.preventDefault();
             return false;
+        }
+
+        // ВАЖНО: Очищаем пустые данные перед отправкой
+        if (window.chainManager) {
+            // Проверяем тип записи
+            const chainTypeElement = document.querySelector('input[name="appointment_chain_type"]:checked');
+            if (chainTypeElement) {
+                const chainType = chainTypeElement.value;
+
+                if (chainType === 'multiple') {
+                    // Для "multiple" удаляем форму "single" если она пустая
+                    const singleForm = document.querySelector('[data-form-index="single"]');
+                    if (singleForm) {
+                        const formData = window.chainManager.getFormData('single');
+                        if (!formData || !formData.doctor_id || !formData.service_id || !formData.time_slot_id) {
+                            // Форма "single" пустая - удаляем
+                            window.chainManager.removeSingleFormIfExists();
+                        }
+                    }
+                } else if (chainType === 'another_doctor') {
+                    // Для "another_doctor" удаляем все формы "multiple"
+                    window.chainManager.removeAllMultipleForms();
+                }
+            }
+
+            // Обновляем скрытые поля
+            window.chainManager.updateHiddenField();
+            window.chainManager.updateProceduralHiddenField();
         }
 
         return true;
@@ -925,6 +1428,28 @@ function initializeTimeSlotSelector() {
         }
     }
 
+
+    // Функция для форматирования опций (опционально)
+    function formatServiceOption(service) {
+        if (!service.id) {
+            return service.text;
+        }
+
+        // Можно добавить группировку по категориям
+        const $option = $(service.element);
+        const category = $option.data('category');
+
+        if (category) {
+            return $('<span><small class="text-muted">[' + category + '] </small>' + service.text + '</span>');
+        }
+
+        return service.text;
+    }
+
+    // Функция для форматирования выбранного элемента
+    function formatServiceSelection(service) {
+        return service.text;
+    }
     function resetTimeSelection() {
         const allowTimeChangeInput = document.getElementById('id_allow_time_change');
         const newTimeSlotIdInput = document.getElementById('id_new_time_slot_id');
@@ -1055,4 +1580,62 @@ function initializeTimeSlotSelector() {
     }
 
     updateNextSlotInfo(currentSlotId, originalDate);
+}
+// Добавьте эту функцию после существующих функций
+function initializeBloodTestSelection() {
+    const serviceSelect = document.getElementById('id_service');
+    const bloodTestSection = document.getElementById('bloodTestSelectionSection');
+
+    if (!serviceSelect || !bloodTestSection) return;
+
+    // Проверяем, есть ли уже экземпляр bloodTestSelection
+    if (!window.bloodTestSelection) {
+        // Загружаем класс BloodTestSelection если он не загружен
+        if (typeof BloodTestSelection !== 'undefined') {
+            window.bloodTestSelection = new BloodTestSelection({
+                initialTests: []
+            });
+        } else {
+            // Если класс не загружен, пытаемся загрузить скрипт
+            const script = document.createElement('script');
+            script.src = '/static/js/blood_test_selection.js?v=' + new Date().getTime();
+            script.onload = function() {
+                if (typeof BloodTestSelection !== 'undefined') {
+                    window.bloodTestSelection = new BloodTestSelection({
+                        initialTests: []
+                    });
+                }
+            };
+            document.head.appendChild(script);
+        }
+    }
+
+    // Функция для показа/скрытия блока анализов
+    function toggleBloodTestSection() {
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        const serviceName = selectedOption ? selectedOption.text.toLowerCase() : '';
+
+        // Показываем блок только для услуги "Забор крови"
+        const isBloodTest = serviceName.includes('забор крови') ||
+                           serviceName.includes('анализ') ||
+                           serviceName.includes('blood');
+
+        bloodTestSection.style.display = isBloodTest ? 'block' : 'none';
+
+        // Если выбрана услуга забора крови, обновляем сумму
+        if (isBloodTest && window.bloodTestSelection) {
+            window.bloodTestSelection.updateTotalSum();
+        }
+
+        // Очищаем выбор если переключились на другую услугу
+        if (!isBloodTest && window.bloodTestSelection) {
+            window.bloodTestSelection.clearSelectedTests();
+        }
+    }
+
+    // Обработчик изменения услуги
+    serviceSelect.addEventListener('change', toggleBloodTestSection);
+
+    // Инициализация при загрузке
+    toggleBloodTestSection();
 }
