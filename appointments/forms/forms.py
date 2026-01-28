@@ -636,14 +636,18 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             except TimeSlot.DoesNotExist:
                 raise forms.ValidationError("Выбранный временной слот не существует")
 
-                # Проверяем процедурную запись если меняется время или выбрана услуга медблокады
-        if cleaned_data.get("needs_procedural") or self._is_medical_blockade_service(
-            cleaned_data.get("service")
-        ):
+        # ===== ИСПРАВЛЕНИЕ: Проверяем процедурную запись ТОЛЬКО если нужно =====
+        needs_procedural = cleaned_data.get("needs_procedural", False)
+        service = cleaned_data.get("service") or (
+            self.instance.service if self.instance else None
+        )
+
+        # Проверяем процедурную запись только если:
+        # 1. Явно стоит галочка "Занять окошко в процедурном кабинете"
+        # 2. Или услуга является медблокадой (даже если галочка не стоит, но она будет автоматически установлена)
+        if needs_procedural or self._is_medical_blockade_service(service):
             self._validate_procedural_availability(cleaned_data)
-        # Проверяем процедурную запись если меняется время
-        if allow_time_change and new_time_slot_id:
-            self._validate_procedural_availability(cleaned_data)
+        # ===== КОНЕЦ ИСПРАВЛЕНИЯ =====
 
         return cleaned_data
 
@@ -678,6 +682,14 @@ class AppointmentSimpleEditForm(forms.ModelForm):
     def _validate_procedural_availability(self, cleaned_data):
         """Проверяет доступность процедурного кабинета"""
         # Определяем, какой слот проверять
+        needs_procedural = cleaned_data.get("needs_procedural", False)
+        service = cleaned_data.get("service") or (
+            self.instance.service if self.instance else None
+        )
+
+        if not needs_procedural and not self._is_medical_blockade_service(service):
+            return  # ПРЕРЫВАЕМ ВЫПОЛНЕНИЕ!
+
         time_slot_to_check = None
         if cleaned_data.get("allow_time_change") and cleaned_data.get("new_time_slot"):
             time_slot_to_check = cleaned_data.get("new_time_slot")
