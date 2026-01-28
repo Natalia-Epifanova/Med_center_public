@@ -21,6 +21,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Инициализация управления прокруткой
     initScrollControls(); // <-- ДОБАВЛЕНО
+
+    initCabinetComments(); // <-- Добавьте эту строку
+
+     initPaymentMethods(); // <-- Добавьте эту строку
 });
 
 // ============ ИНИЦИАЛИЗАЦИЯ КНОПОК УДАЛЕНИЯ ВСЕХ СЛОТОВ ============
@@ -243,51 +247,50 @@ function initializeStatusSelectStyles() {
 
 function updateAppointmentStatus(appointmentId, newStatus, element) {
     const csrfToken = getCSRFToken();
-    console.log('CSRF Token:', csrfToken ? 'Available' : 'Missing');
 
     // Показываем индикатор загрузки
     const originalValue = element.value;
     element.disabled = true;
     element.classList.add('loading');
 
-    // Временно меняем стиль для мгновенной обратной связи
+    // Временно меняем стиль
     updateStatusSelectStyle(element, newStatus);
 
-    // Используем FormData для правильной работы с CSRF
     const formData = new FormData();
     formData.append('status', newStatus);
     formData.append('csrfmiddlewaretoken', csrfToken);
 
-    console.log(`Sending request to update appointment ${appointmentId} to status: ${newStatus}`);
-
     fetch(`/appointments/${appointmentId}/update-status/`, {
         method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
         body: formData
     })
     .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
     })
     .then(data => {
-        console.log('Response data:', data);
         if (data.success) {
-            showNotification(`Статус изменен на: ${data.new_status_display}`, 'success');
+            let message = `Статус изменен на: ${data.new_status_display}`;
 
-            // Обновляем стиль окончательно
+            // Если была синхронизация с процедурной записью
+            if (data.synced_procedural) {
+                message += `\n✓ Статус также обновлен в процедурном кабинете (${data.synced_procedural.new_status_display})`;
+            }
+
+            showNotification(message, 'success');
+
+            // Обновляем стиль
             updateStatusSelectStyle(element, newStatus);
             element.value = newStatus;
 
-            console.log('Status updated successfully - no page reload');
+            // Если нужно, можно обновить статус и в процедурном кабинете на той же странице
+            if (data.synced_procedural) {
+                updateProceduralStatusOnPage(appointmentId, newStatus, data.synced_procedural.id);
+            }
+
         } else {
-            console.error('Server returned error:', data.error);
-            showNotification('Ошибка при изменении статуса: ' + data.error, 'error');
-            // Возвращаем предыдущее значение и стиль
+            showNotification('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
             element.value = originalValue;
             updateStatusSelectStyle(element, originalValue);
         }
@@ -295,7 +298,6 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
     .catch(error => {
         console.error('Fetch error:', error);
         showNotification('Ошибка соединения: ' + error.message, 'error');
-        // Возвращаем предыдущее значение и стиль
         element.value = originalValue;
         updateStatusSelectStyle(element, originalValue);
     })
@@ -305,6 +307,24 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
     });
 }
 
+function updateProceduralStatusOnPage(mainAppointmentId, newStatus, proceduralAppointmentId) {
+    // Находим select статуса для процедурной записи и обновляем его
+    const proceduralSelect = document.querySelector(
+        `.appointment-status-select[data-appointment-id="${proceduralAppointmentId}"]`
+    );
+
+    if (proceduralSelect && proceduralSelect.value !== newStatus) {
+        proceduralSelect.value = newStatus;
+        updateStatusSelectStyle(proceduralSelect, newStatus);
+
+        // Можно показать небольшую анимацию
+        proceduralSelect.parentElement.style.backgroundColor = '#e8f5e8';
+        setTimeout(() => {
+            proceduralSelect.parentElement.style.backgroundColor = '';
+        }, 1000);
+    }
+}
+
 function updateStatusSelectStyle(selectElement, status) {
     if (!selectElement) return;
 
@@ -312,14 +332,18 @@ function updateStatusSelectStyle(selectElement, status) {
     selectElement.classList.remove(
         'status-scheduled', 'status-confirmed', 'status-completed',
         'status-cancelled', 'status-no_show', 'status-default',
+        'status-approached', 'status-in_room', 'status-not_called', 'status-no_reception', // ← ДОБАВЛЕНО
         'border-primary', 'border-info', 'border-success',
-        'border-warning', 'border-danger', 'text-muted'
+        'border-warning', 'border-danger', 'border-secondary',
+        'text-muted', 'bg-primary-light', 'bg-info-light',
+        'bg-success-light', 'bg-warning-light', 'bg-danger-light',
+        'bg-light'
     );
 
     // Добавляем базовый класс и класс в зависимости от статуса
     selectElement.classList.add('status-' + status);
 
-    // Добавляем классы Bootstrap для границ
+    // Добавляем классы Bootstrap для границ и фона
     switch(status) {
         case 'scheduled':
             selectElement.classList.add('border-primary', 'bg-primary-light');
@@ -330,11 +354,20 @@ function updateStatusSelectStyle(selectElement, status) {
         case 'completed':
             selectElement.classList.add('border-success', 'bg-success-light');
             break;
-        case 'cancelled':
-            selectElement.classList.add('border-warning', 'bg-warning-light');
+        case 'approached':
+            selectElement.classList.add('border-info', 'bg-info-light'); // Синий для "Подошел"
+            break;
+        case 'in_room':
+            selectElement.classList.add('border-info', 'bg-info-light'); // Синий для "Подошел"
+            break;
+        case 'not_called':
+            selectElement.classList.add('border-warning', 'bg-warning-light'); // Желтый/оранжевый для "Не дозвонились"
             break;
         case 'no_show':
-            selectElement.classList.add('border-danger', 'bg-danger-light');
+            selectElement.classList.add('border-danger', 'bg-danger-light'); // Красный для "Не явился"
+            break;
+        case 'no_reception':
+            selectElement.classList.add('border-danger', 'bg-danger-light'); // Красный для "Не явился"
             break;
         default:
             selectElement.classList.add('border-secondary', 'bg-light');
@@ -403,7 +436,194 @@ function initDayCommentForm() {
         console.log('Day comment form not found');
     }
 }
+// ============ УПРАВЛЕНИЕ СПОСОБОМ ОПЛАТЫ ============
+function initPaymentMethods() {
+    console.log('Initializing payment methods...');
 
+    // Инициализация - показываем способы оплаты для уже завершенных записей
+    document.querySelectorAll('.payment-method-selector').forEach(selector => {
+        const appointmentId = selector.dataset.appointmentId;
+        const statusSelect = document.querySelector(`.appointment-status-select[data-appointment-id="${appointmentId}"]`);
+
+        // Находим активную кнопку на сервере
+        const activeCashBtn = selector.querySelector('.payment-method-btn[data-method="cash"].active-cash');
+        const activeCardBtn = selector.querySelector('.payment-method-btn[data-method="card"].active-card');
+
+        // Применяем стили сразу при загрузке
+        if (activeCashBtn) {
+            applyActiveStyle(activeCashBtn, 'cash');
+        }
+        if (activeCardBtn) {
+            applyActiveStyle(activeCardBtn, 'card');
+        }
+
+        if (statusSelect && statusSelect.value === 'completed') {
+            selector.classList.remove('d-none');
+            selector.classList.add('show');
+        }
+    });
+
+    // Обработка изменения статуса
+    document.querySelectorAll('.appointment-status-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const appointmentId = this.dataset.appointmentId;
+            const newStatus = this.value;
+            const paymentSelector = document.querySelector(`.payment-method-selector[data-appointment-id="${appointmentId}"]`);
+
+            if (paymentSelector) {
+                if (newStatus === 'completed') {
+                    // Показываем с анимацией
+                    paymentSelector.classList.remove('d-none');
+                    setTimeout(() => {
+                        paymentSelector.classList.add('show');
+                    }, 10);
+                } else {
+                    // Скрываем с анимацией
+                    paymentSelector.classList.remove('show');
+                    setTimeout(() => {
+                        paymentSelector.classList.add('d-none');
+                    }, 300);
+                }
+            }
+        });
+    });
+
+    // Обработка клика по кнопкам оплаты
+    document.querySelectorAll('.payment-method-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const selector = this.closest('.payment-method-selector');
+            const appointmentId = selector.dataset.appointmentId;
+            const method = this.dataset.method;
+
+            // НЕМЕДЛЕННО меняем визуальное состояние
+            // Снимаем активные классы со всех кнопок
+            const allButtons = selector.querySelectorAll('.payment-method-btn');
+            allButtons.forEach(btn => {
+                resetButtonStyle(btn);
+            });
+
+            // Применяем стиль к выбранной кнопке
+            applyActiveStyle(this, method);
+
+            // Отправляем на сервер
+            updatePaymentMethod(appointmentId, method, this);
+        });
+    });
+}
+
+// Функция для применения активного стиля
+function applyActiveStyle(button, method) {
+    if (method === 'cash') {
+        button.classList.add('active-cash');
+        // Немедленно меняем стили
+        button.style.backgroundColor = '#28a745';
+        button.style.borderColor = '#28a745';
+        button.style.color = 'white';
+        button.style.boxShadow = '0 0 0 2px rgba(40, 167, 69, 0.25)';
+        button.style.fontWeight = 'bold';
+    } else if (method === 'card') {
+        button.classList.add('active-card');
+        // Немедленно меняем стили
+        button.style.backgroundColor = '#17a2b8';
+        button.style.borderColor = '#17a2b8';
+        button.style.color = 'white';
+        button.style.boxShadow = '0 0 0 2px rgba(23, 162, 184, 0.25)';
+        button.style.fontWeight = 'bold';
+    }
+}
+
+// Функция для сброса стилей кнопки
+function resetButtonStyle(button) {
+    button.classList.remove('active-cash', 'active-card');
+    // Сбрасываем inline стили
+    button.style.backgroundColor = '';
+    button.style.borderColor = '';
+    button.style.color = '';
+    button.style.boxShadow = '';
+    button.style.fontWeight = '';
+}
+
+function updatePaymentMethod(appointmentId, paymentMethod, buttonElement) {
+    const csrfToken = getCSRFToken();
+
+    if (!csrfToken) {
+        showNotification('Ошибка безопасности', 'error');
+        // Сбрасываем выделение при ошибке
+        resetButtonStyle(buttonElement);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('payment_method', paymentMethod);
+    formData.append('csrfmiddlewaretoken', csrfToken);
+
+    // Показываем индикатор загрузки
+    const originalHtml = buttonElement.innerHTML;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>';
+    buttonElement.disabled = true;
+
+    fetch(`/appointments/${appointmentId}/update-payment-method/`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(`Способ оплаты: ${data.payment_method_display}`, 'success');
+
+            // Восстанавливаем кнопку с сохранением стиля
+            const icon = paymentMethod === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card';
+            const text = paymentMethod === 'cash' ? 'Нал' : 'Карта';
+            buttonElement.innerHTML = `<i class="fas ${icon} me-1"></i>${text}`;
+            buttonElement.disabled = false;
+
+            // Убедимся, что стиль сохранился
+            applyActiveStyle(buttonElement, paymentMethod);
+
+        } else {
+            showNotification('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+            // Сбрасываем выделение при ошибке
+            resetButtonStyle(buttonElement);
+            buttonElement.innerHTML = originalHtml;
+            buttonElement.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Payment method update error:', error);
+        showNotification('Ошибка соединения', 'error');
+        // Сбрасываем выделение при ошибке
+        resetButtonStyle(buttonElement);
+        buttonElement.innerHTML = originalHtml;
+        buttonElement.disabled = false;
+    });
+}
+
+function resetPaymentButton(buttonElement, method, isSuccess = false) {
+    const icon = method === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card';
+    const text = method === 'cash' ? 'Нал' : 'Карта';
+
+    buttonElement.innerHTML = `<i class="fas ${icon} me-1"></i>${text}`;
+    buttonElement.disabled = false;
+
+    if (!isSuccess) {
+        // Сбрасываем выделение
+        const allButtons = buttonElement.parentElement.querySelectorAll('.payment-method-btn');
+        allButtons.forEach(btn => {
+            if (btn.dataset.method === method) {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }
+        });
+    }
+}
 // ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
 function getCSRFToken() {
     // Ищем CSRF токен в куках (основной способ в Django)
@@ -557,5 +777,150 @@ function updateScrollButtonsState(scrollContainer) {
         scrollRightBtn.style.opacity = '1';
     }
 }
+// ============ КОММЕНТАРИИ КАБИНЕТОВ ============
+function initCabinetComments() {
+    console.log('Initializing cabinet comments...');
 
+    // Обработка кнопок редактирования
+    document.querySelectorAll('.edit-cabinet-comment-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+
+            const cabinetId = this.dataset.cabinetId;
+            const cabinetNumber = this.dataset.cabinetNumber;
+            const date = this.dataset.date;
+
+            // Получаем текущий комментарий
+            const commentSection = this.closest('.cabinet-comment-section');
+            const commentContent = commentSection.querySelector('.cabinet-comment-content');
+            let currentComment = '';
+
+            if (commentContent && !commentContent.querySelector('.fst-italic')) {
+                // Убираем HTML-разметку для текстового поля
+                const commentText = commentContent.textContent;
+                // Ищем первое вхождение "(записал" и обрезаем до него
+                const createdByIndex = commentText.indexOf('(записал');
+                if (createdByIndex !== -1) {
+                    currentComment = commentText.substring(0, createdByIndex).trim();
+                } else {
+                    currentComment = commentText.trim();
+                }
+            }
+
+            // Заполняем модальное окно
+            const modal = document.getElementById('cabinetCommentModal');
+            if (modal) {
+                modal.querySelector('#cabinetNumberModal').textContent = cabinetNumber;
+                modal.querySelector('#cabinetIdInput').value = cabinetId;
+                modal.querySelector('#cabinetCommentTextarea').value = currentComment;
+
+                // Сохраняем данные для отправки
+                modal.dataset.cabinetId = cabinetId;
+                modal.dataset.cabinetNumber = cabinetNumber;
+                modal.dataset.currentComment = currentComment;
+
+                // Показываем модальное окно
+                try {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } catch (error) {
+                    console.error('Error showing modal:', error);
+                    showNotification('Ошибка открытия окна', 'error');
+                }
+            }
+        });
+    });
+
+    // Обработка формы сохранения
+    const cabinetCommentForm = document.getElementById('cabinetCommentForm');
+    if (cabinetCommentForm) {
+        cabinetCommentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const cabinetId = formData.get('cabinet_id');
+            const comment = formData.get('comment');
+
+            fetch('/timetable/save-cabinet-comment/', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Закрываем модальное окно
+                    const modal = document.getElementById('cabinetCommentModal');
+                    if (modal) {
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                    }
+
+                    showNotification('Комментарий сохранен', 'success');
+                    // Перезагружаем страницу через 1 секунду
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    showNotification('Ошибка: ' + data.error, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Save cabinet comment error:', error);
+                showNotification('Ошибка при сохранении', 'error');
+            });
+        });
+    }
+
+    // Обработка удаления комментария
+    const deleteCabinetCommentBtn = document.getElementById('deleteCabinetCommentBtn');
+    if (deleteCabinetCommentBtn) {
+        deleteCabinetCommentBtn.addEventListener('click', function() {
+            const modal = document.getElementById('cabinetCommentModal');
+            if (modal) {
+                const cabinetId = modal.querySelector('#cabinetIdInput').value;
+                const date = modal.querySelector('[name="date"]').value;
+
+                if (confirm('Удалить комментарий для этого кабинета?')) {
+                    // Отправляем пустой комментарий для удаления
+                    const formData = new FormData();
+                    formData.append('cabinet_id', cabinetId);
+                    formData.append('date', date);
+                    formData.append('comment', '');
+                    formData.append('csrfmiddlewaretoken', getCSRFToken());
+
+                    fetch('/timetable/save-cabinet-comment/', {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Закрываем модальное окно
+                            const bsModal = bootstrap.Modal.getInstance(modal);
+                            if (bsModal) bsModal.hide();
+
+                            showNotification('Комментарий удален', 'success');
+                            // Перезагружаем страницу через 1 секунду
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            showNotification('Ошибка удаления: ' + data.error, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Delete cabinet comment error:', error);
+                        showNotification('Ошибка при удалении', 'error');
+                    });
+                }
+            }
+        });
+    }
+}
 console.log('=== SCHEDULE_DAY.JS INITIALIZATION COMPLETE ===');

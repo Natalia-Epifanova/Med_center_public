@@ -174,6 +174,13 @@
                             } else {
                                 message += `<strong>Номер карты:</strong> не указан<br>`;
                             }
+                            if (patient.card_number_IP) {
+                                message += `<strong>Номер карты ИП:</strong> ${patient.card_number_IP}<br>`;
+                            }
+
+                            if (patient.card_number_OMS) {
+                                message += `<strong>Номер карты ОМС:</strong> ${patient.card_number_OMS}<br>`;
+                            }
 
                             if (patient.phone_number) {
                                 message += `<strong>Телефон:</strong> ${patient.phone_number}<br>`;

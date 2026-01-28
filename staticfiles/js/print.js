@@ -1,7 +1,3 @@
-/**
- * Функции для печати расписания
- */
-
 function printSchedule() {
     console.log('=== PRINT SCHEDULE ===');
 
@@ -38,88 +34,328 @@ function printSchedule() {
                 // Оставляем только номер кабинета
                 const cabinetMatch = text.match(/Кабинет\s+\d+/);
                 if (cabinetMatch) {
-                    cardTitle.innerHTML = `<strong>${cabinetMatch[0]}</strong>`;
+                    cardTitle.innerHTML = `<strong style="font-size: 10pt;">${cabinetMatch[0]}</strong>`;
                 }
             }
         }
 
-        // 2. Упрощаем заголовок врача в теле карточки
+        // 2. Убираем комментарий кабинета из печати
+        const cabinetCommentSection = clonedCard.querySelector('.cabinet-comment-section');
+        if (cabinetCommentSection) {
+            cabinetCommentSection.style.display = 'none';
+        }
+
+        // 3. Правильно обрабатываем заголовки врачей
         const doctorHeaders = clonedCard.querySelectorAll('.doctor-header');
         doctorHeaders.forEach(header => {
-            // Находим ФИО врача в заголовке
-            const doctorElements = header.querySelectorAll('*');
-            let doctorName = '';
+            // Сохраняем оригинальное содержимое
+            const originalHTML = header.innerHTML;
 
-            doctorElements.forEach(el => {
+            // Ищем ФИО врача (пробуем несколько вариантов)
+            let doctorName = '';
+            let doctorSpecialization = '';
+            let doctorComment = '';
+
+            // Вариант 1: Ищем в текстовых элементах
+            const textElements = header.querySelectorAll('*');
+            textElements.forEach(el => {
                 const text = el.textContent.trim();
-                // Ищем ФИО врача в формате "Фамилия И.О."
-                const doctorMatch = text.match(/[А-Я][а-я]+\s+[А-Я]\.\s*[А-Я]\./);
-                if (doctorMatch && !doctorName) {
-                    doctorName = doctorMatch[0];
+
+                // Ищем ФИО в формате "Фамилия И.О."
+                if (!doctorName && text.match(/[А-Я][а-я]+\s+[А-Я]\.\s*[А-Я]\./)) {
+                    doctorName = text.match(/[А-Я][а-я]+\s+[А-Я]\.\s*[А-Я]\./)[0];
+                }
+
+                // Ищем специализацию (текст темного цвета)
+                if (!doctorSpecialization && el.classList.contains('text-dark')) {
+                    doctorSpecialization = text;
+                }
+
+                // Ищем комментарий (текст красного цвета)
+                if (!doctorComment && el.classList.contains('text-danger')) {
+                    doctorComment = text;
+                }
+
+                // Ищем просто ФИО без формата
+                if (!doctorName && text.split(' ').length >= 2 && text.length < 50) {
+                    // Проверяем, не является ли это номером телефона или другим текстом
+                    if (!text.includes('+7') && !text.includes('рублей') && !text.includes('карта')) {
+                        doctorName = text;
+                    }
                 }
             });
 
-            // Очищаем весь header и добавляем только ФИО врача
+            // Вариант 2: Ищем в исходной карточке
+            if (!doctorName || !doctorSpecialization) {
+                const originalHeader = card.querySelector('.doctor-header');
+                if (originalHeader) {
+                    // Ищем ФИО
+                    const nameElements = originalHeader.querySelectorAll('.text-primary, strong');
+                    nameElements.forEach(el => {
+                        const text = el.textContent.trim();
+                        if (!doctorName && text.match(/[А-Я]/)) {
+                            doctorName = text;
+                        }
+                    });
+
+                    // Ищем специализацию
+                    const specElements = originalHeader.querySelectorAll('.text-dark, .doctor-specialization');
+                    specElements.forEach(el => {
+                        const text = el.textContent.trim();
+                        if (!doctorSpecialization && text && text.length > 2) {
+                            doctorSpecialization = text;
+                        }
+                    });
+
+                    // Ищем комментарий
+                    const commentElements = originalHeader.querySelectorAll('.text-danger');
+                    commentElements.forEach(el => {
+                        const text = el.textContent.trim();
+                        if (!doctorComment && text) {
+                            doctorComment = text;
+                        }
+                    });
+                }
+            }
+
+            // Очищаем header и добавляем информацию врача
+            header.innerHTML = '';
+            header.style.cssText = 'padding: 1.5mm; margin-bottom: 1mm; font-size: 8pt; text-align: center; background-color: #ffffcc; border: 0.5px solid #ccc; border-radius: 1mm;';
+
+            // Добавляем ФИО врача
             if (doctorName) {
-                header.innerHTML = `<strong>${doctorName}</strong>`;
-                header.style.cssText = 'padding: 2px; margin-bottom: 2px; font-size: 9pt; text-align: center; background-color: #ffffcc;';
+                const nameDiv = document.createElement('div');
+                nameDiv.innerHTML = `<strong style="font-size: 9pt;">${doctorName}</strong>`;
+                header.appendChild(nameDiv);
+            }
+
+            // Добавляем специализацию
+            if (doctorSpecialization) {
+                const specDiv = document.createElement('div');
+                specDiv.innerHTML = `<span style="font-size: 8pt; font-weight: bold;">${doctorSpecialization}</span>`;
+                header.appendChild(specDiv);
+            }
+
+            // Добавляем комментарий врача (черным цветом)
+            if (doctorComment) {
+                const commentDiv = document.createElement('div');
+                commentDiv.innerHTML = `<span style="font-size: 8pt; font-weight: bold; color: black !important; margin-top: 0.5mm; display: block;">${doctorComment}</span>`;
+                header.appendChild(commentDiv);
             }
 
             // Убираем кнопку "Удалить все слоты"
             const deleteButton = header.querySelector('.delete-all-slots-btn');
             if (deleteButton) deleteButton.remove();
-
-            // Убираем специализацию врача
-            const specialization = header.querySelector('strong.text-dark');
-            if (specialization) specialization.remove();
-
-            // Убираем комментарий врача
-            const comment = header.querySelector('strong.text-danger');
-            if (comment) comment.remove();
-
-            // Убираем все дополнительные тексты (название кабинета, стоимость и т.д.)
-            const allStrongElements = header.querySelectorAll('strong');
-            allStrongElements.forEach((el, idx) => {
-                if (idx > 0) { // Оставляем только первый элемент (ФИО)
-                    el.remove();
-                }
-            });
         });
 
-        // 3. Убираем кнопки действий и связанные элементы
+        // 4. Убираем кнопки действий и связанные элементы
         const actionCells = clonedCard.querySelectorAll('.timetable-table-sm td:nth-child(5)');
         actionCells.forEach(cell => cell.style.display = 'none');
 
         const actionHeaders = clonedCard.querySelectorAll('.timetable-table-sm th:nth-child(5)');
         actionHeaders.forEach(header => header.style.display = 'none');
 
-        // 4. Преобразуем ссылки в обычный текст
-        const timeLinks = clonedCard.querySelectorAll('.timetable-table-sm td:nth-child(1) a');
-        timeLinks.forEach(link => {
-            const timeText = link.textContent || link.innerText;
-            const timeSpan = document.createElement('span');
-            timeSpan.innerHTML = `<strong>${timeText}</strong>`;
-            link.parentNode.replaceChild(timeSpan, link);
+        // 5. Преобразуем время - оставляем только начало
+        const timeCells = clonedCard.querySelectorAll('.timetable-table-sm td:nth-child(1)');
+        timeCells.forEach(cell => {
+            // Обрабатываем все strong элементы с временем
+            const strongElements = cell.querySelectorAll('strong');
+            strongElements.forEach(el => {
+                const timeText = el.textContent || el.innerText;
+                if (timeText.includes('-')) {
+                    const startTime = timeText.split('-')[0];
+                    el.textContent = startTime.trim();
+                    el.style.fontSize = '7pt';
+                    el.style.fontWeight = 'bold';
+                }
+            });
+
+            // Убираем "Перерыв" и комментарии
+            const breakText = cell.querySelector('.text-muted.fw-bold');
+            if (breakText) breakText.remove();
+
+            const descriptionText = cell.querySelector('small.text-dark.fw-bold');
+            if (descriptionText) descriptionText.remove();
+
+            // ИСПРАВЛЕННАЯ СЕКЦИЯ: Сохраняем только бейджи ОМС и ДМС
+            const badges = cell.querySelectorAll('.badge');
+            badges.forEach(badge => {
+                const badgeText = badge.textContent || badge.innerText;
+
+                // Пропускаем бейдж "Платный"
+                if (badgeText.toLowerCase().includes('платн')) {
+                    badge.remove();
+                    return;
+                }
+
+                // Пропускаем бейдж "Оплачено"
+                if (badgeText.toLowerCase().includes('оплачено')) {
+                    badge.remove();
+                    return;
+                }
+
+                // Оставляем только бейджи ОМС и ДМС
+                if (badgeText.includes('ОМС') || badgeText.includes('ДМС') ||
+                    badgeText.includes('омс') || badgeText.includes('дмс')) {
+
+                    // Создаем новый элемент для бейджа
+                    const badgeType = badge.className.match(/badge-(success|warning|danger|info|primary)/);
+
+                    // Определяем цвет для печати
+                    let printColor = 'black';
+                    let bgColor = 'transparent';
+
+                    if (badgeType) {
+                        switch(badgeType[1]) {
+                            case 'success':
+                                bgColor = '#d4edda'; // зеленый для ОМС
+                                printColor = '#155724';
+                                break;
+                            case 'warning':
+                                bgColor = '#fff3cd'; // желтый для ДМС
+                                printColor = '#856404';
+                                break;
+                            case 'danger':
+                                bgColor = '#f8d7da'; // красный
+                                printColor = '#721c24';
+                                break;
+                            case 'info':
+                                bgColor = '#d1ecf1'; // голубой
+                                printColor = '#0c5460';
+                                break;
+                            case 'primary':
+                                bgColor = '#cce5ff'; // синий
+                                printColor = '#004085';
+                                break;
+                        }
+                    }
+
+                    // Создаем новый span для бейджа
+                    const badgeSpan = document.createElement('span');
+                    badgeSpan.innerHTML = `<strong style="font-size: 6pt; font-weight: bold; color: ${printColor}; background-color: ${bgColor}; padding: 0.5px 2px; border-radius: 1px; border: 0.3px solid #ccc; display: inline-block; margin-left: 1mm;">${badgeText}</strong>`;
+
+                    // Добавляем бейдж после времени
+                    const parent = badge.parentNode;
+                    parent.appendChild(document.createTextNode(' '));
+                    parent.appendChild(badgeSpan);
+                }
+
+                // Удаляем оригинальный бейдж
+                badge.remove();
+            });
+
+            // Убираем все ссылки
+            const links = cell.querySelectorAll('a');
+            links.forEach(link => {
+                const timeText = link.textContent || link.innerText;
+                if (timeText.includes('-')) {
+                    const startTime = timeText.split('-')[0];
+                    const timeSpan = document.createElement('span');
+                    timeSpan.innerHTML = `<strong style="font-size: 7pt; font-weight: bold;">${startTime.trim()}</strong>`;
+                    link.parentNode.replaceChild(timeSpan, link);
+                }
+            });
         });
 
-        const patientLinks = clonedCard.querySelectorAll('.patient-link');
-        patientLinks.forEach(link => {
-            const patientText = link.textContent || link.innerText;
-            const patientSpan = document.createElement('span');
-            patientSpan.innerHTML = `<strong>${patientText}</strong>`;
-            link.parentNode.replaceChild(patientSpan, link);
-        });
+        // 6. ВОССТАНАВЛИВАЕМ ДАННЫЕ ПАЦИЕНТОВ ИЗ ОРИГИНАЛЬНОЙ КАРТОЧКИ
+        // Находим все строки таблицы в оригинальной карточке
+        const originalRows = card.querySelectorAll('.timetable-table-sm tbody tr');
+        const clonedRows = clonedCard.querySelectorAll('.timetable-table-sm tbody tr');
 
-        // Убираем все остальные ссылки
-        const otherLinks = clonedCard.querySelectorAll('a');
-        otherLinks.forEach(link => {
-            if (!link.closest('.timetable-table-sm td:nth-child(1)')) {
-                const text = link.textContent || link.innerText;
-                link.parentNode.replaceChild(document.createTextNode(text), link);
+        // Проходим по всем строкам и копируем данные пациентов
+        originalRows.forEach((originalRow, rowIndex) => {
+            const clonedRow = clonedRows[rowIndex];
+            if (clonedRow) {
+                // Ищем данные пациента в оригинальной строке (3-я ячейка)
+                const originalPatientCell = originalRow.querySelector('td:nth-child(3)');
+                const clonedPatientCell = clonedRow.querySelector('td:nth-child(3)');
+
+                if (originalPatientCell && clonedPatientCell) {
+                    // Получаем все содержимое ячейки с пациентом
+                    const patientContent = originalPatientCell.innerHTML.trim();
+
+                    if (patientContent && patientContent !== '-') {
+                        // Берем ВСЕ содержимое, включая номера карт
+                        let patientText = originalPatientCell.textContent || originalPatientCell.innerText;
+                        patientText = patientText.trim();
+
+                        // Разделяем по переводам строк
+                        const lines = patientText.split('\n');
+                        let finalText = '';
+
+                        // Собираем только строки с ФИО и картами, игнорируем пустые строки
+                        lines.forEach(line => {
+                            const trimmedLine = line.trim();
+                            if (trimmedLine &&
+                                !trimmedLine.includes('+7') && // Игнорируем номера телефонов
+                                !trimmedLine.includes('phone') &&
+                                !trimmedLine.includes('тел.')) {
+
+                                // Если это первая строка (ФИО), добавляем как есть
+                                if (finalText === '') {
+                                    finalText = trimmedLine;
+                                } else {
+                                    // Для остальных строк добавляем с переводом строки
+                                    finalText += '\n' + trimmedLine;
+                                }
+                            }
+                        });
+
+                        // Если есть тег <strong>, берем только его содержимое плюс карты
+                        const strongElement = originalPatientCell.querySelector('strong');
+                        if (strongElement) {
+                            const nameOnly = strongElement.textContent.trim();
+                            // Берем все остальные строки (карты) из исходного текста
+                            const otherLines = patientText.split('\n')
+                                .filter(line => {
+                                    const trimmed = line.trim();
+                                    return trimmed &&
+                                           !trimmed.includes(nameOnly) && // исключаем ФИО
+                                           (trimmed.includes('карта') ||
+                                            trimmed.includes('ОМС') ||
+                                            trimmed.includes('ИП'));
+                                });
+
+                            // Собираем ФИО и карты
+                            finalText = nameOnly;
+                            otherLines.forEach(line => {
+                                finalText += '\n' + line.trim();
+                            });
+                        }
+
+                        // Записываем в клонированную ячейку
+                        if (finalText && finalText !== '-') {
+                            // Разделяем по переводам строк и создаем HTML
+                            const htmlLines = finalText.split('\n');
+                            let htmlContent = '';
+                            htmlLines.forEach((line, index) => {
+                                if (index === 0) {
+                                    // Первая строка (ФИО) жирным
+                                    htmlContent += `<strong style="font-size: 7pt;">${line}</strong>`;
+                                } else {
+                                    // Остальные строки (карты) обычным шрифтом
+                                    htmlContent += `<br><span style="font-size: 6pt;">${line}</span>`;
+                                }
+                            });
+                            clonedPatientCell.innerHTML = htmlContent;
+                        } else {
+                            clonedPatientCell.innerHTML = '<strong style="font-size: 7pt;">-</strong>';
+                        }
+                    } else {
+                        clonedPatientCell.innerHTML = '<strong style="font-size: 7pt;">-</strong>';
+                    }
+                }
             }
         });
 
-        // 5. Убираем пустые строки (элементы с "-" или пустые)
+        // 7. Обработка ссылок в других ячейках
+        const otherLinks = clonedCard.querySelectorAll('a');
+        otherLinks.forEach(link => {
+            const text = link.textContent || link.innerText;
+            link.parentNode.replaceChild(document.createTextNode(text), link);
+        });
+
+        // 8. Убираем пустые строки
         const textMutedElements = clonedCard.querySelectorAll('small.text-muted');
         textMutedElements.forEach(el => {
             const text = el.textContent.trim();
@@ -139,7 +375,7 @@ function printSchedule() {
 
     console.log(`Created ${groupedCards.length} pages with 3 cabinets each`);
 
-    // Создаем HTML для печати БЕЗ ЗАГОЛОВКОВ
+    // Создаем HTML для печати с дополнительными стилями для бейджей
     let printHTML = `
         <!DOCTYPE html>
         <html>
@@ -147,171 +383,218 @@ function printSchedule() {
             <title>Расписание на ${scheduleDate}</title>
             <meta charset="UTF-8">
             <style>
-                /* Общие стили печати */
+                /* ОСНОВНЫЕ СТИЛИ */
+                * {
+                    margin: 0;
+                    padding: 0;
+                    box-sizing: border-box;
+                }
+
+                /* РАЗМЕР СТРАНИЦЫ */
+                @page {
+                    size: A4 landscape;
+                    margin: 8mm 8mm 8mm 8mm !important;
+                }
+
+                /* СТИЛИ ДЛЯ ПЕЧАТИ */
+                @media print {
+                    body {
+                        margin: 0 !important;
+                        padding: 0;
+                        width: 100% !important;
+                        font-size: 7pt !important;
+                        font-family: Arial, sans-serif !important;
+                        color: black !important;
+                        background: white !important;
+                    }
+                }
+
                 body {
                     margin: 0;
-                    padding: 3mm;
+                    padding: 0;
                     font-family: Arial, sans-serif;
-                    font-size: 8pt;
+                    font-size: 7pt;
                     background: white;
                     color: black;
                 }
 
                 .print-page {
-                    page-break-after: always;
-                    break-after: page;
-                }
-
-                /* Сетка карточек - 3 в ряд */
-                .print-cards-grid {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 2mm;
                     width: 100%;
-                    min-height: 170mm;
+                    margin: 0 auto;
+                    padding: 0;
+                    page-break-after: always;
                 }
 
-                /* Стили карточки кабинета */
+                /* СЕТКА КАРТОЧЕК */
+                .print-cards-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(3, 1fr) !important;
+                    gap: 1 mm !important;
+                    width: 97% !important;
+                    max-width: 97% !important;
+                    margin: 0 auto !important;
+                    padding: 0 !important;
+                }
+
+                /* КАРТОЧКА КАБИНЕТА */
                 .print-cabinet-card {
-                    border: 1px solid #000;
-                    border-radius: 1mm;
+                    border: 0.5px solid #000 !important;
+                    border-radius: 0.5mm;
                     overflow: hidden;
                     page-break-inside: avoid;
                     break-inside: avoid;
-                    height: 165mm;
+                    height: 165mm !important;
                     display: flex;
                     flex-direction: column;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
                 .print-cabinet-header {
                     background-color: #f0f0f0 !important;
                     color: black !important;
-                    padding: 1mm 2mm !important;
+                    padding: 0.5mm 0.8mm !important;
                     text-align: center;
-                    font-size: 9pt;
+                    font-size: 9pt !important;
                     font-weight: bold;
-                    border-bottom: 1px solid #000;
+                    border-bottom: 0.5px solid #000 !important;
                 }
 
                 .print-cabinet-body {
-                    padding: 1mm;
+                    padding: 0.5mm !important;
                     flex-grow: 1;
                     overflow: hidden;
+                    font-size: 7pt !important;
                 }
 
-                /* Таблица в карточке */
-                .print-table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    font-size: 6pt;
-                    table-layout: fixed;
+                /* ТАБЛИЦА */
+                table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                    font-size: 7pt !important;
+                    table-layout: fixed !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
                 }
 
-                .print-table th {
-                    background-color: #f8f8f8;
-                    border: 0.5px solid #ccc;
-                    padding: 0.5mm 1mm;
+                table th {
+                    background-color: #f8f8f8 !important;
+                    border: 0.5px solid #ccc !important;
+                    padding: 0.4mm 0.5mm !important;
                     text-align: left;
                     font-weight: bold;
-                    height: 8mm;
+                    height: 4.5mm;
+                    font-size: 7pt !important;
                 }
 
-                .print-table td {
-                    border: 0.5px solid #ccc;
-                    padding: 0.5mm 1mm;
+                table td {
+                    border: 0.5px solid #ccc !important;
+                    padding: 0.3mm 0.4mm !important;
                     vertical-align: top;
-                    height: 6mm;
+                    height: 3.8mm;
+                    font-size: 7pt !important;
+                    line-height: 1.1 !important;
+                    word-break: break-word !important;
+                    overflow-wrap: break-word !important;
                 }
 
-                .print-table tr:nth-child(even) {
-                    background-color: #fafafa;
+                table tr:nth-child(even) {
+                    background-color: #fafafa !important;
                 }
 
-                /* Ширины колонок */
-                .print-table th:nth-child(1),
-                .print-table td:nth-child(1) {
-                    width: 20%;
+                /* ШИРИНЫ КОЛОНОК */
+                table th:nth-child(1),
+                table td:nth-child(1) {
+                    width: 9% !important;
+                    font-size: 7pt !important;
+                    font-weight: bold !important;
                 }
 
-                .print-table th:nth-child(2),
-                .print-table td:nth-child(2) {
-                    width: 25%;
+                table th:nth-child(2),
+                table td:nth-child(2) {
+                    width: 22% !important;
+                    font-size: 7pt !important;
+                    word-break: break-word !important;
                 }
 
-                .print-table th:nth-child(3),
-                .print-table td:nth-child(3) {
-                    width: 35%;
+                table th:nth-child(3),
+                table td:nth-child(3) {
+                    width: 24% !important;
+                    font-size: 7pt !important;
+                    word-break: break-word !important;
+                    overflow-wrap: break-word !important;
                 }
 
-                .print-table th:nth-child(4),
-                .print-table td:nth-child(4) {
-                    width: 20%;
+                table th:nth-child(4),
+                table td:nth-child(4) {
+                    width: 18% !important;
+                    font-size: 7pt !important;
+                    word-break: break-word !important;
+                    overflow-wrap: break-word !important;
                 }
 
                 /* Скрываем колонку действий */
-                .print-table th:nth-child(5),
-                .print-table td:nth-child(5) {
-                    display: none;
+                table th:nth-child(5),
+                table td:nth-child(5) {
+                    display: none !important;
                 }
 
-                /* Стили для разных типов слотов */
-                .timetable-slot-dms {
-                    background-color: #ffeef8 !important;
-                }
-
-                .timetable-slot-oms {
-                    background-color: #f0e8ff !important;
-                }
-
-                .timetable-slot-break {
-                    background-color: #fff3cd !important;
-                }
-
-                .timetable-slot-working {
-                    background-color: #ffffff !important;
-                }
-
-                /* Бейджи типов оплаты */
-                .badge {
-                    display: inline-block;
-                    padding: 0.2mm 0.5mm;
-                    font-size: 5pt;
-                    font-weight: bold;
-                    border-radius: 0.5mm;
-                    margin-top: 0.2mm;
-                    border: 0.3px solid #ccc;
-                }
-
-                .bg-pink {
-                    background-color: #ffcce0 !important;
-                    color: #333 !important;
-                }
-
-                .bg-purple {
-                    background-color: #e6d9ff !important;
-                    color: #333 !important;
-                }
-
-                .bg-success {
-                    background-color: #d4edda !important;
-                    color: #333 !important;
-                }
-
-                .bg-secondary {
-                    background-color: #e2e3e5 !important;
-                    color: #333 !important;
-                }
-
-                /* Заголовок врача */
+                /* ЗАГОЛОВОК ВРАЧА */
                 .doctor-header {
                     background-color: #ffffcc !important;
-                    border: 0.5px solid #ffcc00;
-                    border-radius: 1mm;
-                    padding: 1mm;
-                    margin: 1mm 0;
-                    text-align: center;
-                    font-size: 7pt;
-                    font-weight: bold;
+                    border: 0.5px solid #ffcc00 !important;
+                    border-radius: 0.8mm !important;
+                    padding: 1mm !important;
+                    margin: 0.5mm 0 !important;
+                    text-align: center !important;
+                    font-size: 8pt !important;
+                    font-weight: bold !important;
+                }
+
+                .doctor-header strong {
+                    font-size: 9pt !important;
+                }
+
+                .doctor-header span {
+                    font-size: 8pt !important;
+                    color: black !important;
+                }
+
+                /* СТИЛИ ДЛЯ БЕЙДЖЕЙ ОПЛАТЫ */
+                .payment-badge {
+                    display: inline-block !important;
+                    font-size: 6pt !important;
+                    font-weight: bold !important;
+                    padding: 0.5px 2px !important;
+                    border-radius: 1px !important;
+                    border: 0.3px solid #ccc !important;
+                    margin-left: 1mm !important;
+                    vertical-align: middle !important;
+                }
+
+                .payment-badge-platno {
+                    background-color: #d4edda !important; /* зеленый */
+                    color: #155724 !important;
+                }
+
+                .payment-badge-oms {
+                    background-color: #cce5ff !important; /* синий */
+                    color: #004085 !important;
+                }
+
+                .payment-badge-ip {
+                    background-color: #fff3cd !important; /* желтый */
+                    color: #856404 !important;
+                }
+
+                .payment-badge-mixed {
+                    background-color: #d1ecf1 !important; /* голубой */
+                    color: #0c5460 !important;
+                }
+
+                .payment-badge-unknown {
+                    background-color: #f8d7da !important; /* красный */
+                    color: #721c24 !important;
                 }
 
                 /* Убираем все ссылки */
@@ -320,48 +603,22 @@ function printSchedule() {
                     text-decoration: none !important;
                 }
 
-                /* Настройки страницы */
-                @page {
-                    size: A4 landscape;
-                    margin: 3mm;
+                strong {
+                    font-size: 7pt !important;
                 }
 
-                @media print {
-                    body {
-                        padding: 0;
-                        margin: 0;
-                    }
-
-                    .print-page {
-                        margin: 0;
-                    }
-
-                    .print-cards-grid {
-                        gap: 2mm;
-                        min-height: 170mm;
-                    }
-
-                    .print-cabinet-card {
-                        height: 165mm;
-                    }
-                }
-
-                /* Номер страницы */
+                /* НОМЕР СТРАНИЦЫ */
                 .page-number {
-                    position: absolute;
-                    bottom: 1mm;
-                    right: 3mm;
+                    position: fixed;
+                    bottom: 2mm;
+                    right: 4mm;
                     font-size: 7pt;
                     color: #666;
                 }
 
-                /* Скрываем легенду */
-                .print-legend {
-                    display: none !important;
-                }
-
-                /* Скрываем элементы управления */
-                .no-print {
+                /* Скрываем ненужные элементы */
+                .no-print,
+                .cabinet-comment-section {
                     display: none !important;
                 }
             </style>
@@ -369,7 +626,7 @@ function printSchedule() {
         <body>
     `;
 
-    // Добавляем каждую страницу БЕЗ ШАПКИ
+    // Добавляем каждую страницу
     groupedCards.forEach((cardGroup, pageIndex) => {
         printHTML += `
             <div class="print-page">
@@ -410,7 +667,6 @@ function printSchedule() {
         }, 1000);
     }, 1000);
 }
-
 /**
  * Функция для поиска даты на странице
  */
