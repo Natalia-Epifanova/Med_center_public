@@ -7,13 +7,6 @@
 <link rel="stylesheet" href="/static/css/print.css">
 {% endblock %}
 
-{% block header %}
-<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
-    <h1 class="display-6">Просмотр расписания на день</h1>
-    <p class="lead">Расписание по кабинетам</p>
-</div>
-{% endblock %}
-
 {% block content %}
 <div class="container">
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
