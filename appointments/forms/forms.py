@@ -735,22 +735,31 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
     @transaction.atomic
     def save(self, commit=True):
-        """Сохраняет запись с проверкой процедурного кабинета"""
+        """Сохраняет запись с проверкой процедурного кабинета и автоматическим сбросом статуса при изменении даты"""
         appointment = super().save(commit=False)
         service_changed = False
+
         if self.instance.pk:
             original_service = self.instance.service
             new_service = self.cleaned_data.get("service") or appointment.service
             if original_service != new_service:
                 service_changed = True
 
-        # Проверяем, нужно ли создать процедурную запись
-        needs_procedural = self.cleaned_data.get("needs_procedural", False)
-        service = self.cleaned_data.get("service") or appointment.service
+        # Проверяем, изменилась ли дата
+        if self.instance.pk:  # Если это редактирование существующей записи
+            old_date = self.instance.date
+            allow_time_change = self.cleaned_data.get("allow_time_change", False)
+            new_time_slot = self.cleaned_data.get("new_time_slot")
 
-        # Автоматически ставим галочку, если выбрана услуга медблокады
-        if self._is_medical_blockade_service(service) and not needs_procedural:
-            needs_procedural = True
+            # Определяем новую дату
+            if allow_time_change and new_time_slot:
+                new_date = new_time_slot.date
+            else:
+                new_date = old_date
+
+            # Если дата изменилась - сбрасываем статус на "Записан"
+            if old_date != new_date:
+                appointment.status = Appointment.AppointmentStatus.SCHEDULED
 
         if commit:
             try:
@@ -772,7 +781,9 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 appointment.save()
 
                 # Обрабатываем процедурную запись
+                needs_procedural = self.cleaned_data.get("needs_procedural", False)
                 self._handle_procedural_appointment(appointment, needs_procedural)
+
                 if service_changed and hasattr(self, "_update_procedural_service"):
                     self._update_procedural_service(appointment)
 
