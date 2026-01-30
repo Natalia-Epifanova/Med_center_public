@@ -8,6 +8,8 @@ from treatment.views import (
     PatientTreatmentListView,
     mkb10_search,
     TreatmentPrintView,
+    get_previous_treatment_data,
+    PatientTreatmentsForCopyView,
 )
 
 app_name = TreatmentConfig.name
@@ -36,4 +38,14 @@ urlpatterns = [
         "print/<int:pk>/", TreatmentPrintView.as_view(), name="treatment_print"
     ),  # Новая URL
     path("mkb10-search/", mkb10_search, name="mkb10_search"),
+    path(
+        "get-previous-treatment/<int:pk>/",
+        get_previous_treatment_data,
+        name="get_previous_treatment_data",
+    ),
+    path(
+        "patient-treatments-for-copy/<int:patient_id>/",
+        PatientTreatmentsForCopyView.as_view(),
+        name="patient_treatments_for_copy",
+    ),
 ]
