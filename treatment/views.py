@@ -26,16 +26,68 @@ class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Получаем appointment из URL
         appointment_id = self.kwargs.get("appointment_id")
         if appointment_id:
             from appointments.models import Appointment
 
-            context["appointment"] = Appointment.objects.get(id=appointment_id)
+            appointment = Appointment.objects.get(id=appointment_id)
+            context["appointment"] = appointment
+
+            # Проверяем, есть ли у пациента предыдущие приемы
+            has_previous_treatments = (
+                DoctorTreatment.objects.filter(appointment__patient=appointment.patient)
+                .exclude(appointment_id=appointment_id)
+                .exists()
+            )
+
+            context["has_previous_treatments"] = has_previous_treatments
+            context["patient_id"] = appointment.patient.id
+
         return context
 
+    def get_initial(self):
+        """Заполняем начальные данные если были переданы для копирования"""
+        initial = super().get_initial()
+
+        # Получаем данные из GET-параметров для предзаполнения
+        copy_from = self.request.GET.get("copy_from")
+        copy_fields = self.request.GET.get("copy_fields", "")
+
+        if copy_from and copy_fields:
+            try:
+                previous_treatment = DoctorTreatment.objects.get(id=copy_from)
+                fields_to_copy = copy_fields.split(",")
+
+                if "complaints" in fields_to_copy:
+                    initial["complaints"] = previous_treatment.complaints
+                if "life_anamnesis" in fields_to_copy:
+                    initial["life_anamnesis"] = previous_treatment.life_anamnesis
+                if "disease_anamnesis" in fields_to_copy:
+                    initial["disease_anamnesis"] = previous_treatment.disease_anamnesis
+                if "objective_status" in fields_to_copy:
+                    initial["objective_status"] = previous_treatment.objective_status
+                if "additional_surveys" in fields_to_copy:
+                    initial["additional_surveys"] = (
+                        previous_treatment.additional_surveys
+                    )
+                if "diagnosis" in fields_to_copy:
+                    initial["diagnosis"] = previous_treatment.diagnosis
+                if "recommendations" in fields_to_copy:
+                    initial["recommendations"] = previous_treatment.recommendations
+                if (
+                    "mkb10_diagnoses" in fields_to_copy
+                    and previous_treatment.mkb10_diagnoses.exists()
+                ):
+                    initial["mkb10_diagnoses"] = (
+                        previous_treatment.mkb10_diagnoses.all()
+                    )
+
+            except DoctorTreatment.DoesNotExist:
+                pass
+
+        return initial
+
     def form_valid(self, form):
-        # Привязываем appointment к форме
         appointment_id = self.kwargs.get("appointment_id")
         if appointment_id:
             from appointments.models import Appointment
@@ -44,7 +96,6 @@ class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
         return super().form_valid(form)
 
     def get_success_url(self):
-        """Перенаправляем на детальную страницу приема"""
         return reverse_lazy("treatment:treatment_detail", kwargs={"pk": self.object.id})
 
 
@@ -171,3 +222,68 @@ def mkb10_search(request):
     ]
 
     return JsonResponse(results, safe=False)
+
+
+class PatientTreatmentsForCopyView(LoginRequiredMixin, ListView):
+    """Список приемов пациента для копирования (только для AJAX)"""
+
+    template_name = "treatment/treatment_copy_select.html"
+    context_object_name = "treatments"
+
+    def get_queryset(self):
+        patient_id = self.kwargs.get("patient_id")
+        from patients.models import Patient
+
+        patient = Patient.objects.get(id=patient_id)
+
+        return (
+            DoctorTreatment.objects.filter(appointment__patient=patient)
+            .select_related("appointment__time_slot__doctor", "appointment__service")
+            .exclude(appointment_id=self.request.GET.get("current_appointment", None))
+            .order_by(
+                "-appointment__time_slot__date", "-appointment__time_slot__start_time"
+            )
+        )
+
+    def get(self, request, *args, **kwargs):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            treatments = self.get_queryset()
+            data = [
+                {
+                    "id": t.id,
+                    "date": t.appointment.time_slot.date.strftime("%d.%m.%Y"),
+                    "time": t.appointment.time_slot.start_time.strftime("%H:%M"),
+                    "doctor": f"{t.appointment.time_slot.doctor.surname} {t.appointment.time_slot.doctor.first_name[0]}.{t.appointment.time_slot.doctor.last_name[0]}.",
+                    "service": t.appointment.service.name,
+                    "has_complaints": bool(t.complaints),
+                    "has_life_anamnesis": bool(t.life_anamnesis),
+                    "has_disease_anamnesis": bool(t.disease_anamnesis),
+                    "has_objective_status": bool(t.objective_status),
+                    "has_additional_surveys": bool(t.additional_surveys),
+                    "has_diagnosis": bool(t.diagnosis),
+                    "has_mkb10": t.mkb10_diagnoses.exists(),
+                    "has_recommendations": bool(t.recommendations),
+                }
+                for t in treatments[:20]  # Ограничиваем 20 последними приемами
+            ]
+            return JsonResponse({"treatments": data})
+        return super().get(request, *args, **kwargs)
+
+
+@login_required
+def get_previous_treatment_data(request, pk):
+    """Получение данных конкретного приема для копирования"""
+    treatment = get_object_or_404(DoctorTreatment, pk=pk)
+
+    data = {
+        "complaints": treatment.complaints,
+        "life_anamnesis": treatment.life_anamnesis,
+        "disease_anamnesis": treatment.disease_anamnesis,
+        "objective_status": treatment.objective_status,
+        "additional_surveys": treatment.additional_surveys,
+        "diagnosis": treatment.diagnosis,
+        "recommendations": treatment.recommendations,
+        "mkb10_diagnoses": list(treatment.mkb10_diagnoses.values("id", "code", "name")),
+    }
+
+    return JsonResponse(data)

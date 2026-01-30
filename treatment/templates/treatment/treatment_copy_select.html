@@ -1,0 +1,31 @@
+{% if treatments %}
+<div class="modal-body p-0">
+    <div class="list-group list-group-flush">
+        {% for treatment in treatments %}
+        <div class="list-group-item list-group-item-action treatment-item-for-copy"
+             data-treatment-id="{{ treatment.id }}">
+            <div class="d-flex w-100 justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1">{{ treatment.appointment.time_slot.date|date:"d.m.Y" }} {{ treatment.appointment.time_slot.start_time|time:"H:i" }}</h6>
+                    <small class="text-muted">
+                        <i class="fas fa-user-md"></i> {{ treatment.appointment.time_slot.doctor.surname }}
+                        {{ treatment.appointment.time_slot.doctor.first_name.0 }}.
+                        {{ treatment.appointment.time_slot.doctor.last_name.0 }}.
+                        <br>
+                        <i class="fas fa-procedures"></i> {{ treatment.appointment.service.name }}
+                    </small>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm select-treatment-btn">
+                    <i class="fas fa-copy"></i> Выбрать
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<div class="modal-body text-center py-4">
+    <i class="fas fa-history fa-2x text-muted mb-3"></i>
+    <p class="text-muted">У пациента нет предыдущих приемов</p>
+</div>
+{% endif %}

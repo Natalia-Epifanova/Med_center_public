@@ -15,6 +15,34 @@
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-12">
+            <!-- Кнопка копирования данных (только если есть предыдущие приемы) -->
+            {% if has_previous_treatments and not object %}
+            <div class="card mb-4 timetable-form-card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-copy"></i> Копирование данных с предыдущего приема
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p class="mb-3">У пациента есть предыдущие приемы. Вы можете скопировать данные из них.</p>
+                            <button type="button" class="btn btn-info" id="showCopyModalBtn" data-patient-id="{{ patient_id }}">
+                                <i class="fas fa-copy"></i> Копировать данные с другого приема
+                            </button>
+                        </div>
+                        <div class="col-md-4 text-right">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Эта функция поможет быстро заполнить повторный прием
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+
             <div class="card timetable-form-card">
                 <div class="card-header bg-primary text-white">
                     <h5 class="card-title mb-0">
@@ -239,7 +267,116 @@
         </div>
     </div>
 </div>
+<!-- Модальное окно выбора приема для копирования -->
+<div class="modal fade" id="copyTreatmentModal" tabindex="-1" aria-labelledby="copyTreatmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="copyTreatmentModalLabel">
+                    <i class="fas fa-copy"></i> Выбор приема для копирования
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div id="modalBodyContainer">
+                <!-- Сюда будет загружаться список приемов -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="sr-only">Загрузка...</span>
+                    </div>
+                    <p class="mt-2">Загрузка списка приемов...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
+<!-- Модальное окно выбора полей для копирования -->
+<div class="modal fade" id="selectFieldsModal" tabindex="-1" aria-labelledby="selectFieldsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="selectFieldsModalLabel">
+                    <i class="fas fa-check-square"></i> Выбор полей для копирования
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="fieldsSelectionForm">
+                    <input type="hidden" id="selectedTreatmentId">
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="checkAllFields" data-target="field-checkbox">
+                            <label class="custom-control-label font-weight-bold" for="checkAllFields">
+                                <i class="fas fa-check-double"></i> Выбрать все поля
+                            </label>
+                        </div>
+                        <hr>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_complaints" name="complaints" checked>
+                            <label class="custom-control-label" for="field_complaints">
+                                <i class="fas fa-comment-medical"></i> Жалобы
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_life_anamnesis" name="life_anamnesis" checked>
+                            <label class="custom-control-label" for="field_life_anamnesis">
+                                <i class="fas fa-history"></i> Анамнез жизни
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_disease_anamnesis" name="disease_anamnesis" checked>
+                            <label class="custom-control-label" for="field_disease_anamnesis">
+                                <i class="fas fa-file-medical"></i> Анамнез заболевания
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_objective_status" name="objective_status" checked>
+                            <label class="custom-control-label" for="field_objective_status">
+                                <i class="fas fa-clipboard-check"></i> Объективный статус
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_additional_surveys" name="additional_surveys" checked>
+                            <label class="custom-control-label" for="field_additional_surveys">
+                                <i class="fas fa-search"></i> Дополнительные обследования
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_diagnosis" name="diagnosis" checked>
+                            <label class="custom-control-label" for="field_diagnosis">
+                                <i class="fas fa-diagnoses"></i> Диагноз
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_mkb10_diagnoses" name="mkb10_diagnoses" checked>
+                            <label class="custom-control-label" for="field_mkb10_diagnoses">
+                                <i class="fas fa-code"></i> Диагнозы МКБ-10
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_recommendations" name="recommendations" checked>
+                            <label class="custom-control-label" for="field_recommendations">
+                                <i class="fas fa-prescription-bottle-alt"></i> Рекомендации
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+                <button type="button" class="btn btn-primary" id="applyFieldsBtn">
+                    <i class="fas fa-copy"></i> Заполнить выбранные поля
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 <style>
 /* Стили для формы приема */
 textarea.form-control {
@@ -267,8 +404,45 @@ textarea.form-control {
 .form-control-lg {
     min-height: 120px;
 }
-</style>
+.treatment-item-for-copy:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
 
+.treatment-item-for-copy.selected {
+    background-color: #e7f3ff;
+    border-left: 3px solid #007bff;
+}
+
+/* Стили для чекбоксов в модальном окне */
+.custom-checkbox .custom-control-label::before {
+    border-radius: 3px;
+}
+
+.custom-checkbox .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* Анимация появления уведомлений */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.alert.position-fixed {
+    animation: slideIn 0.3s ease-out;
+    min-width: 300px;
+}
+</style>
+{% endblock %}
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const mkb10Search = document.getElementById('mkb10Search');
@@ -421,6 +595,177 @@ document.addEventListener('DOMContentLoaded', function() {
     mkb10Results.addEventListener('click', function(e) {
         e.stopPropagation();
     });
+    const showCopyModalBtn = document.getElementById('showCopyModalBtn');
+    const copyTreatmentModal = new bootstrap.Modal(document.getElementById('copyTreatmentModal'));
+    const selectFieldsModal = new bootstrap.Modal(document.getElementById('selectFieldsModal'));
+    const modalBodyContainer = document.getElementById('modalBodyContainer');
+
+    if (showCopyModalBtn) {
+        showCopyModalBtn.addEventListener('click', function() {
+            const patientId = this.dataset.patientId;
+            loadPatientTreatments(patientId);
+            copyTreatmentModal.show();
+        });
+    }
+
+    // Загрузка списка приемов пациента
+    function loadPatientTreatments(patientId) {
+        modalBodyContainer.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-info" role="status">
+                    <span class="sr-only">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка списка приемов...</p>
+            </div>
+        `;
+
+        fetch(`{% url 'treatment:patient_treatments_for_copy' 0 %}`.replace('0', patientId), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.treatments.length === 0) {
+                modalBodyContainer.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">У пациента нет предыдущих приемов</p>
+                    </div>
+                `;
+            } else {
+                let html = '<div class="modal-body p-0"><div class="list-group list-group-flush">';
+
+                data.treatments.forEach(treatment => {
+                    html += `
+                        <div class="list-group-item list-group-item-action treatment-item-for-copy"
+                             data-treatment-id="${treatment.id}">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${treatment.date} ${treatment.time}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user-md"></i> ${treatment.doctor}
+                                        <br>
+                                        <i class="fas fa-procedures"></i> ${treatment.service}
+                                    </small>
+                                    <div class="mt-2">
+                                        ${treatment.has_complaints ? '<span class="badge badge-info mr-1">Жалобы</span>' : ''}
+                                        ${treatment.has_life_anamnesis ? '<span class="badge badge-info mr-1">Анамнез</span>' : ''}
+                                        ${treatment.has_diagnosis ? '<span class="badge badge-info mr-1">Диагноз</span>' : ''}
+                                        ${treatment.has_mkb10 ? '<span class="badge badge-info mr-1">МКБ-10</span>' : ''}
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm select-treatment-btn">
+                                    <i class="fas fa-copy"></i> Выбрать
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div></div>';
+                modalBodyContainer.innerHTML = html;
+
+                // Добавляем обработчики для кнопок выбора
+                document.querySelectorAll('.select-treatment-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const treatmentItem = this.closest('.treatment-item-for-copy');
+                        const treatmentId = treatmentItem.dataset.treatmentId;
+
+                        document.getElementById('selectedTreatmentId').value = treatmentId;
+                        copyTreatmentModal.hide();
+                        selectFieldsModal.show();
+                    });
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки приемов:', error);
+            modalBodyContainer.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                    <p class="text-danger">Ошибка загрузки списка приемов</p>
+                </div>
+            `;
+        });
+    }
+
+    // Обработка выбора "Выбрать все поля"
+    document.getElementById('checkAllFields').addEventListener('change', function() {
+        const targetClass = this.dataset.target;
+        const checkboxes = document.querySelectorAll('.' + targetClass);
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+    // Кнопка применения выбранных полей
+    document.getElementById('applyFieldsBtn').addEventListener('click', async function() {
+        const treatmentId = document.getElementById('selectedTreatmentId').value;
+        const selectedFields = [];
+
+        // Собираем выбранные поля
+        document.querySelectorAll('.field-checkbox:checked').forEach(checkbox => {
+            selectedFields.push(checkbox.name);
+        });
+
+        if (selectedFields.length === 0) {
+            alert('Пожалуйста, выберите хотя бы одно поле для копирования');
+            return;
+        }
+
+        // Получаем данные с выбранного приема
+        try {
+            const response = await fetch(`{% url 'treatment:get_previous_treatment_data' 0 %}`.replace('0', treatmentId));
+            const data = await response.json();
+
+            // Заполняем поля формы
+            if (selectedFields.includes('complaints') && data.complaints) {
+                document.getElementById('id_complaints').value = data.complaints;
+            }
+            if (selectedFields.includes('life_anamnesis') && data.life_anamnesis) {
+                document.getElementById('id_life_anamnesis').value = data.life_anamnesis;
+            }
+            if (selectedFields.includes('disease_anamnesis') && data.disease_anamnesis) {
+                document.getElementById('id_disease_anamnesis').value = data.disease_anamnesis;
+            }
+            if (selectedFields.includes('objective_status') && data.objective_status) {
+                document.getElementById('id_objective_status').value = data.objective_status;
+            }
+            if (selectedFields.includes('additional_surveys') && data.additional_surveys) {
+                document.getElementById('id_additional_surveys').value = data.additional_surveys;
+            }
+            if (selectedFields.includes('diagnosis') && data.diagnosis) {
+                document.getElementById('id_diagnosis').value = data.diagnosis;
+            }
+            if (selectedFields.includes('recommendations') && data.recommendations) {
+                document.getElementById('id_recommendations').value = data.recommendations;
+            }
+            if (selectedFields.includes('mkb10_diagnoses') && data.mkb10_diagnoses.length > 0) {
+                const mkb10Select = document.getElementById('id_mkb10_diagnoses');
+                // Очищаем текущий выбор
+                Array.from(mkb10Select.options).forEach(option => option.selected = false);
+                // Добавляем новые значения
+                data.mkb10_diagnoses.forEach(diagnosis => {
+                    const option = Array.from(mkb10Select.options).find(opt => opt.value == diagnosis.id);
+                    if (option) option.selected = true;
+                });
+                // Триггерим событие изменения для обновления интерфейса
+                mkb10Select.dispatchEvent(new Event('change'));
+            }
+
+            // Показываем уведомление об успехе
+            showToast(`Скопировано полей: ${selectedFields.length}`, 'success');
+
+            // Закрываем модальное окно
+            selectFieldsModal.hide();
+
+        } catch (error) {
+            console.error('Ошибка при копировании данных:', error);
+            alert('Ошибка при копировании данных. Пожалуйста, попробуйте еще раз.');
+        }
+    });
+
 });
 </script>
 {% endblock %}
