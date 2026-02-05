@@ -17,6 +17,7 @@ from timetable.views import (
     save_day_comment,
     save_cabinet_day_comment,
     DoctorReportPeriodView,
+    move_doctor_to_cabinet,
 )
 from timetable.views_api import week_schedule_preview, delete_all_doctor_slots
 
@@ -80,5 +81,8 @@ urlpatterns = [
     ),
     path(
         "save-cabinet-comment/", save_cabinet_day_comment, name="save_cabinet_comment"
+    ),
+    path(
+        "move-doctor-to-cabinet/", move_doctor_to_cabinet, name="move_doctor_to_cabinet"
     ),
 ]

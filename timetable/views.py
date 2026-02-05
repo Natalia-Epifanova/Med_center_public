@@ -850,3 +850,112 @@ class CopyWeeklyScheduleView(AdminRequiredMixin, FormView):
             return self.form_invalid(form)
 
         return super().form_valid(form)
+
+
+@login_required
+@require_POST
+@admin_required
+def move_doctor_to_cabinet(request):
+    """Перенос врача с его слотами в другой кабинет"""
+    try:
+        doctor_id = request.POST.get("doctor_id")
+        current_cabinet_id = request.POST.get("current_cabinet_id")
+        new_cabinet_id = request.POST.get("new_cabinet_id")
+        date_str = request.POST.get("date")
+        move_appointments = request.POST.get("move_appointments") == "on"
+
+        if not all([doctor_id, current_cabinet_id, new_cabinet_id, date_str]):
+            return JsonResponse(
+                {"success": False, "error": "Не все обязательные поля заполнены"}
+            )
+
+        # Преобразуем дату
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        # Получаем объекты
+        doctor = Doctor.objects.get(id=doctor_id)
+        current_cabinet = Cabinet.objects.get(id=current_cabinet_id)
+        new_cabinet = Cabinet.objects.get(id=new_cabinet_id)
+
+        # Проверяем, что текущий и новый кабинеты разные
+        if current_cabinet.id == new_cabinet.id:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Текущий и новый кабинет не могут совпадать",
+                }
+            )
+
+        # Получаем все слоты врача в текущем кабинете на указанную дату
+        slots = TimeSlot.objects.filter(
+            date=date, doctor=doctor, cabinet=current_cabinet
+        )
+
+        # Проверяем конфликты в новом кабинете
+        for slot in slots:
+            conflicting_slots = TimeSlot.objects.filter(
+                date=date,
+                cabinet=new_cabinet,
+                start_time__lt=slot.end_time,
+                end_time__gt=slot.start_time,
+                slot_type="working",
+            ).exclude(doctor=doctor)
+
+            if conflicting_slots.exists():
+                # Простое сообщение без деталей
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Обнаружены конфликты в расписании нового кабинета",
+                    }
+                )
+
+        # Переносим слоты
+        slots_moved = 0
+        appointments_moved = 0
+
+        for slot in slots:
+            # Получаем все записи на этот слот
+            appointments = slot.appointments.all() if move_appointments else []
+
+            # Изменяем кабинет слота
+            slot.cabinet = new_cabinet
+            slot.save()
+            slots_moved += 1
+
+            # Если нужно, переносим записи
+            if move_appointments:
+                appointments_moved += appointments.count()
+
+        # Логируем действие
+        from django.contrib.admin.models import LogEntry, CHANGE
+        from django.contrib.contenttypes.models import ContentType
+
+        LogEntry.objects.log_action(
+            user_id=request.user.id,
+            content_type_id=ContentType.objects.get_for_model(TimeSlot).id,
+            object_id="",
+            object_repr=f"Перенос врача {doctor.surname} из каб.{current_cabinet.number} в каб.{new_cabinet.number} на {date}",
+            action_flag=CHANGE,
+            change_message=f"Перенесено слотов: {slots_moved}, записей: {appointments_moved}",
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Врач успешно перенесен",
+                "slots_moved": slots_moved,
+                "appointments_moved": appointments_moved,
+            }
+        )
+
+    except (Doctor.DoesNotExist, Cabinet.DoesNotExist) as e:
+        return JsonResponse({"success": False, "error": "Не найден врач или кабинет"})
+    except ValueError as e:
+        return JsonResponse(
+            {"success": False, "error": f"Ошибка формата данных: {str(e)}"}
+        )
+    except Exception as e:
+        return JsonResponse(
+            {"success": False, "error": f"Внутренняя ошибка сервера: {str(e)}"}
+        )
