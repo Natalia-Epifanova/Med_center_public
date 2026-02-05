@@ -24,7 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     initCabinetComments(); // <-- Добавьте эту строку
 
-     initPaymentMethods(); // <-- Добавьте эту строку
+    initPaymentMethods(); // <-- Добавьте эту строку
+
+    initMoveDoctorButtons(); // <-- Добавьте эту строку
 });
 
 // ============ ИНИЦИАЛИЗАЦИЯ КНОПОК УДАЛЕНИЯ ВСЕХ СЛОТОВ ============
@@ -119,6 +121,152 @@ function initDeleteButtons() {
     } else {
         console.log('Confirm delete button NOT FOUND');
     }
+}
+// ============ ПЕРЕНОС ВРАЧА В ДРУГОЙ КАБИНЕТ ============
+function initMoveDoctorButtons() {
+    console.log('Initializing move doctor buttons...');
+
+    // Обработка кнопки переноса врача
+    document.querySelectorAll('.move-doctor-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const doctorId = this.dataset.doctorId;
+            const currentCabinetId = this.dataset.cabinetId;
+            const date = this.dataset.date;
+            const doctorName = this.dataset.doctorName;
+            const currentCabinetNumber = this.dataset.currentCabinet;
+
+            console.log('Move doctor clicked:', {
+                doctorId,
+                currentCabinetId,
+                date,
+                doctorName,
+                currentCabinetNumber
+            });
+
+            // Заполняем модальное окно
+            document.getElementById('moveDoctorId').value = doctorId;
+            document.getElementById('moveCurrentCabinetId').value = currentCabinetId;
+            document.getElementById('moveDate').value = date;
+            document.getElementById('moveDoctorName').textContent = doctorName || 'Неизвестный врач';
+            document.getElementById('moveCurrentCabinetNumber').textContent = currentCabinetNumber || 'Неизвестный кабинет';
+            document.getElementById('moveDateDisplay').textContent = date || 'Неизвестная дата';
+
+            // Исключаем текущий кабинет из списка
+            const select = document.getElementById('newCabinet');
+            if (select) {
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === currentCabinetId) {
+                        select.options[i].disabled = true;
+                    } else {
+                        select.options[i].disabled = false;
+                    }
+                }
+            }
+
+            // Показываем модальное окно
+            const modal = document.getElementById('moveDoctorModal');
+            if (modal) {
+                try {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } catch (error) {
+                    console.error('Error showing move modal:', error);
+                    showNotification('Ошибка открытия окна переноса', 'error');
+                }
+            }
+        });
+    });
+
+    // Обработка формы переноса
+    const moveDoctorForm = document.getElementById('moveDoctorForm');
+    if (moveDoctorForm) {
+        moveDoctorForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const moveAppointments = formData.get('move_appointments') === 'on';
+
+            if (!confirm(`Вы уверены, что хотите перенести врача в другой кабинет? ${moveAppointments ? 'Все существующие записи пациентов также будут перенесены.' : 'Существующие записи пациентов останутся в старом кабинете и их нужно будет перенести вручную.'}`)) {
+                return;
+            }
+
+            // Отправляем запрос на сервер
+            moveDoctorToNewCabinet(formData);
+        });
+    }
+}
+
+function moveDoctorToNewCabinet(formData) {
+    const csrfToken = getCSRFToken();
+
+    if (!csrfToken) {
+        showNotification('Ошибка безопасности: CSRF токен не найден', 'error');
+        return;
+    }
+
+    // Добавляем CSRF токен в formData
+    formData.append('csrfmiddlewaretoken', csrfToken);
+
+    // Показываем индикатор загрузки
+    showNotification('Проверка возможности переноса...', 'info');
+
+    // Отправляем запрос
+    fetch('/timetable/move-doctor-to-cabinet/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        return response.json().then(data => {
+            return { status: response.status, ok: response.ok, data };
+        });
+    })
+    .then(result => {
+        console.log('Move doctor response:', result);
+
+        if (result.data.success) {
+            showNotification(
+                `✅ Врач успешно перенесен! Слотов: ${result.data.slots_moved}, Записей: ${result.data.appointments_moved}`,
+                'success'
+            );
+
+            // Закрываем модальное окно
+            const modal = document.getElementById('moveDoctorModal');
+            if (modal) {
+                try {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) bsModal.hide();
+                } catch (error) {
+                    console.error('Error hiding modal:', error);
+                }
+            }
+
+            // Перезагружаем страницу через 1 секунду
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+
+        } else {
+            // Простое сообщение об ошибке
+            let errorMessage = result.data.error || 'Неизвестная ошибка';
+
+            // Если это ошибка конфликтов
+            if (errorMessage.includes('Обнаружены конфликты')) {
+                errorMessage = '❌ Обнаружены конфликты в новом кабинете (пересекаются слоты)';
+            }
+
+            showNotification(errorMessage, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Move doctor error:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
+    });
 }
 
 function deleteAllDoctorSlots(doctorId, cabinetId, date) {
@@ -650,7 +798,7 @@ function getCSRFToken() {
     return cookieValue;
 }
 
-function showNotification(message, type) {
+function showNotification(message, type, duration = 3000) {
     console.log(`Showing notification: ${message} (${type})`);
 
     // Создаем уведомление
@@ -663,20 +811,35 @@ function showNotification(message, type) {
 
     const notification = document.createElement('div');
     notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px; max-width: 400px;';
-    notification.innerHTML = `
-        <i class="fas ${icon} me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    notification.style.cssText = `
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 300px;
+        max-width: 600px;
+        white-space: pre-line;
+        max-height: 80vh;
+        overflow-y: auto;
     `;
+
+    notification.innerHTML = `
+        <div class="d-flex align-items-start">
+            <i class="fas ${icon} me-2 mt-1"></i>
+            <div class="flex-grow-1">
+                ${message}
+            </div>
+            <button type="button" class="btn-close ms-2" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
     document.body.appendChild(notification);
 
-    // Автоматическое скрытие через 3 секунды
+    // Автоматическое скрытие через указанное время
     setTimeout(() => {
         if (notification.parentNode) {
             notification.remove();
         }
-    }, 3000);
+    }, duration);
 }
 
 function showAlert(message, type) {
