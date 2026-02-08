@@ -21,6 +21,7 @@ from django.views.generic import (
 )
 
 from appointments.models import Appointment
+from patients.models import WaitlistPatient
 from timetable.forms import (
     CopyScheduleForm,
     CopyWeeklyScheduleForm,
@@ -436,15 +437,16 @@ class EmergencySlotCreateView(MedicalAdminOrAdminRequiredMixin, View):
         )
 
 
-class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, ListView):
-    """Список запросов на перезапись"""
+class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, TemplateView):
+    """Список запросов на перезапись + лист ожидания"""
 
-    model = Appointment
     template_name = "timetable/reschedule_requests.html"
-    context_object_name = "appointments"
 
-    def get_queryset(self):
-        return Appointment.objects.filter(
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Существующие записи с флагом needs_reschedule
+        appointments = Appointment.objects.filter(
             needs_reschedule=True,
             status__in=[
                 Appointment.AppointmentStatus.SCHEDULED,
@@ -453,6 +455,22 @@ class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, ListView):
         ).select_related(
             "patient", "time_slot__doctor", "time_slot__cabinet", "service"
         )
+
+        # Лист ожидания (пациенты без текущих записей)
+        waitlist_patients = (
+            WaitlistPatient.objects.all()
+            .select_related("doctor")
+            .order_by("-created_at")
+        )
+
+        context.update(
+            {
+                "appointments": appointments,
+                "waitlist_patients": waitlist_patients,
+            }
+        )
+
+        return context
 
 
 @login_required

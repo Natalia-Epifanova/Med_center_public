@@ -1,0 +1,37 @@
+<!-- patients/templates/patients/waitlist_confirm_delete.html -->
+{% extends "timetable/base.html" %}
+
+{% block title %}Удаление записи из листа ожидания{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-trash"></i> Удаление записи
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p>Вы уверены, что хотите удалить пациента
+                    <strong>{{ object.surname }} {{ object.first_name }}</strong>
+                    из листа ожидания?</p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'timetable:reschedule_requests' %}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left"></i> Отмена
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Удалить
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

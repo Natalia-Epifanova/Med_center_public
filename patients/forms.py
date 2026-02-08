@@ -4,8 +4,9 @@ from django.db import models
 from django.forms import ModelForm
 from django.utils import timezone
 
-from patients.models import Patient, ReservePatient
+from patients.models import Patient, ReservePatient, WaitlistPatient
 from timetable.mixins import StyleFormMixin
+from timetable.models import Doctor
 
 
 class BasePatientForm(StyleFormMixin, ModelForm):
@@ -333,3 +334,140 @@ class ReservePatientUpdateForm(BaseReserveForm):
         cleaned_data = super().clean()
         # Возвращаем только комментарий и ID
         return {"comment": cleaned_data.get("comment", "")}
+
+
+# patients/forms.py (добавить к существующим формам)
+
+
+# patients/forms.py - исправленная форма
+class WaitlistPatientForm(StyleFormMixin, ModelForm):
+    """Форма для добавления пациента в лист ожидания"""
+
+    class Meta:
+        model = WaitlistPatient
+        fields = [
+            "doctor",
+            "surname",
+            "first_name",
+            "last_name",
+            "phone_number",
+            "date_of_birth",
+            "comment",
+            # УБИРАЕМ СТАТУС
+        ]
+        widgets = {
+            "date_of_birth": forms.DateInput(
+                attrs={"type": "date", "class": "form-control"}
+            ),
+            "phone_number": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": "+7 (___) ___-__-__",
+                    "id": "id_phone_number",
+                }
+            ),
+            "comment": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "class": "form-control",
+                    "placeholder": "Комментарий для администратора...",
+                }
+            ),
+            "doctor": forms.Select(attrs={"class": "form-select"}),
+        }
+        labels = {
+            "doctor": "Врач *",
+            "surname": "Фамилия *",
+            "first_name": "Имя *",
+            "last_name": "Отчество",
+            "phone_number": "Телефон *",
+            "date_of_birth": "Дата рождения",
+            "comment": "Комментарий",
+            # УБИРАЕМ СТАТУС
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Помечаем обязательные поля
+        self.fields["doctor"].required = True
+        self.fields["surname"].required = True
+        self.fields["first_name"].required = True
+        self.fields["phone_number"].required = True
+
+        # Добавляем классы ко всем полям
+        for field_name in self.fields:
+            if field_name not in ["comment"]:  # Убираем статус
+                if "class" not in self.fields[field_name].widget.attrs:
+                    self.fields[field_name].widget.attrs["class"] = "form-control"
+
+        # УБИРАЕМ НАСТРОЙКУ СТАТУСА
+
+        # Для врача устанавливаем queryset
+        if "doctor" in self.fields:
+            self.fields["doctor"].queryset = Doctor.objects.all().order_by(
+                "surname", "first_name"
+            )
+
+        # ФОРМАТИРУЕМ ДАТУ ДЛЯ HTML5 INPUT
+        if self.instance and self.instance.date_of_birth:
+            # Конвертируем дату в формат YYYY-MM-DD для HTML5 input type="date"
+            self.initial["date_of_birth"] = self.instance.date_of_birth.strftime(
+                "%Y-%m-%d"
+            )
+
+    def clean_phone_number(self):
+        """Валидация и форматирование номера телефона"""
+        phone = self.cleaned_data.get("phone_number", "").strip()
+
+        if not phone:
+            raise ValidationError("Это поле обязательно для заполнения")
+
+        # Удаляем все нецифровые символы кроме +
+        phone_clean = "".join(c for c in phone if c.isdigit() or c == "+")
+
+        # Форматируем номер
+        if phone_clean.startswith("8"):
+            phone_clean = "+7" + phone_clean[1:]
+        elif phone_clean.startswith("7"):
+            phone_clean = "+" + phone_clean
+        elif phone_clean.startswith("9") and len(phone_clean) == 10:
+            phone_clean = "+7" + phone_clean
+
+        # Проверяем формат +7XXXXXXXXXX
+        if not phone_clean.startswith("+7"):
+            raise ValidationError("Номер должен начинаться с +7")
+
+        if len(phone_clean) != 12:
+            raise ValidationError("Номер должен содержать 12 символов (включая +7)")
+
+        return phone_clean
+
+    def clean(self):
+        """Общая валидация формы"""
+        cleaned_data = super().clean()
+
+        # Проверяем, не является ли пациент уже в листе ожидания
+        surname = cleaned_data.get("surname")
+        first_name = cleaned_data.get("first_name")
+        phone_number = cleaned_data.get("phone_number")
+        doctor = cleaned_data.get("doctor")
+
+        if all([surname, first_name, phone_number, doctor]):
+            query = WaitlistPatient.objects.filter(
+                surname__iexact=surname,
+                first_name__iexact=first_name,
+                phone_number=phone_number,
+                doctor=doctor,
+            )
+
+            if self.instance and self.instance.pk:
+                query = query.exclude(pk=self.instance.pk)
+
+            if query.exists():
+                self.add_error(
+                    "__all__",
+                    "Этот пациент уже находится в листе ожидания у выбранного врача",
+                )
+
+        return cleaned_data
