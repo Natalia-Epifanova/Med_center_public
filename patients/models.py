@@ -335,3 +335,35 @@ class ReservePatient(models.Model):
     class Meta:
         verbose_name = "Запись резерва"
         verbose_name_plural = "Записи резерва"
+
+
+class WaitlistPatient(models.Model):
+    """Пациенты в листе ожидания (не имеющие текущих записей)"""
+
+    doctor = models.ForeignKey(
+        "timetable.Doctor", on_delete=models.CASCADE, verbose_name="Врач"
+    )
+    patient = models.ForeignKey(
+        Patient, on_delete=models.CASCADE, verbose_name="Пациент", null=True, blank=True
+    )
+
+    # Основные данные (если пациента нет в базе)
+    surname = models.CharField(max_length=50, verbose_name="Фамилия")
+    first_name = models.CharField(max_length=20, verbose_name="Имя")
+    last_name = models.CharField(
+        max_length=30, blank=True, default="", verbose_name="Отчество"
+    )
+    phone_number = models.CharField(
+        max_length=12, blank=True, null=True, verbose_name="Телефон пациента"
+    )
+    date_of_birth = models.DateField(
+        null=True, blank=True, verbose_name="Дата рождения"
+    )
+
+    comment = models.TextField(blank=True, verbose_name="Комментарий")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Пациент листа ожидания"
+        verbose_name_plural = "Пациенты листа ожидания"
+        ordering = ["-created_at"]
