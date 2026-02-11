@@ -32,6 +32,10 @@
                         <div class="col-sm-8">{{ patient.email|default:"Не указан" }}</div>
                     </div>
                     <div class="row mb-2">
+                        <div class="col-sm-4"><strong>Доверенное лицо:</strong></div>
+                        <div class="col-sm-8">{{ patient.trusted_person|default:"Не указан" }}</div>
+                    </div>
+                    <div class="row mb-2">
                         <div class="col-sm-4"><strong>Номер карты:</strong></div>
                         <div class="col-sm-8">{{ patient.card_number|default:"Не присвоен" }}</div>
                     </div>
