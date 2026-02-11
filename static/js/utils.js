@@ -71,7 +71,7 @@
                 if (!serviceName) return false;
 
                 const serviceNameLower = serviceName.toLowerCase();
-                const insolesKeywords = ["стель", "стелек", "manufacture_of_insoles"];
+                const insolesKeywords = ["плантография", "плантогр", "manufacture_of_insoles"];
 
                 return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
             },
@@ -96,7 +96,7 @@
                 if (isPishchelev && slotDuration === 20 && !isInsolesServiceValue) {
                     return {
                         allowed: false,
-                        message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек. Выберите услугу "Изготовление стелек" или 30-минутный интервал.'
+                        message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантографию. Выберите услугу "Плантография" или 30-минутный интервал.'
                     };
                 }
 
@@ -811,7 +811,7 @@ AppointmentUtils.PishchelevValidator = {
     isInsolesService: function(serviceName) {
         if (!serviceName) return false;
         const serviceNameLower = serviceName.toLowerCase();
-        const insolesKeywords = ["стель", "стелек", "manufacture_of_insoles", "изготовление"];
+        const insolesKeywords = ["плантография", "планто", "manufacture_of_insoles"];
         return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
     },
 
@@ -857,7 +857,7 @@ AppointmentUtils.PishchelevValidator = {
         if (isPishchelev && slotDuration === 20 && !isInsolesService) {
             return {
                 valid: false,
-                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек!\n\nВыберите услугу "Изготовление стелек" или выберите 30-минутный интервал.'
+                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантографию!\n\nВыберите услугу "Плантография" или выберите 30-минутный интервал.'
             };
         }
 

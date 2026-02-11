@@ -95,6 +95,7 @@ class PatientFullForm(BasePatientForm):
             # Контактные данные
             "phone_number",
             "email",
+            "trusted_person",
             # Номера карт
             "card_number",
             "card_number_IP",
@@ -146,6 +147,7 @@ class PatientFullForm(BasePatientForm):
             # Контактные данные
             "phone_number": "Телефон",
             "email": "Email",
+            "trusted_person": "Доверенное лицо",
             # Номера карт
             "card_number": "Номер карты",
             "card_number_IP": "Номер карты (ИП)",

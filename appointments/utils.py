@@ -45,7 +45,7 @@ def is_insoles_service(service):
         return True
 
     # Дополнительная проверка по названию
-    insoles_keywords = ["стель", "стелек", "manufacture_of_insoles"]
+    insoles_keywords = ["планто", "плантография", "manufacture_of_insoles"]
     service_name_lower = service.name.lower()
 
     return any(keyword in service_name_lower for keyword in insoles_keywords)
@@ -61,7 +61,7 @@ def validate_pishchelev_restrictions(doctor, service, time_slot):
         if slot_duration == 20 and not is_insoles_service(service):
             error_msg = (
                 f"Врач {doctor.surname} {doctor.first_name[0]}.{doctor.last_name[0]}. "
-                f"на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек. "
-                f"Выберите услугу 'Изготовление стелек' или выберите 30-минутный интервал."
+                f"на 20-минутные интервалы принимает ТОЛЬКО на плантографию. "
+                f"Выберите услугу 'Плантография' или выберите 30-минутный интервал."
             )
             raise forms.ValidationError(error_msg)
