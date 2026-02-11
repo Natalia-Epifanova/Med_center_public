@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                     ("xray", "Рентген"),
                     ("first_consult", "Первичная консультация"),
                     ("second_consult", "Повторная консультация"),
-                    ("manufacture_of_insoles", "Плантонграфия"),
+                    ("manufacture_of_insoles", "Плантография"),
                     ("analyzes", "Анализы"),
                     ("medical_blockades", "Медикаментозные блокады"),
                     ("physio_procedures", "Физио процедуры"),
