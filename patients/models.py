@@ -64,6 +64,12 @@ class Patient(models.Model):
         null=True,
         help_text="Электронная почта пациента",
     )
+    trusted_person = models.CharField(
+        max_length=300,
+        blank=True,
+        null=True,
+        verbose_name="Доверенное лицо",
+    )
 
     # === НОМЕРА КАРТ ===
     card_number = models.PositiveIntegerField(
