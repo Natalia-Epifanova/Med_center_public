@@ -432,8 +432,15 @@
                                                         <br><small class="text-muted">(ОМС карта {{ appointment.patient.card_number_OMS }})</small>
                                                     {% endif %}
                                                     {% if appointment.patient.card_number_IP %}
-                                                        <br><small class="text-muted">(ИП карта {{ appointment.patient.card_number_IP }})</small>
+                                                        <br><small class="text-muted">
+                                                            {% if appointment.patient.insurance_company %}
+                                                                ({{ appointment.patient.insurance_company }} карта {{ appointment.patient.card_number_IP }})
+                                                            {% else %}
+                                                                (карта {{ appointment.patient.card_number_IP }})
+                                                            {% endif %}
+                                                        </small>
                                                     {% endif %}
+
                                                     {% if is_medical_admin or is_admin and appointment.patient.phone_number %}
                                                         <br><small class="text-muted" style="font-size: 0.7rem !important;"> {{ appointment.patient.phone_number }} </small>
                                                     {% endif %}

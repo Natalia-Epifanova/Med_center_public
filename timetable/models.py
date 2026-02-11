@@ -14,7 +14,7 @@ class MedicalServiceCategory(models.TextChoices):
     XRAY = "xray", _("Рентген")
     FIRST_CONSULTATION = "first_consult", _("Первичная консультация")
     SECOND_CONSULTATION = "second_consult", _("Повторная консультация")
-    MANUFACTURE_OF_INSOLES = "manufacture_of_insoles", _("Изготовление стелек")
+    MANUFACTURE_OF_INSOLES = "manufacture_of_insoles", _("Плантонграфия")
     ANALYZES = "analyzes", _("Анализы")
     MEDICAL_BLOCKADES = "medical_blockades", _("Медикаментозные блокады")
     PHYSIO_PROCEDURES = "physio_procedures", _("Физио процедуры")
