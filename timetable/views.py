@@ -21,6 +21,7 @@ from django.views.generic import (
 )
 
 from appointments.models import Appointment
+from patients.models import WaitlistPatient
 from timetable.forms import (
     CopyScheduleForm,
     CopyWeeklyScheduleForm,
@@ -38,8 +39,9 @@ from users.permissions.mixins import (
 )
 
 
-class HomeView(TemplateView):
+class HomeView(LoginRequiredMixin, TemplateView):
     template_name = "timetable/home.html"
+    login_url = "/users/login/"
 
 
 class TimeSlotCreateView(AdminRequiredMixin, FormView):
@@ -164,6 +166,7 @@ class TimeSlotDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
 
 class ScheduleDayView(LoginRequiredMixin, TemplateView):
     template_name = "timetable/schedule_day.html"
+    login_url = "/users/login/"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -434,15 +437,16 @@ class EmergencySlotCreateView(MedicalAdminOrAdminRequiredMixin, View):
         )
 
 
-class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, ListView):
-    """Список запросов на перезапись"""
+class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, TemplateView):
+    """Список запросов на перезапись + лист ожидания"""
 
-    model = Appointment
     template_name = "timetable/reschedule_requests.html"
-    context_object_name = "appointments"
 
-    def get_queryset(self):
-        return Appointment.objects.filter(
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Существующие записи с флагом needs_reschedule
+        appointments = Appointment.objects.filter(
             needs_reschedule=True,
             status__in=[
                 Appointment.AppointmentStatus.SCHEDULED,
@@ -451,6 +455,22 @@ class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, ListView):
         ).select_related(
             "patient", "time_slot__doctor", "time_slot__cabinet", "service"
         )
+
+        # Лист ожидания (пациенты без текущих записей)
+        waitlist_patients = (
+            WaitlistPatient.objects.all()
+            .select_related("doctor")
+            .order_by("-created_at")
+        )
+
+        context.update(
+            {
+                "appointments": appointments,
+                "waitlist_patients": waitlist_patients,
+            }
+        )
+
+        return context
 
 
 @login_required
@@ -520,45 +540,156 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        date_str = self.kwargs.get("date")
+        context["today"] = timezone.now().date()
 
-        try:
-            report_date = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            report_date = datetime.now().date()
+        # Проверяем, есть ли дата в kwargs (если доступ через URL с датой)
+        date_from_url = kwargs.get("date")
 
-        # Получаем все записи на указанную дату с правильными связями
-        appointments = Appointment.objects.filter(
-            time_slot__date=report_date,
-            status__in=[
-                "scheduled",
-                "confirmed",
-                "completed",
-            ],
-        ).select_related("time_slot__doctor", "service", "patient")
+        if date_from_url:
+            # Если доступ через URL типа /doctor-report/2026-01-21/
+            try:
+                start_date = datetime.strptime(date_from_url, "%Y-%m-%d").date()
+                end_date = start_date
+                is_period = False
+                start_date_str = date_from_url
+                end_date_str = date_from_url
+            except ValueError:
+                start_date = timezone.now().date()
+                end_date = start_date
+                is_period = False
+                start_date_str = ""
+                end_date_str = ""
+                messages.error(self.request, "Неверный формат даты")
+        else:
+            # Получаем даты из GET параметров
+            start_date_str = self.request.GET.get("start_date", "")
+            end_date_str = self.request.GET.get("end_date", "")
 
-        # Группируем по врачам и услугам
+            # Если не указаны даты, используем сегодняшнюю дату
+            if not start_date_str:
+                start_date = timezone.now().date()
+                end_date = start_date
+                is_period = False
+            else:
+                try:
+                    start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+                    if end_date_str:
+                        end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+                    else:
+                        end_date = start_date
+                    is_period = True
+                except ValueError:
+                    start_date = timezone.now().date()
+                    end_date = start_date
+                    is_period = False
+                    messages.error(self.request, "Неверный формат даты")
+
+        # Определяем названия ОМС услуг (только для ревматологов)
+        OMS_PRIMARY = "Прием (осмотр, консультация) врача-ревматолога первичный"
+        OMS_REPEAT = "Прием (осмотр, консультация) врача-ревматолога повторный (не позднее месяца от первичного)"
+
+        # Определяем ключевые слова для PRP терапии
+        PRP_KEYWORDS = ["PRP терапия", "PRP-терапия", "плазмолифтинг"]
+
+        # Получаем записи за период
+        appointments = (
+            Appointment.objects.filter(
+                time_slot__date__gte=start_date,
+                time_slot__date__lte=end_date,
+                status="completed",
+            )
+            .select_related(
+                "time_slot__doctor",
+                "service",
+                "patient",
+            )
+            .order_by("time_slot__date")
+        )
+
+        # Группируем по врачам
         report_data = {}
+
         for appointment in appointments:
-            # Получаем врача через time_slot
             doctor = appointment.time_slot.doctor
-            service_name = appointment.service.name
+            service = appointment.service
+            service_name = service.name if service else ""
+            service_category = service.category if service else None
+            insurance_type = appointment.insurance_type
 
             if doctor not in report_data:
-                report_data[doctor] = {}
+                report_data[doctor] = {
+                    "oms_total": 0,
+                    "oms_primary": 0,
+                    "oms_repeat": 0,
+                    "manipulations": 0,
+                    "prp_therapy": 0,
+                    "other_services": {},
+                }
 
-            if service_name not in report_data[doctor]:
-                report_data[doctor][service_name] = 0
+            # Проверяем тип оплаты через insurance_type
+            is_oms = insurance_type == "oms"
 
-            report_data[doctor][service_name] += 1
+            # Проверяем категорию услуги
+            is_medical_blockade = service_category == "medical_blockades"
+
+            # Проверяем, является ли услуга PRP терапией
+            is_prp_therapy = any(
+                keyword.lower() in service_name.lower() for keyword in PRP_KEYWORDS
+            )
+
+            # Если это медицинская блокада (манипуляция)
+            if is_medical_blockade:
+                if is_prp_therapy:
+                    report_data[doctor]["prp_therapy"] += 1
+                else:
+                    report_data[doctor]["manipulations"] += 1
+            else:
+                # Для ревматологов считаем ОМС отдельно
+                if doctor.specialization == "rheumatologist" and is_oms:
+                    report_data[doctor]["oms_total"] += 1
+
+                    # Проверяем тип консультации для ОМС
+                    if service_name == OMS_PRIMARY:
+                        report_data[doctor]["oms_primary"] += 1
+                    elif service_name == OMS_REPEAT:
+                        report_data[doctor]["oms_repeat"] += 1
+                    else:
+                        if service_name not in report_data[doctor]["other_services"]:
+                            report_data[doctor]["other_services"][service_name] = 0
+                        report_data[doctor]["other_services"][service_name] += 1
+                else:
+                    if service_name not in report_data[doctor]["other_services"]:
+                        report_data[doctor]["other_services"][service_name] = 0
+                    report_data[doctor]["other_services"][service_name] += 1
 
         context.update(
             {
-                "report_date": report_date,
+                "start_date": start_date,
+                "end_date": end_date,
+                "is_period": is_period,
                 "report_data": report_data,
-                "selected_date": report_date,
+                "selected_start_date": start_date_str,
+                "selected_end_date": end_date_str,
             }
         )
+        return context
+
+
+class DoctorReportPeriodView(AdminRequiredMixin, TemplateView):
+    """Страница выбора периода для отчета по врачам"""
+
+    template_name = "timetable/doctor_report_period.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Устанавливаем даты по умолчанию
+        today = timezone.now().date()
+        first_day_of_month = today.replace(day=1)
+
+        context["default_start"] = first_day_of_month
+        context["default_end"] = today
+
         return context
 
 
@@ -737,3 +868,112 @@ class CopyWeeklyScheduleView(AdminRequiredMixin, FormView):
             return self.form_invalid(form)
 
         return super().form_valid(form)
+
+
+@login_required
+@require_POST
+@admin_required
+def move_doctor_to_cabinet(request):
+    """Перенос врача с его слотами в другой кабинет"""
+    try:
+        doctor_id = request.POST.get("doctor_id")
+        current_cabinet_id = request.POST.get("current_cabinet_id")
+        new_cabinet_id = request.POST.get("new_cabinet_id")
+        date_str = request.POST.get("date")
+        move_appointments = request.POST.get("move_appointments") == "on"
+
+        if not all([doctor_id, current_cabinet_id, new_cabinet_id, date_str]):
+            return JsonResponse(
+                {"success": False, "error": "Не все обязательные поля заполнены"}
+            )
+
+        # Преобразуем дату
+        date = datetime.strptime(date_str, "%Y-%m-%d").date()
+
+        # Получаем объекты
+        doctor = Doctor.objects.get(id=doctor_id)
+        current_cabinet = Cabinet.objects.get(id=current_cabinet_id)
+        new_cabinet = Cabinet.objects.get(id=new_cabinet_id)
+
+        # Проверяем, что текущий и новый кабинеты разные
+        if current_cabinet.id == new_cabinet.id:
+            return JsonResponse(
+                {
+                    "success": False,
+                    "error": "Текущий и новый кабинет не могут совпадать",
+                }
+            )
+
+        # Получаем все слоты врача в текущем кабинете на указанную дату
+        slots = TimeSlot.objects.filter(
+            date=date, doctor=doctor, cabinet=current_cabinet
+        )
+
+        # Проверяем конфликты в новом кабинете
+        for slot in slots:
+            conflicting_slots = TimeSlot.objects.filter(
+                date=date,
+                cabinet=new_cabinet,
+                start_time__lt=slot.end_time,
+                end_time__gt=slot.start_time,
+                slot_type="working",
+            ).exclude(doctor=doctor)
+
+            if conflicting_slots.exists():
+                # Простое сообщение без деталей
+                return JsonResponse(
+                    {
+                        "success": False,
+                        "error": "Обнаружены конфликты в расписании нового кабинета",
+                    }
+                )
+
+        # Переносим слоты
+        slots_moved = 0
+        appointments_moved = 0
+
+        for slot in slots:
+            # Получаем все записи на этот слот
+            appointments = slot.appointments.all() if move_appointments else []
+
+            # Изменяем кабинет слота
+            slot.cabinet = new_cabinet
+            slot.save()
+            slots_moved += 1
+
+            # Если нужно, переносим записи
+            if move_appointments:
+                appointments_moved += appointments.count()
+
+        # Логируем действие
+        from django.contrib.admin.models import LogEntry, CHANGE
+        from django.contrib.contenttypes.models import ContentType
+
+        LogEntry.objects.log_action(
+            user_id=request.user.id,
+            content_type_id=ContentType.objects.get_for_model(TimeSlot).id,
+            object_id="",
+            object_repr=f"Перенос врача {doctor.surname} из каб.{current_cabinet.number} в каб.{new_cabinet.number} на {date}",
+            action_flag=CHANGE,
+            change_message=f"Перенесено слотов: {slots_moved}, записей: {appointments_moved}",
+        )
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": "Врач успешно перенесен",
+                "slots_moved": slots_moved,
+                "appointments_moved": appointments_moved,
+            }
+        )
+
+    except (Doctor.DoesNotExist, Cabinet.DoesNotExist) as e:
+        return JsonResponse({"success": False, "error": "Не найден врач или кабинет"})
+    except ValueError as e:
+        return JsonResponse(
+            {"success": False, "error": f"Ошибка формата данных: {str(e)}"}
+        )
+    except Exception as e:
+        return JsonResponse(
+            {"success": False, "error": f"Внутренняя ошибка сервера: {str(e)}"}
+        )

@@ -15,159 +15,175 @@
     </div>
 
     <!-- Форма поиска -->
-    <div class="card mb-4">
-        <div class="card-body">
-            <form method="get" class="row g-3">
-                <div class="col-md-10">
-                    <input type="text"
-                           name="search"
-                           class="form-control"
-                           placeholder="Поиск по фамилии, имени или телефону..."
-                           value="{{ request.GET.search }}">
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-search"></i> Найти
-                    </button>
-                </div>
-            </form>
-        </div>
+    <div class="mb-4">
+        <form method="get" class="row g-2 align-items-center">
+            <div class="col-md-10">
+                <input type="text"
+                       name="search"
+                       class="form-control"
+                       placeholder="Поиск по фамилии, имени или телефону..."
+                       value="{{ request.GET.search }}">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Найти
+                </button>
+            </div>
+        </form>
     </div>
 
     {% if reserve_data %}
-    <!-- Основной контент: врачи и их списки -->
-    <div class="row">
-        {% for doctor_data in reserve_data %}
-        <!-- Изменяем col-12 на col-md-4 чтобы было 3 врача в ряд -->
-        <div class="col-md-4 mb-4">
-            <div class="card h-100">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">
-                        {{ doctor_data.doctor.surname }}
-                        {{ doctor_data.doctor.first_name }}
-                        {% if doctor_data.doctor.last_name %}{{ doctor_data.doctor.last_name }}{% endif %}
-                    </h5>
-                    <small class="badge bg-light text-primary mt-1">
-                        Всего пациентов: {{ doctor_data.total_patients }}
-                    </small>
-                </div>
+    <!-- ОСНОВНОЙ КОНТЕЙНЕР С ГОРИЗОНТАЛЬНОЙ ПРОКРУТКОЙ -->
+    <div class="timetable-container-fluid">
 
-                <div class="card-body p-0">
-                    <!-- Внутри карточки врача - месяцы -->
-                    {% for month_data in doctor_data.months %}
-                    {% if month_data.patient_count > 0 %}
-                    <div class="border-bottom">
-                        <!-- Изменяем заголовок месяца -->
-                        <div class="px-3 py-2 bg-warning bg-opacity-25">
-                            <h6 class="mb-0 d-flex justify-content-between align-items-center">
-                                <!-- Используем нижний регистр для названия месяца -->
-                                <span class="fw-bold text-dark">
-                                    <i class="bi bi-calendar-plus"></i>
-                                    Запись на {{ month_data.month_name|lower }}
-                                </span>
-                                <span class="badge bg-primary">{{ month_data.patient_count }}</span>
-                            </h6>
-                        </div>
-
-                        <div class="px-3 py-2">
-                            <div class="list-group list-group-flush">
-                                {% for entry in month_data.entries %}
-                                <div class="list-group-item border-0 px-0 py-2">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <div class="flex-grow-1">
-                                            <div class="d-flex flex-column">
-                                                <div class="d-flex align-items-center mb-1">
-                                                    <!-- ПРОВЕРЯЕМ, ЕСТЬ ЛИ СВЯЗАННЫЙ ПАЦИЕНТ -->
-                                                    {% if entry.patient %}
-                                                    <!-- Если пациент есть в базе - показываем ссылку -->
-                                                    <a href="{% url 'patients:patient_detail' entry.patient.pk %}"
-                                                       class="text-decoration-none patient-link fw-bold text-primary me-2"
-                                                       title="Нажмите для просмотра карточки пациента"
-                                                       target="_blank">
-                                                        {{ entry.surname }} {{ entry.first_name }}
-                                                        {% if entry.last_name %} {{ entry.last_name }} {% endif %}
-                                                    </a>
-                                                    {% else %}
-                                                    <!-- Если пациента нет в базе - показываем просто текст -->
-                                                    <strong class="text-dark me-2">
-                                                        {{ entry.surname }} {{ entry.first_name }}
-                                                        {% if entry.last_name %} {{ entry.last_name }} {% endif %}
-                                                    </strong>
-                                                    {% endif %}
-
-                                                    <!-- Добавляем дату рождения -->
-                                                    {% if entry.date_of_birth %}
-                                                    <strong class="text-dark me-2">
-                                                        {{ entry.date_of_birth|date:"d.m.Y" }}
-                                                    </strong>
-                                                    {% endif %}
-                                                </div>
-
-                                                <!-- Добавляем дополнительную информацию -->
-                                                <div class="small text-muted">
-                                                    {% if entry.phone_number %}
-                                                    <div class="mt-1">
-                                                        <i class="bi bi-telephone me-1"></i>
-                                                        {{ entry.phone_number }}
-                                                    </div>
-                                                    {% endif %}
-
-                                                    {% if entry.comment %}
-                                                    <div class="mt-1">
-                                                        <i class="bi bi-chat-left me-1"></i>
-                                                        {{ entry.comment|truncatechars:30 }}
-                                                    </div>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
-                                            <a href="{% url 'patients:reserve_patient_update' entry.id %}"
-                                               class="btn btn-outline-primary btn-sm"
-                                               title="Редактировать">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <a href="{% url 'patients:reserve_patient_delete' entry.id %}"
-                                               class="btn btn-outline-danger btn-sm"
-                                               title="Удалить">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-
-                            <div class="mt-2 text-center">
-                                <a href="{% url 'patients:reserve_patient_create' %}?doctor_id={{ doctor_data.doctor.id }}&month={{ month_data.month_num }}&year={{ current_year }}"
-                                   class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-plus"></i> Добавить пациента
-                                </a>
-                            </div>
-                        </div>
+        <!-- КНОПКИ ПРОКРУТКИ -->
+        <div class="timetable-scroll-controls mb-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <button type="button" class="btn btn-sm btn-outline-secondary reserve-scroll-left-btn">
+                    <i class="bi bi-chevron-left"></i>
+                </button>
+                <div class="flex-grow-1 mx-3">
+                    <div class="timetable-scroll-indicator">
+                        <small class="text-muted">Используйте прокрутку для просмотра всех врачей</small>
                     </div>
-                    {% endif %}
-                    {% endfor %}
-                    <!-- Если у врача вообще нет пациентов -->
-                    {% if doctor_data.total_patients == 0 %}
-                    <div class="text-center py-4">
-                        <i class="bi bi-calendar-x text-muted" style="font-size: 2rem;"></i>
-                        <p class="text-muted mt-2 mb-3">Нет пациентов в резерве</p>
-                        <a href="{% url 'patients:reserve_patient_create' %}?doctor_id={{ doctor_data.doctor.id }}&month=1&year={{ current_year }}"
-                           class="btn btn-sm btn-outline-primary">
-                            <i class="bi bi-plus"></i> Добавить первого
-                        </a>
-                    </div>
-                    {% endif %}
                 </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary reserve-scroll-right-btn">
+                    <i class="bi bi-chevron-right"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Для красивого отображения: добавляем clearfix каждые 3 врача -->
-        {% if forloop.counter|divisibleby:3 %}
-        <div class="w-100 d-none d-md-block"></div>
-        {% endif %}
-        {% endfor %}
+        <!-- КОНТЕЙНЕР С ГОРИЗОНТАЛЬНОЙ ПРОКРУТКОЙ -->
+        <div class="timetable-cards-scroll-container">
+            <div class="timetable-cards-grid reserve-doctors-grid">
+                {% for doctor_data in reserve_data %}
+                <!-- КАРТОЧКА ВРАЧА -->
+                <div class="reserve-doctor-column">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">
+                                {{ doctor_data.doctor.surname }}
+                                {{ doctor_data.doctor.first_name }}
+                                {% if doctor_data.doctor.last_name %}{{ doctor_data.doctor.last_name }}{% endif %}
+                            </h5>
+                            <small class="badge bg-light text-primary mt-1">
+                                Всего пациентов: {{ doctor_data.total_patients }}
+                            </small>
+                        </div>
+
+                        <div class="card-body p-0">
+                            <!-- Внутри карточки врача - месяцы -->
+                            {% for month_data in doctor_data.months %}
+                            {% if month_data.patient_count > 0 %}
+                            <div class="border-bottom">
+                                <!-- Изменяем заголовок месяца -->
+                                <div class="px-3 py-2 bg-warning bg-opacity-25">
+                                    <h6 class="mb-0 d-flex justify-content-between align-items-center">
+                                        <!-- Используем нижний регистр для названия месяца -->
+                                        <span class="fw-bold text-dark">
+                                            <i class="bi bi-calendar-plus"></i>
+                                            Запись на {{ month_data.month_name|lower }}
+                                        </span>
+                                        <span class="badge bg-primary">{{ month_data.patient_count }}</span>
+                                    </h6>
+                                </div>
+
+                                <div class="px-3 py-2">
+                                    <div class="list-group list-group-flush">
+                                        {% for entry in month_data.entries %}
+                                        <div class="list-group-item border-0 px-0 py-2">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="flex-grow-1">
+                                                    <div class="d-flex flex-column">
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <!-- ПРОВЕРЯЕМ, ЕСТЬ ЛИ СВЯЗАННЫЙ ПАЦИЕНТ -->
+                                                            {% if entry.patient %}
+                                                            <!-- Если пациент есть в базе - показываем ссылку -->
+                                                            <a href="{% url 'patients:patient_detail' entry.patient.pk %}"
+                                                               class="text-decoration-none patient-link fw-bold text-primary me-2"
+                                                               title="Нажмите для просмотра карточки пациента"
+                                                               target="_blank">
+                                                                {{ entry.surname }} {{ entry.first_name }}
+                                                                {% if entry.last_name %} {{ entry.last_name }} {% endif %}
+                                                            </a>
+                                                            {% else %}
+                                                            <!-- Если пациента нет в базе - показываем просто текст -->
+                                                            <strong class="text-dark me-2">
+                                                                {{ entry.surname }} {{ entry.first_name }}
+                                                                {% if entry.last_name %} {{ entry.last_name }} {% endif %}
+                                                            </strong>
+                                                            {% endif %}
+
+                                                            <!-- Добавляем дату рождения -->
+                                                            {% if entry.date_of_birth %}
+                                                            <strong class="text-dark me-2">
+                                                                {{ entry.date_of_birth|date:"d.m.Y" }}
+                                                            </strong>
+                                                            {% endif %}
+                                                        </div>
+
+                                                        <!-- Добавляем дополнительную информацию -->
+                                                        <div class="small text-muted">
+                                                            {% if entry.phone_number %}
+                                                            <div class="mt-1">
+                                                                <i class="bi bi-telephone me-1"></i>
+                                                                {{ entry.phone_number }}
+                                                            </div>
+                                                            {% endif %}
+
+                                                            {% if entry.comment %}
+                                                            <div class="mt-1">
+                                                                <i class="bi bi-chat-left me-1"></i>
+                                                                {{ entry.comment|truncatechars:30 }}
+                                                            </div>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="btn-group btn-group-sm ms-2 flex-shrink-0">
+                                                    <a href="{% url 'patients:reserve_patient_update' entry.id %}"
+                                                       class="btn btn-outline-primary btn-sm"
+                                                       title="Редактировать">
+                                                        <i class="bi bi-pencil"></i>
+                                                    </a>
+                                                    <a href="{% url 'patients:reserve_patient_delete' entry.id %}"
+                                                       class="btn btn-outline-danger btn-sm"
+                                                       title="Удалить">
+                                                        <i class="bi bi-trash"></i>
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+
+                                    <div class="mt-2 text-center">
+                                        <a href="{% url 'patients:reserve_patient_create' %}?doctor_id={{ doctor_data.doctor.id }}&month={{ month_data.month_num }}&year={{ current_year }}"
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-plus"></i> Добавить пациента
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                            <!-- Если у врача вообще нет пациентов -->
+                            {% if doctor_data.total_patients == 0 %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-calendar-x text-muted" style="font-size: 2rem;"></i>
+                                <p class="text-muted mt-2 mb-3">Нет пациентов в резерве</p>
+                                <a href="{% url 'patients:reserve_patient_create' %}?doctor_id={{ doctor_data.doctor.id }}&month=1&year={{ current_year }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-plus"></i> Добавить первого
+                                </a>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
 
     {% elif request.GET.search %}
@@ -187,10 +203,12 @@
     {% endif %}
 </div>
 
+<!-- Добавляем стили -->
 <style>
 .card {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
     transition: all 0.3s ease;
+    min-height: 400px; /* Минимальная высота для карточек */
 }
 
 .card:hover {
@@ -200,6 +218,7 @@
 
 .card-header {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 70px;
 }
 
 .list-group-item {
@@ -221,31 +240,181 @@
     text-decoration: underline;
 }
 
-/* Для мобильных устройств - 1 врач в ряд */
+/* СТИЛИ ДЛЯ ГОРИЗОНТАЛЬНОЙ ПРОКРУТКИ */
+.timetable-container-fluid {
+    margin: 0 -15px;
+    padding: 0 15px;
+}
+
+.timetable-scroll-controls {
+    padding: 0 15px;
+    margin-bottom: 15px;
+}
+
+.timetable-cards-scroll-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 15px;
+    margin: 0 -15px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #dee2e6 transparent;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 4px;
+}
+
+.timetable-cards-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: #adb5bd;
+}
+
+.timetable-cards-grid {
+    display: flex;
+    gap: 20px;
+    padding-bottom: 10px;
+    min-width: min-content;
+}
+
+.reserve-doctors-grid {
+    min-width: min-content;
+}
+
+.reserve-doctor-column {
+    flex: 0 0 400px; /* Фиксированная ширина карточки врача */
+    min-width: 400px;
+    max-width: 400px;
+    display: flex;
+}
+
+.reserve-doctor-column .card {
+    width: 100%;
+}
+
+/* Стили для кнопок прокрутки */
+.scroll-left-btn.disabled,
+.scroll-right-btn.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Для мобильных устройств */
 @media (max-width: 768px) {
-    .col-md-4 {
-        flex: 0 0 100%;
-        max-width: 100%;
+    .reserve-doctor-column {
+        flex: 0 0 350px;
+        min-width: 350px;
+        max-width: 350px;
     }
 
-    /* Для мобильных устройств сделаем дату рождения под ФИО */
-    .list-group-item .d-flex.align-items-center {
-        flex-direction: column;
-        align-items: flex-start !important;
-    }
-
-    .list-group-item .d-flex.align-items-center .badge {
-        margin-top: 5px;
-        margin-left: 0 !important;
+    .card-header h5 {
+        font-size: 1rem;
     }
 }
 
-/* Для планшетов - 2 врача в ряд */
+/* Для планшетов */
 @media (min-width: 768px) and (max-width: 992px) {
-    .col-md-4 {
-        flex: 0 0 50%;
-        max-width: 50%;
+    .reserve-doctor-column {
+        flex: 0 0 380px;
+        min-width: 380px;
+        max-width: 380px;
     }
 }
 </style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация прокрутки для резервных пациентов
+    initReserveScrollControls();
+});
+
+function initReserveScrollControls() {
+    console.log('Initializing reserve scroll controls...');
+
+    const scrollContainer = document.querySelector('.timetable-cards-scroll-container');
+    const scrollLeftBtn = document.querySelector('.reserve-scroll-left-btn');
+    const scrollRightBtn = document.querySelector('.reserve-scroll-right-btn');
+
+    if (!scrollContainer || !scrollLeftBtn || !scrollRightBtn) {
+        console.log('Reserve scroll controls not found');
+        return;
+    }
+
+    const scrollAmount = 450; // Количество пикселей для прокрутки
+
+    // Кнопка "Влево"
+    scrollLeftBtn.addEventListener('click', function() {
+        if (!this.disabled) {
+            scrollContainer.scrollBy({
+                left: -scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+    });
+
+    // Кнопка "Вправо"
+    scrollRightBtn.addEventListener('click', function() {
+        if (!this.disabled) {
+            scrollContainer.scrollBy({
+                left: scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+    });
+
+    // Обновление состояния кнопок при прокрутке
+    scrollContainer.addEventListener('scroll', function() {
+        updateReserveScrollButtonsState(scrollContainer);
+    });
+
+    // Инициализируем состояние кнопок
+    updateReserveScrollButtonsState(scrollContainer);
+
+    // Также обновляем состояние кнопок при изменении размера окна
+    window.addEventListener('resize', function() {
+        updateReserveScrollButtonsState(scrollContainer);
+    });
+
+    console.log('Reserve scroll controls initialized');
+}
+
+function updateReserveScrollButtonsState(scrollContainer) {
+    const scrollLeftBtn = document.querySelector('.reserve-scroll-left-btn');
+    const scrollRightBtn = document.querySelector('.reserve-scroll-right-btn');
+
+    if (!scrollLeftBtn || !scrollRightBtn) return;
+
+    // Кнопка "Влево" активна, если есть прокрутка слева
+    const canScrollLeft = scrollContainer.scrollLeft > 0;
+    scrollLeftBtn.disabled = !canScrollLeft;
+    scrollLeftBtn.style.opacity = canScrollLeft ? '1' : '0.5';
+    scrollLeftBtn.style.cursor = canScrollLeft ? 'pointer' : 'not-allowed';
+
+    // Кнопка "Вправо" активна, если есть прокрутка справа
+    // Добавляем небольшой буфер в 1 пиксель для точности
+    const canScrollRight =
+        scrollContainer.scrollLeft + scrollContainer.clientWidth < scrollContainer.scrollWidth - 1;
+    scrollRightBtn.disabled = !canScrollRight;
+    scrollRightBtn.style.opacity = canScrollRight ? '1' : '0.5';
+    scrollRightBtn.style.cursor = canScrollRight ? 'pointer' : 'not-allowed';
+
+    // Показываем или скрываем кнопки если контент полностью помещается
+    const isScrollable = scrollContainer.scrollWidth > scrollContainer.clientWidth;
+
+    if (scrollLeftBtn.parentElement) {
+        scrollLeftBtn.parentElement.style.display = isScrollable ? 'flex' : 'none';
+    }
+}
+</script>
 {% endblock %}

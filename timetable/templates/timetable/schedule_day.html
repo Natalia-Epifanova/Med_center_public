@@ -7,13 +7,6 @@
 <link rel="stylesheet" href="/static/css/print.css">
 {% endblock %}
 
-{% block header %}
-<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
-    <h1 class="display-6">Просмотр расписания на день</h1>
-    <p class="lead">Расписание по кабинетам</p>
-</div>
-{% endblock %}
-
 {% block content %}
 <div class="container">
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
@@ -88,7 +81,7 @@
                                 </button>
                                 {% endif %}
                                 {% if is_admin %}
-                                <a href="{% url 'timetable:doctor_report' selected_date|date:'Y-m-d' %}"
+                                <a href="{% url 'timetable:doctor_report_date' selected_date|date:'Y-m-d' %}"
                                    class="btn btn-info">
                                     <i class="fas fa-chart-bar"></i> Отчет по врачам за {{ selected_date|date:"d.m.Y" }}
                                 </a>
@@ -313,9 +306,21 @@
                                         {{ doctor_data.comment|linebreaks }}
                                     </strong>
                                 </div>
-                                <!-- НОВАЯ КНОПКА УДАЛЕНИЯ ВСЕХ СЛОТОВ -->
                                 {% if is_admin and doctor_data.slots %}
-                                <div class="mt-2">
+                                <div class="mt-2 d-flex gap-2">
+                                    <!-- НОВАЯ КНОПКА ПЕРЕНОСА В КАБИНЕТ -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-warning move-doctor-btn"
+                                            data-doctor-id="{{ doctor_data.doctor.id }}"
+                                            data-cabinet-id="{{ cabinet.id }}"
+                                            data-date="{{ selected_date|date:'Y-m-d' }}"
+                                            data-doctor-name="{{ doctor_data.doctor.surname }} {{ doctor_data.doctor.first_name.0 }}.{{ doctor_data.doctor.last_name.0 }}."
+                                            data-current-cabinet="{{ cabinet.number }}"
+                                            title="Перенести врача в другой кабинет">
+                                        <i class="fas fa-exchange-alt"></i> Перенести в другой кабинет
+                                    </button>
+
+                                    <!-- Существующая кнопка удаления -->
                                     <button type="button"
                                             class="btn btn-sm btn-outline-danger delete-all-slots-btn"
                                             data-doctor-id="{{ doctor_data.doctor.id }}"
@@ -427,8 +432,15 @@
                                                         <br><small class="text-muted">(ОМС карта {{ appointment.patient.card_number_OMS }})</small>
                                                     {% endif %}
                                                     {% if appointment.patient.card_number_IP %}
-                                                        <br><small class="text-muted">(ИП карта {{ appointment.patient.card_number_IP }})</small>
+                                                        <br><small class="text-muted">
+                                                            {% if appointment.patient.insurance_company %}
+                                                                ({{ appointment.patient.insurance_company }} карта {{ appointment.patient.card_number_IP }})
+                                                            {% else %}
+                                                                (карта {{ appointment.patient.card_number_IP }})
+                                                            {% endif %}
+                                                        </small>
                                                     {% endif %}
+
                                                     {% if is_medical_admin or is_admin and appointment.patient.phone_number %}
                                                         <br><small class="text-muted" style="font-size: 0.7rem !important;"> {{ appointment.patient.phone_number }} </small>
                                                     {% endif %}
@@ -460,7 +472,7 @@
                                     </td>
                                     <td>
                                     {% if slot.slot_type == 'working' %}
-                                        {% if is_admin or is_medical_admin %}
+
                                             {% get_appointment slot as appointment %}
                                             {% if appointment %}
 
@@ -475,7 +487,26 @@
                                                     </option>
                                                     {% endfor %}
                                                 </select>
-
+                                                {% if is_admin or is_medical_admin %}
+                                                <!-- Блок выбора способа оплаты (скрыт по умолчанию) -->
+                                                <div class="payment-method-selector mt-1 d-none"
+                                                     data-appointment-id="{{ appointment.pk }}">
+                                                    <div class="d-flex gap-1">
+                                                        <button type="button"
+                                                                class="btn btn-sm payment-method-btn flex-fill {% if appointment.payment_method == 'cash' %}active-cash{% endif %}"
+                                                                data-method="cash"
+                                                                title="Наличные">
+                                                            <i class="fas fa-money-bill-wave me-1"></i>Нал
+                                                        </button>
+                                                        <button type="button"
+                                                                class="btn btn-sm payment-method-btn flex-fill {% if appointment.payment_method == 'card' %}active-card{% endif %}"
+                                                                data-method="card"
+                                                                title="Карта">
+                                                            <i class="fas fa-credit-card me-1"></i>Карта
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {% endif %}
                                                 <!-- Блок действий -->
                                                 <div class="btn-group btn-group-sm mt-1" role="group">
                                                     <!-- Кнопка просмотра записи -->
@@ -484,7 +515,6 @@
                                                        class="btn btn-outline-info" title="Просмотр записи">
                                                        <i class="fas fa-eye"></i>
                                                     </a>
-                                                    {% endif %}
                                                     <!-- Индикатор перезаписи -->
                                                     {% if appointment.needs_reschedule %}
                                                     <span class="btn btn-outline-info position-relative"
@@ -494,6 +524,12 @@
                                                             <span class="visually-hidden">Требуется перезапись</span>
                                                         </span>
                                                     </span>
+                                                    {% endif %}
+                                                    {% endif %}
+                                                    {% if is_doctor or is_admin %}
+                                                    <a href="{% url 'treatment:treatment_create' appointment.id %}" class="btn btn-success">
+                                                        <i class="fas fa-stethoscope"></i> Оформить прием
+                                                    </a>
                                                     {% endif %}
 
 
@@ -509,7 +545,7 @@
                                                     </a>
                                                 {% endif %}
                                             {% endif %}
-                                        {% endif %}
+
                                     {% else %}
                                         <small class="text-muted">Недоступно для записи</small>
                                     {% endif %}
@@ -746,6 +782,69 @@
                         <i class="fas fa-trash-alt"></i> Удалить
                     </button>
                     <button type="submit" class="btn btn-primary">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Модальное окно для переноса врача в другой кабинет -->
+<div class="modal fade" id="moveDoctorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-exchange-alt"></i> Перенос врача в другой кабинет
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="moveDoctorForm">
+                {% csrf_token %}
+                <input type="hidden" name="doctor_id" id="moveDoctorId">
+                <input type="hidden" name="current_cabinet_id" id="moveCurrentCabinetId">
+                <input type="hidden" name="date" id="moveDate">
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <p>Врач: <strong id="moveDoctorName"></strong></p>
+                        <p>Текущий кабинет: <strong id="moveCurrentCabinetNumber"></strong></p>
+                        <p>Дата: <strong id="moveDateDisplay"></strong></p>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="new_cabinet" class="form-label">Выберите новый кабинет:</label>
+                        <select name="new_cabinet_id" id="newCabinet" class="form-select" required>
+                            <option value="">Выберите кабинет...</option>
+                            {% for cabinet in cabinets %}
+                                <option value="{{ cabinet.id }}">
+                                    Кабинет {{ cabinet.number }}
+                                    {% if cabinet.name_of_cabinet %}
+                                        - {{ cabinet.name_of_cabinet }}
+                                    {% endif %}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input type="checkbox" name="move_appointments" id="moveAppointments" class="form-check-input" checked>
+                        <label class="form-check-label" for="moveAppointments">
+                            Перенести существующие записи пациентов вместе со слотами
+                        </label>
+                    </div>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        <small>
+                            При переносе будут сохранены все временные слоты врача
+                            и (если выбрано) существующие записи пациентов.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-exchange-alt"></i> Перенести врача
+                    </button>
                 </div>
             </form>
         </div>

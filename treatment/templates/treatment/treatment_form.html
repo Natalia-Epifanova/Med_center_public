@@ -1,0 +1,775 @@
+{% extends "timetable/base.html" %}
+
+{% block header %}
+<div class="pricing-header px-3 py-3 pt-md-5 pb-md-4 mx-auto text-center">
+    <h1 class="display-6">
+        {% if object %}Редактирование приема врача{% else %}Оформление приема врача{% endif %}
+    </h1>
+    <p class="lead">
+        {% if object %}Изменение данных о приеме пациента{% else %}Заполните данные о приеме пациента{% endif %}
+    </p>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-12">
+            <!-- Кнопка копирования данных (только если есть предыдущие приемы) -->
+            {% if has_previous_treatments and not object %}
+            <div class="card mb-4 timetable-form-card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-copy"></i> Копирование данных с предыдущего приема
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p class="mb-3">У пациента есть предыдущие приемы. Вы можете скопировать данные из них.</p>
+                            <button type="button" class="btn btn-info" id="showCopyModalBtn" data-patient-id="{{ patient_id }}">
+                                <i class="fas fa-copy"></i> Копировать данные с другого приема
+                            </button>
+                        </div>
+                        <div class="col-md-4 text-right">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle"></i>
+                                Эта функция поможет быстро заполнить повторный прием
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+
+            <div class="card timetable-form-card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-stethoscope"></i>
+                        {% if object %}Редактирование приема{% else %}Новый прием{% endif %}:
+                        {{ appointment.time_slot.doctor.surname }}
+                        {{ appointment.time_slot.doctor.first_name }}
+                        {{ appointment.time_slot.doctor.last_name }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Информация о приеме -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <strong>Пациент:</strong><br>
+                                        {{ appointment.patient.full_name }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Дата рождения:</strong><br>
+                                        {{ appointment.patient.date_of_birth|date:"d.m.Y" }}
+                                        {% if appointment.patient.age %}
+                                            ({{ appointment.patient.age }} лет)
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Дата приема:</strong><br>
+                                        {{ appointment.time_slot.date|date:"d.m.Y" }}
+                                        {{ appointment.time_slot.start_time|time:"H:i" }}
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-md-4">
+                                        <strong>Врач:</strong><br>
+                                        {{ appointment.time_slot.doctor.surname }}
+                                        {{ appointment.time_slot.doctor.first_name.0 }}.
+                                        {{ appointment.time_slot.doctor.last_name.0 }}.
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Услуга:</strong><br>
+                                        {{ appointment.service.name }}
+                                    </div>
+                                    <div class="col-md-4">
+                                        <strong>Кабинет:</strong><br>
+                                        №{{ appointment.time_slot.cabinet.number }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <form method="post" id="treatmentForm">
+                        {% csrf_token %}
+
+                        <!-- Жалобы -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Жалобы</h5>
+                                <div class="form-group">
+                                    {{ form.complaints }}
+                                    {% if form.complaints.errors %}
+                                    <div class="text-danger small">{{ form.complaints.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Основные жалобы пациента при обращении
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Анамнез -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Анамнез жизни</h5>
+                                <div class="form-group">
+                                    {{ form.life_anamnesis }}
+                                    {% if form.life_anamnesis.errors %}
+                                    <div class="text-danger small">{{ form.life_anamnesis.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Общие сведения о жизни пациента
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Анамнез заболевания</h5>
+                                <div class="form-group">
+                                    {{ form.disease_anamnesis }}
+                                    {% if form.disease_anamnesis.errors %}
+                                    <div class="text-danger small">{{ form.disease_anamnesis.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        История развития текущего заболевания
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+
+
+                        <!-- Объективный статус -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Объективный статус</h5>
+                                <div class="form-group">
+                                    {{ form.objective_status }}
+                                    {% if form.objective_status.errors %}
+                                    <div class="text-danger small">{{ form.objective_status.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Результаты общего осмотра, объективные данные
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Дополнительные обследования -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Дополнительные обследования</h5>
+                                <div class="form-group">
+                                    {{ form.additional_surveys }}
+                                    {% if form.additional_surveys.errors %}
+                                    <div class="text-danger small">{{ form.additional_surveys.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Дополнительные обследования
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Диагноз -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Диагноз</h5>
+
+                                <!-- Клинический диагноз -->
+                                <div class="form-group mb-3">
+                                    {{ form.diagnosis }}
+                                    {% if form.diagnosis.errors %}
+                                    <div class="text-danger small">{{ form.diagnosis.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Клинический диагноз
+                                    </small>
+                                </div>
+
+                                <!-- Коды МКБ-10 -->
+                                <div class="form-group">
+                                    <label for="{{ form.mkb10_diagnoses.id_for_label }}">
+                                        {{ form.mkb10_diagnoses.label }}
+                                    </label>
+                                    {{ form.mkb10_diagnoses }}
+                                    {% if form.mkb10_diagnoses.errors %}
+                                    <div class="text-danger small">{{ form.mkb10_diagnoses.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Выберите коды диагнозов по МКБ-10. Для множественного выбора удерживайте Ctrl
+                                    </small>
+                                </div>
+
+                                <!-- Быстрый поиск МКБ-10 -->
+                                <div class="mb-3">
+                                    <div class="input-group">
+                                        <input type="text"
+                                               class="form-control"
+                                               id="mkb10Search"
+                                               placeholder="Поиск диагноза по коду или названию...">
+                                        <div class="input-group-append">
+                                            <button class="btn btn-outline-secondary" type="button" id="mkb10SearchBtn">
+                                                <i class="fas fa-search"></i> Найти
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="mkb10Results" class="mt-2" style="display: none;">
+                                        <div class="list-group" id="mkb10ResultsList">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Рекомендации -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <h5 class="border-bottom pb-2 mb-3">Рекомендации</h5>
+                                <div class="form-group">
+                                    {{ form.recommendations }}
+                                    {% if form.recommendations.errors %}
+                                    <div class="text-danger small">{{ form.recommendations.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Назначения, рекомендации, дальнейший план обследования/лечения
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn timetable-btn-success">
+                                <i class="fas fa-save"></i>
+                                {% if object %}Сохранить изменения{% else %}Сохранить прием{% endif %}
+                            </button>
+
+                            <!-- ИСПРАВЛЕННАЯ КНОПКА ОТМЕНЫ -->
+                            {% if object %}
+                                <!-- Для UpdateView: ссылка на детальный просмотр текущего лечения -->
+                                <a href="{% url 'treatment:treatment_detail' object.id %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Отмена
+                                </a>
+                            {% else %}
+                                <!-- Для CreateView: ссылка на запись на прием -->
+                                <a href="{% url 'appointments:appointment_detail' appointment.id %}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-times"></i> Отмена
+                                </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Модальное окно выбора приема для копирования -->
+<div class="modal fade" id="copyTreatmentModal" tabindex="-1" aria-labelledby="copyTreatmentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="copyTreatmentModalLabel">
+                    <i class="fas fa-copy"></i> Выбор приема для копирования
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div id="modalBodyContainer">
+                <!-- Сюда будет загружаться список приемов -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-info" role="status">
+                        <span class="sr-only">Загрузка...</span>
+                    </div>
+                    <p class="mt-2">Загрузка списка приемов...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно выбора полей для копирования -->
+<div class="modal fade" id="selectFieldsModal" tabindex="-1" aria-labelledby="selectFieldsModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="selectFieldsModalLabel">
+                    <i class="fas fa-check-square"></i> Выбор полей для копирования
+                </h5>
+                <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="fieldsSelectionForm">
+                    <input type="hidden" id="selectedTreatmentId">
+                    <div class="form-group">
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input" id="checkAllFields" data-target="field-checkbox">
+                            <label class="custom-control-label font-weight-bold" for="checkAllFields">
+                                <i class="fas fa-check-double"></i> Выбрать все поля
+                            </label>
+                        </div>
+                        <hr>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_complaints" name="complaints" checked>
+                            <label class="custom-control-label" for="field_complaints">
+                                <i class="fas fa-comment-medical"></i> Жалобы
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_life_anamnesis" name="life_anamnesis" checked>
+                            <label class="custom-control-label" for="field_life_anamnesis">
+                                <i class="fas fa-history"></i> Анамнез жизни
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_disease_anamnesis" name="disease_anamnesis" checked>
+                            <label class="custom-control-label" for="field_disease_anamnesis">
+                                <i class="fas fa-file-medical"></i> Анамнез заболевания
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_objective_status" name="objective_status" checked>
+                            <label class="custom-control-label" for="field_objective_status">
+                                <i class="fas fa-clipboard-check"></i> Объективный статус
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_additional_surveys" name="additional_surveys" checked>
+                            <label class="custom-control-label" for="field_additional_surveys">
+                                <i class="fas fa-search"></i> Дополнительные обследования
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_diagnosis" name="diagnosis" checked>
+                            <label class="custom-control-label" for="field_diagnosis">
+                                <i class="fas fa-diagnoses"></i> Диагноз
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_mkb10_diagnoses" name="mkb10_diagnoses" checked>
+                            <label class="custom-control-label" for="field_mkb10_diagnoses">
+                                <i class="fas fa-code"></i> Диагнозы МКБ-10
+                            </label>
+                        </div>
+                        <div class="custom-control custom-checkbox mb-2">
+                            <input type="checkbox" class="custom-control-input field-checkbox" id="field_recommendations" name="recommendations" checked>
+                            <label class="custom-control-label" for="field_recommendations">
+                                <i class="fas fa-prescription-bottle-alt"></i> Рекомендации
+                            </label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+                <button type="button" class="btn btn-primary" id="applyFieldsBtn">
+                    <i class="fas fa-copy"></i> Заполнить выбранные поля
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+/* Стили для формы приема */
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Стили для выбора МКБ-10 */
+#id_mkb10_diagnoses {
+    min-height: 150px;
+}
+
+/* Подсветка найденных диагнозов */
+.mkb10-result-item:hover {
+    background-color: #e7f1ff;
+    cursor: pointer;
+}
+
+.mkb10-result-item.selected {
+    background-color: #d1e7dd;
+    border-left: 3px solid #28a745;
+}
+
+/* Увеличение полей ввода */
+.form-control-lg {
+    min-height: 120px;
+}
+.treatment-item-for-copy:hover {
+    background-color: #f8f9fa;
+    cursor: pointer;
+}
+
+.treatment-item-for-copy.selected {
+    background-color: #e7f3ff;
+    border-left: 3px solid #007bff;
+}
+
+/* Стили для чекбоксов в модальном окне */
+.custom-checkbox .custom-control-label::before {
+    border-radius: 3px;
+}
+
+.custom-checkbox .custom-control-input:checked ~ .custom-control-label::before {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+/* Анимация появления уведомлений */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.alert.position-fixed {
+    animation: slideIn 0.3s ease-out;
+    min-width: 300px;
+}
+</style>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const mkb10Search = document.getElementById('mkb10Search');
+    const mkb10SearchBtn = document.getElementById('mkb10SearchBtn');
+    const mkb10Results = document.getElementById('mkb10Results');
+    const mkb10ResultsList = document.getElementById('mkb10ResultsList');
+    const mkb10Select = document.getElementById('id_mkb10_diagnoses');
+
+    // Функция для поиска диагнозов МКБ-10
+    async function searchMKB10(query) {
+        if (!query || query.length < 2) {
+            mkb10Results.style.display = 'none';
+            return;
+        }
+
+        try {
+            const response = await fetch(`{% url 'treatment:mkb10_search' %}?q=${encodeURIComponent(query)}`);
+            if (!response.ok) throw new Error('Ошибка поиска');
+
+            const data = await response.json();
+            displayMKB10Results(data);
+        } catch (error) {
+            console.error('Ошибка при поиске МКБ-10:', error);
+            showMKB10Error('Ошибка при поиске диагнозов');
+        }
+    }
+
+    // Функция для отображения результатов поиска
+    function displayMKB10Results(results) {
+        mkb10ResultsList.innerHTML = '';
+
+        if (results.length === 0) {
+            mkb10ResultsList.innerHTML = `
+                <div class="list-group-item text-muted">
+                    <i class="fas fa-search"></i> Диагнозы не найдены
+                </div>
+            `;
+            mkb10Results.style.display = 'block';
+            return;
+        }
+
+        results.forEach(result => {
+            const item = document.createElement('div');
+            item.className = 'list-group-item list-group-item-action mkb10-result-item';
+            item.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${result.code}</strong> - ${result.name}
+                        <br>
+                        <small class="text-muted">${result.chapter || ''} ${result.block ? '› ' + result.block : ''}</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary add-mkb10-btn" data-code="${result.code}" data-id="${result.id}">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                </div>
+            `;
+            mkb10ResultsList.appendChild(item);
+        });
+
+        mkb10Results.style.display = 'block';
+
+        // Добавляем обработчики для кнопок добавления
+        document.querySelectorAll('.add-mkb10-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                addMKB10ToSelection(this.dataset.id);
+            });
+        });
+    }
+
+    // Функция для добавления диагноза в выбор
+    function addMKB10ToSelection(id) {
+        const option = Array.from(mkb10Select.options).find(opt => opt.value === id);
+        if (option) {
+            option.selected = true;
+            // Показываем уведомление
+            showToast('Диагноз добавлен', 'success');
+        } else {
+            // Если опции нет, создаем новую
+            const newOption = new Option(`${id} (новый)`, id, true, true);
+            mkb10Select.add(newOption);
+        }
+
+        // Скрываем результаты поиска
+        mkb10Results.style.display = 'none';
+        mkb10Search.value = '';
+    }
+
+    // Функция для показа ошибки
+    function showMKB10Error(message) {
+        mkb10ResultsList.innerHTML = `
+            <div class="list-group-item text-danger">
+                <i class="fas fa-exclamation-circle"></i> ${message}
+            </div>
+        `;
+        mkb10Results.style.display = 'block';
+    }
+
+    // Функция для показа уведомлений
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        toast.style.top = '20px';
+        toast.style.right = '20px';
+        toast.style.zIndex = '1060';
+        toast.innerHTML = `
+            ${message}
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        `;
+        document.body.appendChild(toast);
+
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // Обработчики событий
+    if (mkb10SearchBtn) {
+        mkb10SearchBtn.addEventListener('click', function() {
+            searchMKB10(mkb10Search.value);
+        });
+    }
+
+    if (mkb10Search) {
+        mkb10Search.addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                searchMKB10(this.value);
+            }
+        });
+
+        // Поиск с задержкой
+        let searchTimeout;
+        mkb10Search.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                searchMKB10(this.value);
+            }, 300);
+        });
+    }
+
+    // Закрытие результатов поиска при клике вне области
+    document.addEventListener('click', function(e) {
+        if (!mkb10Results.contains(e.target) && e.target !== mkb10Search && e.target !== mkb10SearchBtn) {
+            mkb10Results.style.display = 'none';
+        }
+    });
+
+    // Предотвращение закрытия при клике внутри результатов
+    mkb10Results.addEventListener('click', function(e) {
+        e.stopPropagation();
+    });
+    const showCopyModalBtn = document.getElementById('showCopyModalBtn');
+    const copyTreatmentModal = new bootstrap.Modal(document.getElementById('copyTreatmentModal'));
+    const selectFieldsModal = new bootstrap.Modal(document.getElementById('selectFieldsModal'));
+    const modalBodyContainer = document.getElementById('modalBodyContainer');
+
+    if (showCopyModalBtn) {
+        showCopyModalBtn.addEventListener('click', function() {
+            const patientId = this.dataset.patientId;
+            loadPatientTreatments(patientId);
+            copyTreatmentModal.show();
+        });
+    }
+
+    // Загрузка списка приемов пациента
+    function loadPatientTreatments(patientId) {
+        modalBodyContainer.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-info" role="status">
+                    <span class="sr-only">Загрузка...</span>
+                </div>
+                <p class="mt-2">Загрузка списка приемов...</p>
+            </div>
+        `;
+
+        fetch(`{% url 'treatment:patient_treatments_for_copy' 0 %}`.replace('0', patientId), {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.treatments.length === 0) {
+                modalBodyContainer.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-history fa-2x text-muted mb-3"></i>
+                        <p class="text-muted">У пациента нет предыдущих приемов</p>
+                    </div>
+                `;
+            } else {
+                let html = '<div class="modal-body p-0"><div class="list-group list-group-flush">';
+
+                data.treatments.forEach(treatment => {
+                    html += `
+                        <div class="list-group-item list-group-item-action treatment-item-for-copy"
+                             data-treatment-id="${treatment.id}">
+                            <div class="d-flex w-100 justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">${treatment.date} ${treatment.time}</h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-user-md"></i> ${treatment.doctor}
+                                        <br>
+                                        <i class="fas fa-procedures"></i> ${treatment.service}
+                                    </small>
+                                    <div class="mt-2">
+                                        ${treatment.has_complaints ? '<span class="badge badge-info mr-1">Жалобы</span>' : ''}
+                                        ${treatment.has_life_anamnesis ? '<span class="badge badge-info mr-1">Анамнез</span>' : ''}
+                                        ${treatment.has_diagnosis ? '<span class="badge badge-info mr-1">Диагноз</span>' : ''}
+                                        ${treatment.has_mkb10 ? '<span class="badge badge-info mr-1">МКБ-10</span>' : ''}
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-primary btn-sm select-treatment-btn">
+                                    <i class="fas fa-copy"></i> Выбрать
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div></div>';
+                modalBodyContainer.innerHTML = html;
+
+                // Добавляем обработчики для кнопок выбора
+                document.querySelectorAll('.select-treatment-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const treatmentItem = this.closest('.treatment-item-for-copy');
+                        const treatmentId = treatmentItem.dataset.treatmentId;
+
+                        document.getElementById('selectedTreatmentId').value = treatmentId;
+                        copyTreatmentModal.hide();
+                        selectFieldsModal.show();
+                    });
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка загрузки приемов:', error);
+            modalBodyContainer.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-exclamation-triangle fa-2x text-danger mb-3"></i>
+                    <p class="text-danger">Ошибка загрузки списка приемов</p>
+                </div>
+            `;
+        });
+    }
+
+    // Обработка выбора "Выбрать все поля"
+    document.getElementById('checkAllFields').addEventListener('change', function() {
+        const targetClass = this.dataset.target;
+        const checkboxes = document.querySelectorAll('.' + targetClass);
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = this.checked;
+        });
+    });
+
+    // Кнопка применения выбранных полей
+    document.getElementById('applyFieldsBtn').addEventListener('click', async function() {
+        const treatmentId = document.getElementById('selectedTreatmentId').value;
+        const selectedFields = [];
+
+        // Собираем выбранные поля
+        document.querySelectorAll('.field-checkbox:checked').forEach(checkbox => {
+            selectedFields.push(checkbox.name);
+        });
+
+        if (selectedFields.length === 0) {
+            alert('Пожалуйста, выберите хотя бы одно поле для копирования');
+            return;
+        }
+
+        // Получаем данные с выбранного приема
+        try {
+            const response = await fetch(`{% url 'treatment:get_previous_treatment_data' 0 %}`.replace('0', treatmentId));
+            const data = await response.json();
+
+            // Заполняем поля формы
+            if (selectedFields.includes('complaints') && data.complaints) {
+                document.getElementById('id_complaints').value = data.complaints;
+            }
+            if (selectedFields.includes('life_anamnesis') && data.life_anamnesis) {
+                document.getElementById('id_life_anamnesis').value = data.life_anamnesis;
+            }
+            if (selectedFields.includes('disease_anamnesis') && data.disease_anamnesis) {
+                document.getElementById('id_disease_anamnesis').value = data.disease_anamnesis;
+            }
+            if (selectedFields.includes('objective_status') && data.objective_status) {
+                document.getElementById('id_objective_status').value = data.objective_status;
+            }
+            if (selectedFields.includes('additional_surveys') && data.additional_surveys) {
+                document.getElementById('id_additional_surveys').value = data.additional_surveys;
+            }
+            if (selectedFields.includes('diagnosis') && data.diagnosis) {
+                document.getElementById('id_diagnosis').value = data.diagnosis;
+            }
+            if (selectedFields.includes('recommendations') && data.recommendations) {
+                document.getElementById('id_recommendations').value = data.recommendations;
+            }
+            if (selectedFields.includes('mkb10_diagnoses') && data.mkb10_diagnoses.length > 0) {
+                const mkb10Select = document.getElementById('id_mkb10_diagnoses');
+                // Очищаем текущий выбор
+                Array.from(mkb10Select.options).forEach(option => option.selected = false);
+                // Добавляем новые значения
+                data.mkb10_diagnoses.forEach(diagnosis => {
+                    const option = Array.from(mkb10Select.options).find(opt => opt.value == diagnosis.id);
+                    if (option) option.selected = true;
+                });
+                // Триггерим событие изменения для обновления интерфейса
+                mkb10Select.dispatchEvent(new Event('change'));
+            }
+
+            // Показываем уведомление об успехе
+            showToast(`Скопировано полей: ${selectedFields.length}`, 'success');
+
+            // Закрываем модальное окно
+            selectFieldsModal.hide();
+
+        } catch (error) {
+            console.error('Ошибка при копировании данных:', error);
+            alert('Ошибка при копировании данных. Пожалуйста, попробуйте еще раз.');
+        }
+    });
+
+});
+</script>
+{% endblock %}

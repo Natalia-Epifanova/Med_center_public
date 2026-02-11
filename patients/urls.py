@@ -1,6 +1,13 @@
 from django.urls import path
 
 from . import views
+from .apps import PatientsConfig
+from .views import (
+    WaitlistPatientListView,
+    WaitlistPatientUpdateView,
+    WaitlistPatientCreateView,
+    WaitlistPatientDeleteView,
+)
 from .views_api import (
     check_patient_api,
     search_patients_api,
@@ -8,7 +15,7 @@ from .views_api import (
     get_max_card_number,
 )
 
-app_name = "patients"
+app_name = PatientsConfig.name
 
 urlpatterns = [
     path("", views.PatientListView.as_view(), name="patient_list"),
@@ -54,5 +61,20 @@ urlpatterns = [
         "generate-new-card-number/<str:card_type>/",
         generate_new_card_number,
         name="generate_new_card_number",
+    ),
+    # Лист ожидания
+    path("waitlist/", WaitlistPatientListView.as_view(), name="waitlist_list"),
+    path(
+        "waitlist/create/", WaitlistPatientCreateView.as_view(), name="waitlist_create"
+    ),
+    path(
+        "waitlist/<int:pk>/update/",
+        WaitlistPatientUpdateView.as_view(),
+        name="waitlist_update",
+    ),
+    path(
+        "waitlist/<int:pk>/delete/",
+        WaitlistPatientDeleteView.as_view(),
+        name="waitlist_delete",
     ),
 ]

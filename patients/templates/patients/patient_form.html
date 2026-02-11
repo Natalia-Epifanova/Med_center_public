@@ -88,6 +88,24 @@
                                     {% endif %}
                                 </div>
                             </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.email.id_for_label }}">{{ form.email.label }}</label>
+                                    {{ form.email }}
+                                    {% if form.email.errors %}
+                                    <div class="text-danger small">{{ form.email.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <div class="form-group">
+                                    <label for="{{ form.trusted_person.id_for_label }}">{{ form.trusted_person.label }}</label>
+                                    {{ form.trusted_person }}
+                                    {% if form.trusted_person.errors %}
+                                    <div class="text-danger small">{{ form.trusted_person.errors }}</div>
+                                    {% endif %}
+                                </div>
+                            </div>
                         </div>
 
                         <!-- Обычная карта -->

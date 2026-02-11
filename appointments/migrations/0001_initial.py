@@ -34,6 +34,7 @@ class Migration(migrations.Migration):
                             ("confirmed", "Подтвержден"),
                             ("completed", "Завершен"),
                             ("approached", "Подошел"),
+                            ("in_room", "В кабинете"),
                             ("not_called", "Не дозвонились"),
                             ("no_reception", "Приема не было"),
                             ("no_show", "Не явился"),

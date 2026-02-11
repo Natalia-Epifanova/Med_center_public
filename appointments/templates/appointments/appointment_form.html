@@ -128,6 +128,7 @@
 
                         <input type="hidden" name="total_sum" id="id_total_sum" value="">
                         <!-- Hidden поля для изменения времени -->
+                        {{ form.selected_blood_tests_input }}
                         {{ form.allow_time_change }}
                         {{ form.new_time_slot_id }}
                         {{ form.new_appointment_date }}
@@ -258,6 +259,8 @@
                                         {% endif %}
                                     </div>
                                 </div>
+                                <!-- Вставка блока выбора анализов крови -->
+                                {% include 'timetable/includes/blood_test_selection.html' %}
 
                                 <!-- Блок выбора типа записи -->
                                 <div class="row mb-3">
@@ -391,6 +394,7 @@
                             </div>
                         </div>
 
+
                         <!-- Дополнительные параметры -->
                         <div class="card mb-4">
                             <div class="card-header bg-light">
@@ -475,7 +479,7 @@
     const doctorName = "{{ time_slot.doctor.surname }} {{ time_slot.doctor.first_name.0 }}.{{ time_slot.doctor.last_name.0 }}.";
     const cabinetNumber = {{ time_slot.cabinet.number }};
 </script>
-
+<script src="/static/js/blood_test_selection.js?v={% now 'U' %}"></script>
 <!-- Подключаем общие утилиты -->
 <script src="/static/js/utils.js?v={% now 'U' %}"></script>
 <!-- Подключаем менеджер цепочек -->

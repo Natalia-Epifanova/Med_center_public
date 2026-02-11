@@ -64,6 +64,7 @@ class Appointment(models.Model):
         CONFIRMED = "confirmed", _("Подтвержден")
         COMPLETED = "completed", _("Завершен")
         APPROACHED = "approached", _("Подошел")
+        IN_ROOM = "in_room", _("В кабинете")
         NOT_CALLED = "not_called", _("Не дозвонились")
         NO_RECEPTION = (
             "no_reception",
@@ -84,6 +85,17 @@ class Appointment(models.Model):
         MULTIPLE_DOCTORS = "multiple_doctors", _("Записи к разным врачам")
         PROCEDURAL = "procedural", _("С процедурным кабинетом")
 
+    class PaymentMethod(models.TextChoices):
+        CASH = "cash", "Наличные"
+        CARD = "card", "Карта"
+        NONE = "none", "Не выбрано"  # Добавляем значение по умолчанию
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.NONE,
+        verbose_name="Способ оплаты",
+    )
     # Основные связи
     time_slot = models.ForeignKey(
         TimeSlot,
@@ -225,17 +237,29 @@ class Appointment(models.Model):
     def save(self, *args, **kwargs):
         """Переопределяем save для сохранения цены на момент записи и установки типа цепочки"""
 
-        # Если запись создается и у нее есть услуга
-        if not self.pk and self.service and not self.price_at_appointment:
-            self.price_at_appointment = self.service.price
+        # ВАЖНОЕ ИСПРАВЛЕНИЕ: Всегда обновляем price_at_appointment при изменении услуги
+        # Получаем текущий объект из БД (если он существует)
+        if self.pk:
+            try:
+                old_instance = Appointment.objects.get(pk=self.pk)
+                # Если услуга изменилась - обновляем цену
+                if old_instance.service != self.service:
+                    self.price_at_appointment = self.service.price
+            except Appointment.DoesNotExist:
+                pass
+        else:
+            # Для новой записи
+            if self.service and not self.price_at_appointment:
+                self.price_at_appointment = self.service.price
 
-        # Если обновляется услуга
-        elif self.service and not self.price_at_appointment:
-            self.price_at_appointment = self.service.price
+        # Обновляем итоговую сумму с анализами
+        if self.pk:
+            tests_price = self.get_tests_price
+            service_price = (
+                self.price_at_appointment or self.service.price if self.service else 0
+            )
+            self.total_with_blood_tests = tests_price + service_price
 
-        # Определяем тип цепочки для новых записей с предыдущей записью
-        if not self.pk and self.previous_appointment:
-            self.chain_type = self.ChainType.SAME_DOCTOR
         super().save(*args, **kwargs)
 
     def get_consecutive_appointments(self):
@@ -381,6 +405,58 @@ class Appointment(models.Model):
     def has_related_appointments(self):
         """Есть ли связанные записи"""
         return AppointmentChain.objects.filter(main_appointment=self).exists()
+
+    def get_procedural_counterpart(self):
+        """
+        Находит процедурную запись, которая является копией этой записи.
+        Проверяет через previous_appointment связь.
+        """
+        # Ищем запись в процедурном кабинете (кабинет №6)
+        # которая ссылается на эту запись как previous_appointment
+        return Appointment.objects.filter(
+            previous_appointment=self,
+            time_slot__cabinet__number=6,
+        ).first()
+
+    def sync_status_with_procedural(self, new_status, request_user=None):
+        """
+        Синхронизирует статус с процедурной записью.
+        """
+        procedural_appointment = self.get_procedural_counterpart()
+
+        if procedural_appointment and procedural_appointment.status != new_status:
+            old_status_display = procedural_appointment.get_status_display()
+
+            # Обновляем статус
+            procedural_appointment.status = new_status
+            procedural_appointment.save()
+
+            # Логируем изменение
+            try:
+                from django.contrib.admin.models import LogEntry, CHANGE
+                from django.contrib.contenttypes.models import ContentType
+                from django.utils.encoding import force_str
+
+                if request_user:
+                    LogEntry.objects.log_action(
+                        user_id=request_user.pk,
+                        content_type_id=ContentType.objects.get_for_model(
+                            procedural_appointment
+                        ).pk,
+                        object_id=procedural_appointment.pk,
+                        object_repr=force_str(procedural_appointment),
+                        action_flag=CHANGE,
+                        change_message=f"Статус автоматически синхронизирован с основной записью #{self.id}. "
+                        f"Изменен с '{old_status_display}' "
+                        f"на '{procedural_appointment.get_status_display()}'.",
+                    )
+            except Exception as e:
+                # Если логирование не удалось, просто продолжаем
+                print(f"Не удалось залогировать изменение статуса: {e}")
+
+            return procedural_appointment
+
+        return None
 
 
 class AppointmentBloodTest(models.Model):

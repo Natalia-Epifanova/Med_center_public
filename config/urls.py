@@ -9,4 +9,5 @@ urlpatterns = [
     path("users/", include("users.urls", namespace="users")),
     path("patients/", include("patients.urls", namespace="patients")),
     path("appointments/", include("appointments.urls", namespace="appointments")),
+    path("treatment/", include("treatment.urls", namespace="treatment")),
 ]

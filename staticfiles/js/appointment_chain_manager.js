@@ -124,6 +124,11 @@ class AppointmentChainManager {
                 const sameDoctorSections = document.getElementById('sameDoctorSections');
                 if (additionalSection) additionalSection.style.display = 'block';
                 if (sameDoctorSections) sameDoctorSections.style.display = 'block';
+
+                // УДАЛЯЕМ старую форму "single" если она есть
+                this.removeSingleFormIfExists();
+                // УДАЛЯЕМ все формы "multiple"
+                this.removeAllMultipleForms();
                 break;
 
             case 'two_slots':
@@ -131,6 +136,11 @@ class AppointmentChainManager {
                 const sameDoctorSections2 = document.getElementById('sameDoctorSections');
                 if (twoSlotsSection) twoSlotsSection.style.display = 'block';
                 if (sameDoctorSections2) sameDoctorSections2.style.display = 'block';
+
+                // УДАЛЯЕМ старую форму "single" если она есть
+                this.removeSingleFormIfExists();
+                // УДАЛЯЕМ все формы "multiple"
+                this.removeAllMultipleForms();
                 break;
 
             case 'another_doctor':
@@ -139,13 +149,23 @@ class AppointmentChainManager {
                     anotherDoctorSection.style.display = 'block';
                     this.loadAnotherDoctorForm();
                 }
+
+                // УДАЛЯЕМ все формы "multiple"
+                this.removeAllMultipleForms();
                 break;
 
             case 'multiple':
                 const multipleSection = document.getElementById('multipleAppointmentsSection');
                 if (multipleSection) {
                     multipleSection.style.display = 'block';
-                    this.addAppointmentForm();
+
+                    // УДАЛЯЕМ форму "single" если она есть
+                    this.removeSingleFormIfExists();
+
+                    // Добавляем форму только если еще нет форм
+                    if (this.appointmentForms.length === 0) {
+                        this.addAppointmentForm();
+                    }
                 }
                 break;
         }
@@ -198,7 +218,6 @@ class AppointmentChainManager {
                     </div>
                 </div>
 
-                <!-- ДОБАВИТЬ ПОЛЕ ТИПА ОПЛАТЫ ЗДЕСЬ -->
                 <div class="row mt-3">
                     <div class="col-md-4">
                         <label class="form-label">Тип оплаты *</label>
@@ -339,7 +358,6 @@ class AppointmentChainManager {
             data.doctors.forEach(doctor => {
                 const option = document.createElement('option');
                 option.value = doctor.id;
-                // Используем display_name вместо самостоятельной сборки
                 option.textContent = doctor.display_name ||
                                      `${doctor.surname} ${doctor.first_name[0]}.${doctor.last_name[0]}. (${doctor.specialization_display})`;
                 doctorSelect.appendChild(option);
@@ -407,7 +425,6 @@ class AppointmentChainManager {
                                       placeholder="Необязательный комментарий"></textarea>
                         </div>
                     </div>
-                    <!-- ДОБАВИТЬ ТИП ОПЛАТЫ И ЗДЕСЬ -->
                     <div class="row mt-3">
                         <div class="col-md-4">
                             <label class="form-label">Тип оплаты *</label>
@@ -603,81 +620,11 @@ class AppointmentChainManager {
         this.updateHiddenField();
         this.updateProceduralHiddenField();
 
-        // Исправленная логика проверки
-        if (chainType === 'another_doctor' || chainType === 'multiple') {
-            // Получаем данные дополнительных записей
-            const hiddenField = document.getElementById('id_additional_appointments_data');
-            let hasValidAdditionalAppointments = false;
-
-            if (hiddenField && hiddenField.value) {
-                try {
-                    const appointmentsList = JSON.parse(hiddenField.value);
-                    if (appointmentsList && appointmentsList.length > 0) {
-                        // Проверяем каждую запись
-                        for (const appointment of appointmentsList) {
-                            if (appointment.doctor_id && appointment.service_id &&
-                                appointment.date && appointment.time_slot_id) {
-                                hasValidAdditionalAppointments = true;
-                                break;
-                            }
-                        }
-                    }
-                } catch (e) {
-                    console.error('Error parsing additional appointments data:', e);
-                }
-            }
-
-            // Если тип записи требует дополнительных записей, но их нет
-            if (chainType === 'another_doctor') {
-                // Для "Запись к другому врачу" проверяем форму с индексом 'single'
-                if (!this.validateForm('single')) {
-                    alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
-                    return false;
-                }
-
-                const formData = this.getFormData('single');
-                if (!formData || !formData.doctor_id || !formData.service_id ||
-                    !formData.date || !formData.time_slot_id) {
-                    alert('Пожалуйста, заполните все обязательные поля для дополнительной записи');
-                    return false;
-                }
-
-                return true;
-
-            } else if (chainType === 'multiple') {
-                // Для "Несколько записей" проверяем все формы
-                if (this.appointmentForms.length === 0) {
-                    alert('Добавьте хотя бы одну дополнительную запись');
-                    return false;
-                }
-
-                let allValid = true;
-                let hasValidAppointment = false;
-
-                this.appointmentForms.forEach(index => {
-                    if (this.validateForm(index)) {
-                        const formData = this.getFormData(index);
-                        if (formData && formData.doctor_id && formData.service_id &&
-                            formData.date && formData.time_slot_id) {
-                            hasValidAppointment = true;
-                        }
-                    } else {
-                        allValid = false;
-                    }
-                });
-
-                if (!allValid) {
-                    alert('Пожалуйста, заполните все обязательные поля для дополнительных записей');
-                    return false;
-                }
-
-                if (!hasValidAppointment) {
-                    alert('Добавьте хотя бы одну корректно заполненную дополнительную запись');
-                    return false;
-                }
-
-                return true;
-            }
+        // ДОПОЛНИТЕЛЬНАЯ ПРОВЕРКА: если нет дополнительных записей, но выбран тип с ними
+        if ((chainType === 'another_doctor' || chainType === 'multiple') &&
+            this.additionalAppointments.length === 0) {
+            alert('Для выбранного типа записи необходимо добавить хотя бы одну дополнительную запись');
+            return false;
         }
 
         return true;
@@ -732,7 +679,7 @@ class AppointmentChainManager {
         const dateInput = formElement.querySelector('.date-select');
         const slotSelect = formElement.querySelector('.slot-select');
         const commentInput = formElement.querySelector('.comment-input');
-        const insuranceSelect = formElement.querySelector('.insurance-select'); // Добавить это
+        const insuranceSelect = formElement.querySelector('.insurance-select');
 
         return {
             doctor_id: doctorSelect ? doctorSelect.value : null,
@@ -740,7 +687,7 @@ class AppointmentChainManager {
             date: dateInput ? dateInput.value : null,
             time_slot_id: slotSelect ? slotSelect.value : null,
             comment: commentInput ? commentInput.value : null,
-            insurance_type: insuranceSelect ? insuranceSelect.value : 'paid' // Добавить это
+            insurance_type: insuranceSelect ? insuranceSelect.value : 'paid'
         };
     }
 
@@ -752,6 +699,143 @@ class AppointmentChainManager {
             });
         }
     }
+
+    // НОВЫЕ МЕТОДЫ ДЛЯ УПРАВЛЕНИЯ ФОРМАМИ
+    removeSingleFormIfExists() {
+        const singleForm = document.querySelector('[data-form-index="single"]');
+        if (singleForm) {
+            singleForm.remove();
+
+            // Удаляем из массивов данных
+            const singleIndex = this.additionalAppointments.findIndex(app => app.index === 'single');
+            if (singleIndex > -1) {
+                this.additionalAppointments.splice(singleIndex, 1);
+            }
+
+            const proceduralIndex = this.proceduralAppointments.findIndex(item => item.index == 'single');
+            if (proceduralIndex > -1) {
+                this.proceduralAppointments.splice(proceduralIndex, 1);
+            }
+
+            this.updateHiddenField();
+            this.updateProceduralHiddenField();
+        }
+    }
+
+    removeAllMultipleForms() {
+        // Удаляем все формы с номерами
+        document.querySelectorAll('[data-form-index]').forEach(formElement => {
+            const index = formElement.getAttribute('data-form-index');
+            if (index !== 'single' && index !== 'main') {
+                formElement.remove();
+            }
+        });
+
+        // Очищаем массивы
+        this.appointmentForms = [];
+        this.additionalAppointments = this.additionalAppointments.filter(app => app.index === 'single');
+        this.proceduralAppointments = this.proceduralAppointments.filter(item => item.index == 'single');
+
+        // Очищаем забронированные слоты (кроме основного)
+        this.bookedSlots.clear();
+        if (window.currentSlotId) {
+            this.bookedSlots.add(window.currentSlotId.toString());
+        }
+
+        this.updateHiddenField();
+        this.updateProceduralHiddenField();
+    }
+
+    // ИСПРАВЛЕННЫЙ МЕТОД ДЛЯ ПОЛУЧЕНИЯ УНИКАЛЬНЫХ ИМЕН ВРАЧЕЙ
+    getUniqueAdditionalDoctorsNames() {
+        const doctorNames = [];
+
+        // Проверяем формы дополнительных записей
+        this.appointmentForms.forEach(index => {
+            const formElement = document.querySelector(`[data-form-index="${index}"]`);
+            if (formElement) {
+                const doctorSelect = formElement.querySelector('.doctor-select');
+                if (doctorSelect && doctorSelect.value) {
+                    const selectedOption = doctorSelect.options[doctorSelect.selectedIndex];
+                    if (selectedOption) {
+                        // Извлекаем только фамилию из текста
+                        const text = selectedOption.textContent;
+                        const surnameMatch = text.match(/^([А-ЯЁ][а-яё]+)/);
+                        if (surnameMatch) {
+                            const surname = surnameMatch[1];
+                            // Добавляем только если еще нет
+                            if (!doctorNames.includes(surname)) {
+                                doctorNames.push(surname);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Также проверяем форму "single" если есть
+        const singleForm = document.querySelector('[data-form-index="single"]');
+        if (singleForm) {
+            const doctorSelect = singleForm.querySelector('.doctor-select');
+            if (doctorSelect && doctorSelect.value) {
+                const selectedOption = doctorSelect.options[doctorSelect.selectedIndex];
+                if (selectedOption) {
+                    const text = selectedOption.textContent;
+                    const surnameMatch = text.match(/^([А-ЯЁ][а-яё]+)/);
+                    if (surnameMatch) {
+                        const surname = surnameMatch[1];
+                        // Добавляем только если еще нет
+                        if (!doctorNames.includes(surname)) {
+                            doctorNames.push(surname);
+                        }
+                    }
+                }
+            }
+        }
+
+        return doctorNames;
+    }
+}
+
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+function extractSurname(fullName) {
+    if (!fullName) return '';
+    const surnameMatch = fullName.match(/^([А-ЯЁ][а-яё]+)/);
+    return surnameMatch ? surnameMatch[1] : fullName;
+}
+
+function getDoctorName() {
+    // 1. Из скрытого поля с полным именем
+    const hiddenDoctorName = document.getElementById('js-doctor-name');
+    if (hiddenDoctorName && hiddenDoctorName.value) {
+        return hiddenDoctorName.value;
+    }
+
+    // 2. Из скрытого поля с фамилией
+    const hiddenDoctorSurname = document.getElementById('js-main-doctor-name');
+    if (hiddenDoctorSurname && hiddenDoctorSurname.value) {
+        return hiddenDoctorSurname.value;
+    }
+
+    // 3. Из глобальной переменной
+    if (typeof doctorName !== 'undefined' && doctorName) {
+        return doctorName;
+    }
+
+    // 4. Из элемента на странице
+    const doctorNameSpan = document.getElementById('doctor-full-name');
+    if (doctorNameSpan && doctorNameSpan.textContent) {
+        return doctorNameSpan.textContent.trim();
+    }
+
+    // 5. Из заголовка
+    const header = document.querySelector('.card-title');
+    if (header) {
+        return header.textContent.trim();
+    }
+
+    console.error('Could not determine doctor name');
+    return '';
 }
 
 AppointmentChainManager.prototype.bindFormEvents = function(index) {
@@ -774,12 +858,12 @@ AppointmentChainManager.prototype.bindFormEvents = function(index) {
     commentInput.addEventListener('input', (e) => this.onCommentChange(index, e.target.value));
 
     const serviceSelect = formElement.querySelector('.service-select');
-        if (serviceSelect) {
-            serviceSelect.addEventListener('change', (e) => {
-                this.onServiceSelect(index, e.target.value);
-                this.saveFormData(index);
-            });
-        }
+    if (serviceSelect) {
+        serviceSelect.addEventListener('change', (e) => {
+            this.onServiceSelect(index, e.target.value);
+            this.saveFormData(index);
+        });
+    }
 
     const proceduralCheckbox = formElement.querySelector('.procedural-checkbox');
     if (proceduralCheckbox) {
@@ -969,7 +1053,7 @@ AppointmentChainManager.prototype.onSlotSelect = function(index, slotId) {
     const selectedOption = slotSelect.options[slotSelect.selectedIndex];
     if (!selectedOption) return;
 
-    // ПРОВЕРКА ДЛЯ ПИЩЕЛЕВА ПРИ ВЫБОРЕ ВРЕМЕНИ
+    // ПРОВЕРКА ДЛЯ ПИЩЕЛЕВА
     if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
         const doctorSelect = formElement.querySelector('.doctor-select');
         const serviceSelect = formElement.querySelector('.service-select');
@@ -1050,7 +1134,6 @@ AppointmentChainManager.prototype.showPishchelevTimeError = function(formElement
 
     slotSelect.parentNode.appendChild(errorDiv);
 
-    // Показываем alert с подробным объяснением
     alert(message + '\n\nВыбранное время: ' + slotOption.dataset.time);
 };
 
@@ -1118,7 +1201,6 @@ AppointmentChainManager.prototype.onServiceSelect = function(index, serviceId) {
 
     // Проверяем для Пищелева
     if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
-        // Получаем выбранное время
         const slotSelect = formElement.querySelector('.slot-select');
         const timeText = slotSelect?.options[slotSelect.selectedIndex]?.dataset.time || '';
 
@@ -1127,7 +1209,6 @@ AppointmentChainManager.prototype.onServiceSelect = function(index, serviceId) {
         );
 
         if (!validation.valid) {
-            // Показываем ошибку
             const errorDiv = document.createElement('div');
             errorDiv.className = 'pishchelev-service-error invalid-feedback d-block';
             errorDiv.innerHTML = `
@@ -1139,7 +1220,6 @@ AppointmentChainManager.prototype.onServiceSelect = function(index, serviceId) {
                 </div>
             `;
 
-            // Удаляем старую ошибку
             const oldError = formElement.querySelector('.pishchelev-service-error');
             if (oldError) oldError.remove();
 
@@ -1147,15 +1227,12 @@ AppointmentChainManager.prototype.onServiceSelect = function(index, serviceId) {
             serviceSelect.classList.add('is-invalid');
             if (slotSelect) slotSelect.classList.add('is-invalid');
 
-            // Показываем alert и сбрасываем выбор
             alert(validation.message);
             serviceSelect.value = '';
             if (slotSelect) slotSelect.value = '';
 
-            // Отменяем сохранение формы
             return;
         } else {
-            // Убираем ошибку если есть
             const error = formElement.querySelector('.pishchelev-service-error');
             if (error) error.remove();
             serviceSelect.classList.remove('is-invalid');
@@ -1186,6 +1263,8 @@ AppointmentChainManager.prototype.saveFormData = function(index) {
         comment: commentInput ? commentInput.value : null,
         insurance_type: insuranceSelect ? insuranceSelect.value : 'paid'
     };
+
+
 
     const isValid = appointmentData.doctor_id &&
                    appointmentData.service_id &&

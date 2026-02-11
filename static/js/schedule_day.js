@@ -23,6 +23,10 @@ document.addEventListener('DOMContentLoaded', function() {
     initScrollControls(); // <-- ДОБАВЛЕНО
 
     initCabinetComments(); // <-- Добавьте эту строку
+
+    initPaymentMethods(); // <-- Добавьте эту строку
+
+    initMoveDoctorButtons(); // <-- Добавьте эту строку
 });
 
 // ============ ИНИЦИАЛИЗАЦИЯ КНОПОК УДАЛЕНИЯ ВСЕХ СЛОТОВ ============
@@ -117,6 +121,152 @@ function initDeleteButtons() {
     } else {
         console.log('Confirm delete button NOT FOUND');
     }
+}
+// ============ ПЕРЕНОС ВРАЧА В ДРУГОЙ КАБИНЕТ ============
+function initMoveDoctorButtons() {
+    console.log('Initializing move doctor buttons...');
+
+    // Обработка кнопки переноса врача
+    document.querySelectorAll('.move-doctor-btn').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const doctorId = this.dataset.doctorId;
+            const currentCabinetId = this.dataset.cabinetId;
+            const date = this.dataset.date;
+            const doctorName = this.dataset.doctorName;
+            const currentCabinetNumber = this.dataset.currentCabinet;
+
+            console.log('Move doctor clicked:', {
+                doctorId,
+                currentCabinetId,
+                date,
+                doctorName,
+                currentCabinetNumber
+            });
+
+            // Заполняем модальное окно
+            document.getElementById('moveDoctorId').value = doctorId;
+            document.getElementById('moveCurrentCabinetId').value = currentCabinetId;
+            document.getElementById('moveDate').value = date;
+            document.getElementById('moveDoctorName').textContent = doctorName || 'Неизвестный врач';
+            document.getElementById('moveCurrentCabinetNumber').textContent = currentCabinetNumber || 'Неизвестный кабинет';
+            document.getElementById('moveDateDisplay').textContent = date || 'Неизвестная дата';
+
+            // Исключаем текущий кабинет из списка
+            const select = document.getElementById('newCabinet');
+            if (select) {
+                for (let i = 0; i < select.options.length; i++) {
+                    if (select.options[i].value === currentCabinetId) {
+                        select.options[i].disabled = true;
+                    } else {
+                        select.options[i].disabled = false;
+                    }
+                }
+            }
+
+            // Показываем модальное окно
+            const modal = document.getElementById('moveDoctorModal');
+            if (modal) {
+                try {
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                } catch (error) {
+                    console.error('Error showing move modal:', error);
+                    showNotification('Ошибка открытия окна переноса', 'error');
+                }
+            }
+        });
+    });
+
+    // Обработка формы переноса
+    const moveDoctorForm = document.getElementById('moveDoctorForm');
+    if (moveDoctorForm) {
+        moveDoctorForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const moveAppointments = formData.get('move_appointments') === 'on';
+
+            if (!confirm(`Вы уверены, что хотите перенести врача в другой кабинет? ${moveAppointments ? 'Все существующие записи пациентов также будут перенесены.' : 'Существующие записи пациентов останутся в старом кабинете и их нужно будет перенести вручную.'}`)) {
+                return;
+            }
+
+            // Отправляем запрос на сервер
+            moveDoctorToNewCabinet(formData);
+        });
+    }
+}
+
+function moveDoctorToNewCabinet(formData) {
+    const csrfToken = getCSRFToken();
+
+    if (!csrfToken) {
+        showNotification('Ошибка безопасности: CSRF токен не найден', 'error');
+        return;
+    }
+
+    // Добавляем CSRF токен в formData
+    formData.append('csrfmiddlewaretoken', csrfToken);
+
+    // Показываем индикатор загрузки
+    showNotification('Проверка возможности переноса...', 'info');
+
+    // Отправляем запрос
+    fetch('/timetable/move-doctor-to-cabinet/', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        }
+    })
+    .then(response => {
+        return response.json().then(data => {
+            return { status: response.status, ok: response.ok, data };
+        });
+    })
+    .then(result => {
+        console.log('Move doctor response:', result);
+
+        if (result.data.success) {
+            showNotification(
+                `✅ Врач успешно перенесен! Слотов: ${result.data.slots_moved}, Записей: ${result.data.appointments_moved}`,
+                'success'
+            );
+
+            // Закрываем модальное окно
+            const modal = document.getElementById('moveDoctorModal');
+            if (modal) {
+                try {
+                    const bsModal = bootstrap.Modal.getInstance(modal);
+                    if (bsModal) bsModal.hide();
+                } catch (error) {
+                    console.error('Error hiding modal:', error);
+                }
+            }
+
+            // Перезагружаем страницу через 1 секунду
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+
+        } else {
+            // Простое сообщение об ошибке
+            let errorMessage = result.data.error || 'Неизвестная ошибка';
+
+            // Если это ошибка конфликтов
+            if (errorMessage.includes('Обнаружены конфликты')) {
+                errorMessage = '❌ Обнаружены конфликты в новом кабинете (пересекаются слоты)';
+            }
+
+            showNotification(errorMessage, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Move doctor error:', error);
+        showNotification('Ошибка соединения с сервером', 'error');
+    });
 }
 
 function deleteAllDoctorSlots(doctorId, cabinetId, date) {
@@ -245,51 +395,50 @@ function initializeStatusSelectStyles() {
 
 function updateAppointmentStatus(appointmentId, newStatus, element) {
     const csrfToken = getCSRFToken();
-    console.log('CSRF Token:', csrfToken ? 'Available' : 'Missing');
 
     // Показываем индикатор загрузки
     const originalValue = element.value;
     element.disabled = true;
     element.classList.add('loading');
 
-    // Временно меняем стиль для мгновенной обратной связи
+    // Временно меняем стиль
     updateStatusSelectStyle(element, newStatus);
 
-    // Используем FormData для правильной работы с CSRF
     const formData = new FormData();
     formData.append('status', newStatus);
     formData.append('csrfmiddlewaretoken', csrfToken);
 
-    console.log(`Sending request to update appointment ${appointmentId} to status: ${newStatus}`);
-
     fetch(`/appointments/${appointmentId}/update-status/`, {
         method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest',
-        },
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
         body: formData
     })
     .then(response => {
-        console.log('Response status:', response.status);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return response.json();
     })
     .then(data => {
-        console.log('Response data:', data);
         if (data.success) {
-            showNotification(`Статус изменен на: ${data.new_status_display}`, 'success');
+            let message = `Статус изменен на: ${data.new_status_display}`;
 
-            // Обновляем стиль окончательно
+            // Если была синхронизация с процедурной записью
+            if (data.synced_procedural) {
+                message += `\n✓ Статус также обновлен в процедурном кабинете (${data.synced_procedural.new_status_display})`;
+            }
+
+            showNotification(message, 'success');
+
+            // Обновляем стиль
             updateStatusSelectStyle(element, newStatus);
             element.value = newStatus;
 
-            console.log('Status updated successfully - no page reload');
+            // Если нужно, можно обновить статус и в процедурном кабинете на той же странице
+            if (data.synced_procedural) {
+                updateProceduralStatusOnPage(appointmentId, newStatus, data.synced_procedural.id);
+            }
+
         } else {
-            console.error('Server returned error:', data.error);
-            showNotification('Ошибка при изменении статуса: ' + data.error, 'error');
-            // Возвращаем предыдущее значение и стиль
+            showNotification('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
             element.value = originalValue;
             updateStatusSelectStyle(element, originalValue);
         }
@@ -297,7 +446,6 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
     .catch(error => {
         console.error('Fetch error:', error);
         showNotification('Ошибка соединения: ' + error.message, 'error');
-        // Возвращаем предыдущее значение и стиль
         element.value = originalValue;
         updateStatusSelectStyle(element, originalValue);
     })
@@ -307,6 +455,24 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
     });
 }
 
+function updateProceduralStatusOnPage(mainAppointmentId, newStatus, proceduralAppointmentId) {
+    // Находим select статуса для процедурной записи и обновляем его
+    const proceduralSelect = document.querySelector(
+        `.appointment-status-select[data-appointment-id="${proceduralAppointmentId}"]`
+    );
+
+    if (proceduralSelect && proceduralSelect.value !== newStatus) {
+        proceduralSelect.value = newStatus;
+        updateStatusSelectStyle(proceduralSelect, newStatus);
+
+        // Можно показать небольшую анимацию
+        proceduralSelect.parentElement.style.backgroundColor = '#e8f5e8';
+        setTimeout(() => {
+            proceduralSelect.parentElement.style.backgroundColor = '';
+        }, 1000);
+    }
+}
+
 function updateStatusSelectStyle(selectElement, status) {
     if (!selectElement) return;
 
@@ -314,7 +480,7 @@ function updateStatusSelectStyle(selectElement, status) {
     selectElement.classList.remove(
         'status-scheduled', 'status-confirmed', 'status-completed',
         'status-cancelled', 'status-no_show', 'status-default',
-        'status-approached', 'status-not_called', 'status-no_reception', // ← ДОБАВЛЕНО
+        'status-approached', 'status-in_room', 'status-not_called', 'status-no_reception', // ← ДОБАВЛЕНО
         'border-primary', 'border-info', 'border-success',
         'border-warning', 'border-danger', 'border-secondary',
         'text-muted', 'bg-primary-light', 'bg-info-light',
@@ -337,6 +503,9 @@ function updateStatusSelectStyle(selectElement, status) {
             selectElement.classList.add('border-success', 'bg-success-light');
             break;
         case 'approached':
+            selectElement.classList.add('border-info', 'bg-info-light'); // Синий для "Подошел"
+            break;
+        case 'in_room':
             selectElement.classList.add('border-info', 'bg-info-light'); // Синий для "Подошел"
             break;
         case 'not_called':
@@ -415,7 +584,194 @@ function initDayCommentForm() {
         console.log('Day comment form not found');
     }
 }
+// ============ УПРАВЛЕНИЕ СПОСОБОМ ОПЛАТЫ ============
+function initPaymentMethods() {
+    console.log('Initializing payment methods...');
 
+    // Инициализация - показываем способы оплаты для уже завершенных записей
+    document.querySelectorAll('.payment-method-selector').forEach(selector => {
+        const appointmentId = selector.dataset.appointmentId;
+        const statusSelect = document.querySelector(`.appointment-status-select[data-appointment-id="${appointmentId}"]`);
+
+        // Находим активную кнопку на сервере
+        const activeCashBtn = selector.querySelector('.payment-method-btn[data-method="cash"].active-cash');
+        const activeCardBtn = selector.querySelector('.payment-method-btn[data-method="card"].active-card');
+
+        // Применяем стили сразу при загрузке
+        if (activeCashBtn) {
+            applyActiveStyle(activeCashBtn, 'cash');
+        }
+        if (activeCardBtn) {
+            applyActiveStyle(activeCardBtn, 'card');
+        }
+
+        if (statusSelect && statusSelect.value === 'completed') {
+            selector.classList.remove('d-none');
+            selector.classList.add('show');
+        }
+    });
+
+    // Обработка изменения статуса
+    document.querySelectorAll('.appointment-status-select').forEach(select => {
+        select.addEventListener('change', function() {
+            const appointmentId = this.dataset.appointmentId;
+            const newStatus = this.value;
+            const paymentSelector = document.querySelector(`.payment-method-selector[data-appointment-id="${appointmentId}"]`);
+
+            if (paymentSelector) {
+                if (newStatus === 'completed') {
+                    // Показываем с анимацией
+                    paymentSelector.classList.remove('d-none');
+                    setTimeout(() => {
+                        paymentSelector.classList.add('show');
+                    }, 10);
+                } else {
+                    // Скрываем с анимацией
+                    paymentSelector.classList.remove('show');
+                    setTimeout(() => {
+                        paymentSelector.classList.add('d-none');
+                    }, 300);
+                }
+            }
+        });
+    });
+
+    // Обработка клика по кнопкам оплаты
+    document.querySelectorAll('.payment-method-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const selector = this.closest('.payment-method-selector');
+            const appointmentId = selector.dataset.appointmentId;
+            const method = this.dataset.method;
+
+            // НЕМЕДЛЕННО меняем визуальное состояние
+            // Снимаем активные классы со всех кнопок
+            const allButtons = selector.querySelectorAll('.payment-method-btn');
+            allButtons.forEach(btn => {
+                resetButtonStyle(btn);
+            });
+
+            // Применяем стиль к выбранной кнопке
+            applyActiveStyle(this, method);
+
+            // Отправляем на сервер
+            updatePaymentMethod(appointmentId, method, this);
+        });
+    });
+}
+
+// Функция для применения активного стиля
+function applyActiveStyle(button, method) {
+    if (method === 'cash') {
+        button.classList.add('active-cash');
+        // Немедленно меняем стили
+        button.style.backgroundColor = '#28a745';
+        button.style.borderColor = '#28a745';
+        button.style.color = 'white';
+        button.style.boxShadow = '0 0 0 2px rgba(40, 167, 69, 0.25)';
+        button.style.fontWeight = 'bold';
+    } else if (method === 'card') {
+        button.classList.add('active-card');
+        // Немедленно меняем стили
+        button.style.backgroundColor = '#17a2b8';
+        button.style.borderColor = '#17a2b8';
+        button.style.color = 'white';
+        button.style.boxShadow = '0 0 0 2px rgba(23, 162, 184, 0.25)';
+        button.style.fontWeight = 'bold';
+    }
+}
+
+// Функция для сброса стилей кнопки
+function resetButtonStyle(button) {
+    button.classList.remove('active-cash', 'active-card');
+    // Сбрасываем inline стили
+    button.style.backgroundColor = '';
+    button.style.borderColor = '';
+    button.style.color = '';
+    button.style.boxShadow = '';
+    button.style.fontWeight = '';
+}
+
+function updatePaymentMethod(appointmentId, paymentMethod, buttonElement) {
+    const csrfToken = getCSRFToken();
+
+    if (!csrfToken) {
+        showNotification('Ошибка безопасности', 'error');
+        // Сбрасываем выделение при ошибке
+        resetButtonStyle(buttonElement);
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('payment_method', paymentMethod);
+    formData.append('csrfmiddlewaretoken', csrfToken);
+
+    // Показываем индикатор загрузки
+    const originalHtml = buttonElement.innerHTML;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>';
+    buttonElement.disabled = true;
+
+    fetch(`/appointments/${appointmentId}/update-payment-method/`, {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(`Способ оплаты: ${data.payment_method_display}`, 'success');
+
+            // Восстанавливаем кнопку с сохранением стиля
+            const icon = paymentMethod === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card';
+            const text = paymentMethod === 'cash' ? 'Нал' : 'Карта';
+            buttonElement.innerHTML = `<i class="fas ${icon} me-1"></i>${text}`;
+            buttonElement.disabled = false;
+
+            // Убедимся, что стиль сохранился
+            applyActiveStyle(buttonElement, paymentMethod);
+
+        } else {
+            showNotification('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
+            // Сбрасываем выделение при ошибке
+            resetButtonStyle(buttonElement);
+            buttonElement.innerHTML = originalHtml;
+            buttonElement.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Payment method update error:', error);
+        showNotification('Ошибка соединения', 'error');
+        // Сбрасываем выделение при ошибке
+        resetButtonStyle(buttonElement);
+        buttonElement.innerHTML = originalHtml;
+        buttonElement.disabled = false;
+    });
+}
+
+function resetPaymentButton(buttonElement, method, isSuccess = false) {
+    const icon = method === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card';
+    const text = method === 'cash' ? 'Нал' : 'Карта';
+
+    buttonElement.innerHTML = `<i class="fas ${icon} me-1"></i>${text}`;
+    buttonElement.disabled = false;
+
+    if (!isSuccess) {
+        // Сбрасываем выделение
+        const allButtons = buttonElement.parentElement.querySelectorAll('.payment-method-btn');
+        allButtons.forEach(btn => {
+            if (btn.dataset.method === method) {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-secondary');
+            }
+        });
+    }
+}
 // ============ ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ============
 function getCSRFToken() {
     // Ищем CSRF токен в куках (основной способ в Django)
@@ -442,7 +798,7 @@ function getCSRFToken() {
     return cookieValue;
 }
 
-function showNotification(message, type) {
+function showNotification(message, type, duration = 3000) {
     console.log(`Showing notification: ${message} (${type})`);
 
     // Создаем уведомление
@@ -455,20 +811,35 @@ function showNotification(message, type) {
 
     const notification = document.createElement('div');
     notification.className = `alert ${alertClass} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 20px; right: 20px; z-index: 1050; min-width: 300px; max-width: 400px;';
-    notification.innerHTML = `
-        <i class="fas ${icon} me-2"></i>
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    notification.style.cssText = `
+        top: 20px;
+        right: 20px;
+        z-index: 1050;
+        min-width: 300px;
+        max-width: 600px;
+        white-space: pre-line;
+        max-height: 80vh;
+        overflow-y: auto;
     `;
+
+    notification.innerHTML = `
+        <div class="d-flex align-items-start">
+            <i class="fas ${icon} me-2 mt-1"></i>
+            <div class="flex-grow-1">
+                ${message}
+            </div>
+            <button type="button" class="btn-close ms-2" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
     document.body.appendChild(notification);
 
-    // Автоматическое скрытие через 3 секунды
+    // Автоматическое скрытие через указанное время
     setTimeout(() => {
         if (notification.parentNode) {
             notification.remove();
         }
-    }, 3000);
+    }, duration);
 }
 
 function showAlert(message, type) {

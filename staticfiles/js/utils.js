@@ -71,7 +71,7 @@
                 if (!serviceName) return false;
 
                 const serviceNameLower = serviceName.toLowerCase();
-                const insolesKeywords = ["стель", "стелек", "manufacture_of_insoles"];
+                const insolesKeywords = ["плантонграфия", "планто", "manufacture_of_insoles"];
 
                 return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
             },
@@ -96,7 +96,7 @@
                 if (isPishchelev && slotDuration === 20 && !isInsolesServiceValue) {
                     return {
                         allowed: false,
-                        message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек. Выберите услугу "Изготовление стелек" или 30-минутный интервал.'
+                        message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантонграфию. Выберите услугу "Плантонграфия" или 30-минутный интервал.'
                     };
                 }
 
@@ -173,6 +173,13 @@
                                 message += `<strong>Номер карты:</strong> ${patient.card_number}<br>`;
                             } else {
                                 message += `<strong>Номер карты:</strong> не указан<br>`;
+                            }
+                            if (patient.card_number_IP) {
+                                message += `<strong>Номер карты ИП:</strong> ${patient.card_number_IP}<br>`;
+                            }
+
+                            if (patient.card_number_OMS) {
+                                message += `<strong>Номер карты ОМС:</strong> ${patient.card_number_OMS}<br>`;
                             }
 
                             if (patient.phone_number) {
@@ -804,7 +811,7 @@ AppointmentUtils.PishchelevValidator = {
     isInsolesService: function(serviceName) {
         if (!serviceName) return false;
         const serviceNameLower = serviceName.toLowerCase();
-        const insolesKeywords = ["стель", "стелек", "manufacture_of_insoles", "изготовление"];
+        const insolesKeywords = ["плантонгр", "плантонграфия", "manufacture_of_insoles"];
         return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
     },
 
@@ -850,7 +857,7 @@ AppointmentUtils.PishchelevValidator = {
         if (isPishchelev && slotDuration === 20 && !isInsolesService) {
             return {
                 valid: false,
-                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на изготовление стелек!\n\nВыберите услугу "Изготовление стелек" или выберите 30-минутный интервал.'
+                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантонграфию!\n\nВыберите услугу "Плантонграфия" или выберите 30-минутный интервал.'
             };
         }
 

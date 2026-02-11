@@ -31,6 +31,8 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
             "insurance_type",
             "needs_reschedule",
             "comment",
+            "selected_blood_tests_input",  # Добавьте это
+            "total_sum",  # Добавьте это
         ]
 
     allow_time_change = forms.BooleanField(
@@ -48,6 +50,19 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
         required=False,
         widget=forms.HiddenInput(attrs={"id": "id_new_appointment_date"}),
         label="Новая дата приема",
+    )
+    selected_blood_tests_input = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_selected_blood_tests"}),
+        label="Выбранные анализы крови",
+    )
+
+    total_sum = forms.DecimalField(
+        required=False,
+        max_digits=10,
+        decimal_places=2,
+        widget=forms.HiddenInput(attrs={"id": "id_total_sum"}),
+        label="Итоговая сумма",
     )
 
     def __init__(self, *args, **kwargs):
@@ -167,6 +182,39 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
 
                 # ВАЖНО: Сохраняем основную запись сразу для получения ID
                 appointment.save()
+                selected_blood_tests_input = self.cleaned_data.get(
+                    "selected_blood_tests_input", ""
+                )
+                selected_test_ids = []
+
+                if selected_blood_tests_input and selected_blood_tests_input.strip():
+                    try:
+                        test_ids = [
+                            int(id.strip())
+                            for id in selected_blood_tests_input.split(",")
+                            if id.strip() and id.strip().isdigit()
+                        ]
+                        selected_test_ids = test_ids
+
+                        # Добавляем анализы к записи
+                        for test_id in selected_test_ids:
+                            AppointmentBloodTest.objects.create(
+                                appointment=appointment, blood_test_id=test_id
+                            )
+
+                        # Обновляем комментарий если есть анализы
+                        if selected_test_ids and appointment.comment:
+                            tests = BloodTest.objects.filter(id__in=selected_test_ids)
+                            if tests.exists():
+                                tests_list = ", ".join([test.name for test in tests])
+                                if "Анализы:" not in appointment.comment:
+                                    appointment.comment = (
+                                        f"{appointment.comment}\nАнализы: {tests_list}"
+                                    )
+                                    appointment.save()
+
+                    except (ValueError, TypeError) as e:
+                        print(f"Error parsing blood test IDs: {e}")
 
                 if appointment_chain_type in ["another_doctor", "multiple"]:
                     if not appointment.comment:
@@ -588,14 +636,18 @@ class AppointmentSimpleEditForm(forms.ModelForm):
             except TimeSlot.DoesNotExist:
                 raise forms.ValidationError("Выбранный временной слот не существует")
 
-                # Проверяем процедурную запись если меняется время или выбрана услуга медблокады
-        if cleaned_data.get("needs_procedural") or self._is_medical_blockade_service(
-            cleaned_data.get("service")
-        ):
+        # ===== ИСПРАВЛЕНИЕ: Проверяем процедурную запись ТОЛЬКО если нужно =====
+        needs_procedural = cleaned_data.get("needs_procedural", False)
+        service = cleaned_data.get("service") or (
+            self.instance.service if self.instance else None
+        )
+
+        # Проверяем процедурную запись только если:
+        # 1. Явно стоит галочка "Занять окошко в процедурном кабинете"
+        # 2. Или услуга является медблокадой (даже если галочка не стоит, но она будет автоматически установлена)
+        if needs_procedural or self._is_medical_blockade_service(service):
             self._validate_procedural_availability(cleaned_data)
-        # Проверяем процедурную запись если меняется время
-        if allow_time_change and new_time_slot_id:
-            self._validate_procedural_availability(cleaned_data)
+        # ===== КОНЕЦ ИСПРАВЛЕНИЯ =====
 
         return cleaned_data
 
@@ -630,6 +682,14 @@ class AppointmentSimpleEditForm(forms.ModelForm):
     def _validate_procedural_availability(self, cleaned_data):
         """Проверяет доступность процедурного кабинета"""
         # Определяем, какой слот проверять
+        needs_procedural = cleaned_data.get("needs_procedural", False)
+        service = cleaned_data.get("service") or (
+            self.instance.service if self.instance else None
+        )
+
+        if not needs_procedural and not self._is_medical_blockade_service(service):
+            return  # ПРЕРЫВАЕМ ВЫПОЛНЕНИЕ!
+
         time_slot_to_check = None
         if cleaned_data.get("allow_time_change") and cleaned_data.get("new_time_slot"):
             time_slot_to_check = cleaned_data.get("new_time_slot")
@@ -675,16 +735,31 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
     @transaction.atomic
     def save(self, commit=True):
-        """Сохраняет запись с проверкой процедурного кабинета"""
+        """Сохраняет запись с проверкой процедурного кабинета и автоматическим сбросом статуса при изменении даты"""
         appointment = super().save(commit=False)
+        service_changed = False
 
-        # Проверяем, нужно ли создать процедурную запись
-        needs_procedural = self.cleaned_data.get("needs_procedural", False)
-        service = self.cleaned_data.get("service") or appointment.service
+        if self.instance.pk:
+            original_service = self.instance.service
+            new_service = self.cleaned_data.get("service") or appointment.service
+            if original_service != new_service:
+                service_changed = True
 
-        # Автоматически ставим галочку, если выбрана услуга медблокады
-        if self._is_medical_blockade_service(service) and not needs_procedural:
-            needs_procedural = True
+        # Проверяем, изменилась ли дата
+        if self.instance.pk:  # Если это редактирование существующей записи
+            old_date = self.instance.date
+            allow_time_change = self.cleaned_data.get("allow_time_change", False)
+            new_time_slot = self.cleaned_data.get("new_time_slot")
+
+            # Определяем новую дату
+            if allow_time_change and new_time_slot:
+                new_date = new_time_slot.date
+            else:
+                new_date = old_date
+
+            # Если дата изменилась - сбрасываем статус на "Записан"
+            if old_date != new_date:
+                appointment.status = Appointment.AppointmentStatus.SCHEDULED
 
         if commit:
             try:
@@ -706,7 +781,11 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 appointment.save()
 
                 # Обрабатываем процедурную запись
+                needs_procedural = self.cleaned_data.get("needs_procedural", False)
                 self._handle_procedural_appointment(appointment, needs_procedural)
+
+                if service_changed and hasattr(self, "_update_procedural_service"):
+                    self._update_procedural_service(appointment)
 
             except forms.ValidationError as e:
                 raise forms.ValidationError(str(e))
@@ -1525,24 +1604,47 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
             self.cleaned_data.get("insurance_type") or appointment.insurance_type
         )
 
-        # 5. Сохраняем комментарий как есть (без добавления информации об анализах)
+        # 5. Сохраняем комментарий
         user_comment = self.cleaned_data.get("comment", "")
         if user_comment != appointment.comment:
             appointment.comment = user_comment
-        # 6. Сохраняем общую сумму
-        total_sum = self.cleaned_data.get("total_sum")
-        if total_sum:
-            appointment.total_with_blood_tests = total_sum
-        elif not appointment.total_with_blood_tests:
-            # Если сумма не установлена, вычисляем ее
-            tests_price = appointment.get_tests_price
-            service_price = appointment.service.price if appointment.service else 0
-            appointment.total_with_blood_tests = tests_price + service_price
-        # 7. Сохраняем запись
+
+        # 6. Устанавливаем цену услуги
+        if appointment.service and not appointment.price_at_appointment:
+            appointment.price_at_appointment = appointment.service.price
+
+        # 7. УДАЛИТЕ весь блок с form_total_sum и замените на:
+        selected_blood_tests_input = self.cleaned_data.get(
+            "selected_blood_tests_input", ""
+        )
+        tests_price = 0
+
+        if selected_blood_tests_input and selected_blood_tests_input.strip():
+            test_ids = [
+                int(id.strip())
+                for id in selected_blood_tests_input.split(",")
+                if id.strip() and id.strip().isdigit()
+            ]
+
+            if test_ids:
+                tests_price = sum(
+                    BloodTest.objects.filter(id__in=test_ids).values_list(
+                        "price", flat=True
+                    )
+                )
+
+        service_price = appointment.price_at_appointment or (
+            appointment.service.price if appointment.service else 0
+        )
+        appointment.total_with_blood_tests = tests_price + service_price
+
+        # 8. Сохраняем запись
         if commit:
             appointment.save()
-            # 8. Обновляем анализы крови
+
+            # 9. Обновляем анализы крови
             self._update_blood_tests(appointment)
+            appointment.save()
 
         return appointment
 

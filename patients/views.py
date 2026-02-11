@@ -29,8 +29,9 @@ from patients.forms import (
     PatientSearchForm,
     ReservePatientCreateForm,
     ReservePatientUpdateForm,
+    WaitlistPatientForm,
 )
-from patients.models import Patient, ReserveList, ReservePatient
+from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
 from patients.services import PatientService, CardNumberService
 from patients.utils import (
     get_russian_month_name,
@@ -47,6 +48,7 @@ class PatientListView(LoginRequiredMixin, ListView):
 
     model = Patient
     template_name = "patients/patient_list.html"
+    login_url = "/users/login/"
     context_object_name = "patients"
     paginate_by = 100
 
@@ -787,3 +789,47 @@ class ReservePatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
 
     def get_success_url(self):
         return reverse_lazy("patients:reserve_main")
+
+
+class WaitlistPatientListView(LoginRequiredMixin, ListView):
+    """Список пациентов в листе ожидания"""
+
+    model = WaitlistPatient
+    template_name = "patients/waitlist_list.html"
+    context_object_name = "waitlist_patients"
+
+
+class WaitlistPatientCreateView(LoginRequiredMixin, CreateView):
+    """Добавление пациента в лист ожидания"""
+
+    model = WaitlistPatient
+    form_class = WaitlistPatientForm
+    template_name = "patients/waitlist_form.html"
+
+    def get_success_url(self):
+        return reverse_lazy("timetable:reschedule_requests")
+
+
+class WaitlistPatientUpdateView(LoginRequiredMixin, UpdateView):
+    """Редактирование записи в листе ожидания"""
+
+    model = WaitlistPatient
+    form_class = WaitlistPatientForm
+    template_name = "patients/waitlist_form.html"
+
+    def get_success_url(self):
+        return reverse_lazy("timetable:reschedule_requests")
+
+
+class WaitlistPatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+    """Удаление записи из листа ожидания"""
+
+    model = WaitlistPatient
+    template_name = "patients/waitlist_confirm_delete.html"
+
+    def get_success_url(self):
+        return reverse_lazy("timetable:reschedule_requests")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, "Запись удалена из листа ожидания")
+        return super().delete(request, *args, **kwargs)
