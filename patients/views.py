@@ -40,7 +40,10 @@ from patients.utils import (
 )
 from timetable.models import Doctor
 from users.permissions.decorators import medical_admin_or_admin_required
-from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin, AdminRequiredMixin
+from users.permissions.mixins import (
+    MedicalAdminOrAdminRequiredMixin,
+    AdminRequiredMixin,
+)
 
 
 class PatientListView(LoginRequiredMixin, ListView):
