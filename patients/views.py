@@ -40,7 +40,7 @@ from patients.utils import (
 )
 from timetable.models import Doctor
 from users.permissions.decorators import medical_admin_or_admin_required
-from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
+from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin, AdminRequiredMixin
 
 
 class PatientListView(LoginRequiredMixin, ListView):
@@ -146,7 +146,7 @@ class PatientDetailView(LoginRequiredMixin, DetailView):
         return context
 
 
-class PatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
+class PatientDeleteView(AdminRequiredMixin, DeleteView):
     """Удаление пациента"""
 
     model = Patient
