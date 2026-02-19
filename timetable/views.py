@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
+from django.db.models import Sum
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
@@ -609,12 +610,17 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
         # Группируем по врачам
         report_data = {}
 
+        # Добавляем счетчики для сумм
+        total_analyses_sum = 0
+        total_xray_sum = 0
+
         for appointment in appointments:
             doctor = appointment.time_slot.doctor
             service = appointment.service
             service_name = service.name if service else ""
             service_category = service.category if service else None
             insurance_type = appointment.insurance_type
+            service_price = service.price if service else 0
 
             if doctor not in report_data:
                 report_data[doctor] = {
@@ -624,6 +630,7 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                     "manipulations": 0,
                     "prp_therapy": 0,
                     "other_services": {},
+                    "doctor_total_sum": 0,
                 }
 
             # Проверяем тип оплаты через insurance_type
@@ -662,6 +669,36 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                         report_data[doctor]["other_services"][service_name] = 0
                     report_data[doctor]["other_services"][service_name] += 1
 
+            if service and service.category:
+                if service.category == "analyzes":  # анализы
+                    # Проверяем, есть ли связанные анализы крови
+                    if hasattr(appointment, "selected_blood_tests"):
+                        # Суммируем стоимость всех выбранных анализов
+                        tests_price = (
+                            appointment.selected_blood_tests.aggregate(
+                                total=Sum("blood_test__price")
+                            )["total"]
+                            or 0
+                        )
+                        total_analyses_sum += tests_price
+
+                        # Добавляем также стоимость забора крови, если это отдельная услуга
+                        if service.name.lower() in ["забор крови", "взятие крови"]:
+                            total_analyses_sum += service_price
+                    else:
+                        total_analyses_sum += service_price
+                elif service.category == "xray":  # рентген
+                    total_xray_sum += service_price
+
+            if doctor.surname == "Платицына" or "Платицына" in str(doctor):
+                # Для анализов используем полную сумму
+                if service and service.category == "analyzes":
+                    report_data[doctor][
+                        "doctor_total_sum"
+                    ] += appointment.get_total_price
+                else:
+                    report_data[doctor]["doctor_total_sum"] += service_price
+
         context.update(
             {
                 "start_date": start_date,
@@ -670,6 +707,8 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                 "report_data": report_data,
                 "selected_start_date": start_date_str,
                 "selected_end_date": end_date_str,
+                "total_analyses_sum": total_analyses_sum,
+                "total_xray_sum": total_xray_sum,
             }
         )
         return context
