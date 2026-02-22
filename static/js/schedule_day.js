@@ -27,6 +27,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initPaymentMethods(); // <-- Добавьте эту строку
 
     initMoveDoctorButtons(); // <-- Добавьте эту строку
+
+    initEmergencySlotForm();
 });
 
 // ============ ИНИЦИАЛИЗАЦИЯ КНОПОК УДАЛЕНИЯ ВСЕХ СЛОТОВ ============
@@ -1085,5 +1087,140 @@ function initCabinetComments() {
             }
         });
     }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const emergencyForm = document.querySelector('#emergencySlotModal form');
+    if (!emergencyForm) return;
+
+    emergencyForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const errorContainer = document.getElementById('emergency-slot-errors');
+        const errorMessage = document.getElementById('emergency-slot-error-message');
+        const submitBtn = emergencyForm.querySelector('button[type="submit"]');
+
+        // Скрываем предыдущие ошибки
+        errorContainer.style.display = 'none';
+
+        // Блокируем кнопку
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Проверка...';
+
+        try {
+            const formData = new FormData(emergencyForm);
+
+            const response = await fetch(emergencyForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            if (response.redirected) {
+                // Если редирект - всё хорошо, переходим
+                window.location.href = response.url;
+            } else {
+                const html = await response.text();
+
+                // Ищем сообщения об ошибках в ответе
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Ищем сообщения Django messages
+                const messageEl = doc.querySelector('.alert-danger');
+                if (messageEl) {
+                    errorMessage.textContent = messageEl.textContent.trim();
+                    errorContainer.style.display = 'block';
+                } else {
+                    errorMessage.textContent = 'Ошибка при создании слота';
+                    errorContainer.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            errorMessage.textContent = 'Ошибка сети при отправке формы';
+            errorContainer.style.display = 'block';
+        } finally {
+            // Разблокируем кнопку
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Создать слот';
+        }
+    });
+});
+
+// ============ ФОРМА ЭКСТРЕННОГО СЛОТА ============
+function initEmergencySlotForm() {
+    console.log('Initializing emergency slot form...');
+
+    const emergencyForm = document.querySelector('#emergencySlotModal form');
+    if (!emergencyForm) return;
+
+    // Удаляем предыдущие обработчики, чтобы избежать дублирования
+    const newForm = emergencyForm.cloneNode(true);
+    emergencyForm.parentNode.replaceChild(newForm, emergencyForm);
+
+    newForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const errorContainer = document.getElementById('emergency-slot-errors');
+        const errorMessage = document.getElementById('emergency-slot-error-message');
+        const submitBtn = newForm.querySelector('button[type="submit"]');
+
+        // Скрываем предыдущие ошибки
+        if (errorContainer) errorContainer.style.display = 'none';
+
+        // Блокируем кнопку
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Проверка...';
+
+        try {
+            const formData = new FormData(newForm);
+
+            const response = await fetch(newForm.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: formData
+            });
+
+            if (response.redirected) {
+                // Если редирект - всё хорошо, переходим
+                window.location.href = response.url;
+            } else {
+                const html = await response.text();
+
+                // Ищем сообщения об ошибках в ответе
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                // Ищем сообщения Django messages
+                const messageEl = doc.querySelector('.alert-danger');
+                if (messageEl && errorMessage && errorContainer) {
+                    errorMessage.textContent = messageEl.textContent.trim();
+                    errorContainer.style.display = 'block';
+                } else if (errorMessage && errorContainer) {
+                    errorMessage.textContent = 'Ошибка при создании слота';
+                    errorContainer.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            if (errorMessage && errorContainer) {
+                errorMessage.textContent = 'Ошибка сети при отправке формы';
+                errorContainer.style.display = 'block';
+            }
+        } finally {
+            // Разблокируем кнопку
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Создать слот';
+        }
+    });
+
+    console.log('Emergency slot form initialized');
 }
 console.log('=== SCHEDULE_DAY.JS INITIALIZATION COMPLETE ===');

@@ -302,43 +302,81 @@
 
 <script>
     function exportToExcel() {
-        // Создаем HTML таблицу
-        let table = '<table border="1">';
-        table += '<tr><th>Врач</th><th>Специализация</th><th>ОМС всего</th><th>ОМС первичные</th><th>ОМС повторные</th><th>Манипуляции</th><th>PRP терапия</th><th>Другие услуги</th></tr>';
+    // Создаем HTML таблицу
+    let table = '<table border="1">';
+    table += '<tr>' +
+             '<th>Врач</th>' +
+             '<th>Специализация</th>' +
+             '<th>Другие услуги</th>' +
+             '<th>Манипуляции</th>' +
+             '<th>PRP терапия</th>' +
+             '<th>ОМС всего</th>' +
+             '<th>ОМС первичные</th>' +
+             '<th>ОМС повторные</th>' +
+             '<th>Сумма услуг (Платицына)</th>' +
+             '</tr>';
 
-        {% for doctor, data in report_data.items %}
-        table += '<tr>';
-        table += '<td>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</td>';
-        table += '<td>{{ doctor.get_specialization_display }}</td>';
-        table += '<td>{{ data.oms_total }}</td>';
-        table += '<td>{{ data.oms_primary }}</td>';
-        table += '<td>{{ data.oms_repeat }}</td>';
-        table += '<td>{{ data.manipulations }}</td>';
-        table += '<td>{{ data.prp_therapy }}</td>';
-        table += '<td>';
+    {% for doctor, data in report_data.items %}
+    table += '<tr>';
+    table += '<td>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</td>';
+    table += '<td>{{ doctor.get_specialization_display }}</td>';
+
+    // Другие услуги
+    table += '<td>';
+    {% if data.other_services %}
         {% for service_name, count in data.other_services.items %}
-        table += '{{ service_name }}: {{ count }}<br>';
+        table += '{{ service_name }}: {{ count }}\n';
         {% endfor %}
-        table += '</td>';
-        table += '</tr>';
-        {% endfor %}
+    {% else %}
+        table += '-';
+    {% endif %}
+    table += '</td>';
 
-        table += '</table>';
+    // Манипуляции
+    table += '<td>{{ data.manipulations|default:"0" }}</td>';
 
-        // Создаем Blob и скачиваем
-        const blob = new Blob([table], { type: 'application/vnd.ms-excel' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+    // PRP терапия
+    table += '<td>{{ data.prp_therapy|default:"0" }}</td>';
 
-        {% if is_period %}
-        a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}_по_{{ end_date|date:"Y-m-d" }}.xls';
-        {% else %}
-        a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}.xls';
-        {% endif %}
+    // ОМС всего
+    table += '<td>{{ data.oms_total|default:"0" }}</td>';
 
-        a.href = url;
-        a.click();
-        URL.revokeObjectURL(url);
+    // ОМС первичные
+    table += '<td>{{ data.oms_primary|default:"0" }}</td>';
+
+    // ОМС повторные
+    table += '<td>{{ data.oms_repeat|default:"0" }}</td>';
+
+    // Сумма для Платицыной
+    {% if doctor.surname == "Платицына" or "Платицына" in doctor.surname %}
+    table += '<td>{{ data.doctor_total_sum|floatformat:2 }} ₽</td>';
+    {% else %}
+    table += '<td>-</td>';
+    {% endif %}
+
+    table += '</tr>';
+    {% endfor %}
+
+    // Добавляем итоговые строки с суммами анализов и рентгена
+    table += '<tr><td colspan="8" style="text-align:right"><strong>ИТОГО Анализы:</strong></td><td><strong>{{ total_analyses_sum|floatformat:2 }} ₽</strong></td></tr>';
+    table += '<tr><td colspan="8" style="text-align:right"><strong>ИТОГО Рентген:</strong></td><td><strong>{{ total_xray_sum|floatformat:2 }} ₽</strong></td></tr>';
+
+    table += '</table>';
+
+    // Создаем Blob и скачиваем
+    const blob = new Blob([table], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    {% if is_period %}
+    a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}_по_{{ end_date|date:"Y-m-d" }}.xls';
+    {% else %}
+    a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}.xls';
+    {% endif %}
+
+    a.href = url;
+    a.click();
+    URL.revokeObjectURL(url);
     }
 
     // Автоматически устанавливаем даты в быстрой форме
@@ -396,19 +434,69 @@
     }
 
     @media print {
-        .btn,
-        .card:not(.doctor-report) {
-            display: none !important;
+        /* Скрываем всё, кроме самого отчета */
+        body * {
+            visibility: hidden;
+        }
+
+        /* Показываем только нужные элементы */
+        .pricing-header,
+        .pricing-header *,
+        .container > .row.mb-4:last-child .card,
+        .container > .row.mb-4:last-child .card *,
+        .doctor-report,
+        .doctor-report *,
+        .row.mt-4,
+        .row.mt-4 * {
+            visibility: visible !important;
+        }
+
+        /* Убираем позиционирование */
+        .pricing-header,
+        .container > .row.mb-4:last-child .card,
+        .doctor-report,
+        .row.mt-4 {
+            position: static !important;
+        }
+
+        /* Стили для печати */
+        .pricing-header {
+            text-align: center !important;
+
         }
 
         .doctor-report {
-            break-inside: avoid;
-            page-break-inside: avoid;
-            border: 1px solid #ddd !important;
+            border: 1px solid #000 !important;
+            margin-bottom: 20px !important;
+            padding: 15px !important;
+            page-break-inside: avoid !important;
         }
 
-        h5, h6 {
-            color: black !important;
+        .service-item {
+            display: flex !important;
+            justify-content: space-between !important;
+            padding: 5px 0 !important;
+            border-bottom: 1px solid #ccc !important;
+        }
+
+        .badge {
+            border: 1px solid #000 !important;
+            padding: 2px 8px !important;
+        }
+
+        .alert {
+            border: 1px solid #000 !important;
+            margin: 10px 0 !important;
+            padding: 10px !important;
+        }
+
+        .card {
+            border: 1px solid #000 !important;
+            margin-bottom: 10px !important;
+        }
+
+        .row.mt-4 {
+            margin-top: 30px !important;
         }
     }
 </style>
