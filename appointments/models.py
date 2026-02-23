@@ -4,6 +4,7 @@ from django.utils.translation import gettext_lazy as _
 
 from patients.models import Patient
 from timetable.models import BloodTest, MedicalService, TimeSlot
+from timetable.services import get_service_price_on_date
 
 
 class AppointmentChain(models.Model):
@@ -230,35 +231,77 @@ class Appointment(models.Model):
     @property
     def get_total_price(self):
         """Возвращает общую стоимость (анализы + услуга)"""
+        visit_date = self.time_slot.date if self.time_slot else None
+        service_price = (
+            self.price_at_appointment
+            or (
+                get_service_price_on_date(self.service, visit_date)
+                if self.service
+                else 0
+            )
+            or 0
+        )
+
+        if not self.pk:
+            return service_price
+
         tests_price = self.get_tests_price
-        service_price = self.service.price if self.service else 0
         return tests_price + service_price
 
     def save(self, *args, **kwargs):
-        """Переопределяем save для сохранения цены на момент записи и установки типа цепочки"""
+        """
+        Сохраняем цену услуги на дату визита (time_slot.date).
+        Пересчитываем цену при:
+        - изменении услуги
+        - изменении временного слота (перенос)
+        """
 
-        # ВАЖНОЕ ИСПРАВЛЕНИЕ: Всегда обновляем price_at_appointment при изменении услуги
-        # Получаем текущий объект из БД (если он существует)
+        visit_date = self.time_slot.date if self.time_slot else None
+
         if self.pk:
             try:
                 old_instance = Appointment.objects.get(pk=self.pk)
-                # Если услуга изменилась - обновляем цену
-                if old_instance.service != self.service:
+
+                service_changed = old_instance.service_id != self.service_id
+                slot_changed = old_instance.time_slot_id != self.time_slot_id
+
+                if (service_changed or slot_changed) and self.service and visit_date:
+                    self.price_at_appointment = get_service_price_on_date(
+                        self.service, visit_date
+                    )
+
+                # Если вдруг дата отсутствует (на всякий случай) — fallback
+                elif (
+                    (service_changed or slot_changed)
+                    and self.service
+                    and not visit_date
+                ):
                     self.price_at_appointment = self.service.price
+
             except Appointment.DoesNotExist:
                 pass
         else:
-            # Для новой записи
-            if self.service and not self.price_at_appointment:
+            # Новая запись
+            if self.service and visit_date:
+                self.price_at_appointment = get_service_price_on_date(
+                    self.service, visit_date
+                )
+            elif self.service:
                 self.price_at_appointment = self.service.price
 
-        # Обновляем итоговую сумму с анализами
+        # Итоговая сумма с анализами — можно считать всегда (и для новых, и для старых)
+        service_price = (
+            self.price_at_appointment
+            or (self.service.price if self.service else 0)
+            or 0
+        )
+
         if self.pk:
             tests_price = self.get_tests_price
-            service_price = (
-                self.price_at_appointment or self.service.price if self.service else 0
-            )
             self.total_with_blood_tests = tests_price + service_price
+        else:
+            # До первого сохранения у записи нет pk, relation selected_blood_tests недоступен
+            self.total_with_blood_tests = service_price
 
         super().save(*args, **kwargs)
 

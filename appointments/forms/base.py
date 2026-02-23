@@ -1,5 +1,5 @@
 import json
-
+from timetable.services import get_service_price_on_date
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -123,9 +123,28 @@ class AppointmentChainBaseForm(
             self.time_slot.doctor if self.time_slot else None
         )
 
+        # дата визита
+        visit_date = None
+        if self.time_slot:
+            visit_date = self.time_slot.date
+        elif getattr(self.instance, "time_slot", None):
+            visit_date = self.instance.time_slot.date
+
         if doctor_to_use:
             services = doctor_to_use.get_available_services()
             self.fields["service"].queryset = services
+            self.fields["additional_service"].queryset = services
+
+            # Подписи опций с ценой на дату визита
+            def _label(service_obj):
+                if visit_date:
+                    price = get_service_price_on_date(service_obj, visit_date)
+                else:
+                    price = service_obj.price
+                return f"{service_obj.name} ({price} руб.)"
+
+            self.fields["service"].label_from_instance = _label
+            self.fields["additional_service"].label_from_instance = _label
 
     def clean(self):
         """Общая валидация для всех форм с цепочками"""

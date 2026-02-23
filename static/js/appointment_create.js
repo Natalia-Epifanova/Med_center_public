@@ -1449,6 +1449,62 @@ function initializeTimeSlotSelector() {
         return service.text;
     }
 
+    async function updateServicePricesForDate(visitDate) {
+        if (!visitDate) return;
+
+        const serviceSelect = document.getElementById('id_service');
+        const additionalServiceSelect = document.getElementById('id_additional_service');
+
+        // если на странице нет селектов — выходим
+        if (!serviceSelect && !additionalServiceSelect) return;
+
+        try {
+            const response = await fetch('/appointments/api/doctor-services/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    doctor_id: doctorId,
+                    date: visitDate
+                })
+            });
+
+            const data = await response.json();
+            if (!data.success || !data.services) return;
+
+            const servicesMap = new Map();
+            data.services.forEach(s => servicesMap.set(String(s.id), s));
+
+            function patchSelect(selectEl) {
+                if (!selectEl) return;
+                const currentValue = selectEl.value;
+
+                Array.from(selectEl.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const s = servicesMap.get(String(opt.value));
+                    if (!s) return;
+
+                    opt.textContent = `${s.name} (${s.price} руб.)`;
+                    opt.dataset.price = s.price;
+                    if (s.category) opt.dataset.category = s.category;
+                });
+
+                // восстановим выбор
+                selectEl.value = currentValue;
+            }
+
+            patchSelect(serviceSelect);
+            patchSelect(additionalServiceSelect);
+
+            // если у вас есть пересчёт суммы по dataset.price — можно триггернуть change
+            if (serviceSelect) serviceSelect.dispatchEvent(new Event('change'));
+        } catch (e) {
+            // тихо, чтобы не ломать UX
+        }
+    }
+
     // Функция для форматирования выбранного элемента
     function formatServiceSelection(service) {
         return service.text;
@@ -1524,6 +1580,8 @@ function initializeTimeSlotSelector() {
                     onSlotSelect: function(slotData) {
                         selectedSlot = slotData;
 
+                        updateServicePricesForDate(slotData.date);
+
                         if (confirmBtn) confirmBtn.disabled = false;
 
                         const infoDiv = document.getElementById('timeslot-info');
@@ -1579,6 +1637,7 @@ function initializeTimeSlotSelector() {
 
             toggleTimeChangeMode(false);
             updateOriginalDisplay(null);
+            updateServicePricesForDate(originalSlotData.date);
         });
     }
 

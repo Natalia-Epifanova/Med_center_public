@@ -63,6 +63,35 @@ class MedicalService(models.Model):
         return f"{self.name} - {self.price} руб."
 
 
+class MedicalServicePrice(models.Model):
+    service = models.ForeignKey(
+        MedicalService,
+        on_delete=models.CASCADE,
+        related_name="prices",
+        verbose_name="Услуга",
+    )
+    valid_from = models.DateField(verbose_name="Действует с")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+
+    class Meta:
+        verbose_name = "Цена услуги"
+        verbose_name_plural = "Цены услуг"
+        ordering = ["-valid_from"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["service", "valid_from"], name="uniq_service_valid_from"
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["service", "valid_from"], name="idx_service_valid_from"
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.service.name}: {self.price} руб. с {self.valid_from}"
+
+
 class Doctor(models.Model):
     class DoctorSpecialization(models.TextChoices):
         RHEUMATOLOGIST = "rheumatologist", _("Ревматолог")

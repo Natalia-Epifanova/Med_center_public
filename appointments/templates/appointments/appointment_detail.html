@@ -71,7 +71,7 @@
                     <p class="ps-3">
                         {{ appointment.service.name }}<br>
                         <small class="text-muted">
-                            Цена: {{ appointment.service.price }} руб.
+                            Цена: {{ appointment.price_at_appointment|default:appointment.service.price }} руб.
                         </small>
                     </p>
                 </div>
@@ -123,7 +123,7 @@
                                         {% endfor %}
                                     </tbody>
                                     <tfoot>
-                                        {% with total_tests=appointment.selected_blood_tests.count tests_price=appointment.get_tests_price service_price=appointment.price_at_appointment|default:appointment.service.price total_price=appointment.total_with_blood_tests|default:appointment.get_total_price %}
+                                        {% with total_tests=appointment.selected_blood_tests.count tests_price=appointment.get_tests_price service_price=appointment.price_at_appointment|default:appointment.service.price total_price=appointment.get_total_price %}
                                         <tr class="table-light">
                                             <td colspan="2" class="text-end"><strong>Всего анализов:</strong></td>
                                             <td colspan="2"><strong>{{ total_tests }}</strong></td>
@@ -206,7 +206,7 @@
                                     <td>
                                         <small>{{ app.service.name|truncatechars:50 }}</small>
                                     </td>
-                                    <td>{{ app.service.price }} руб.</td>
+                                    <td>{{ app.price_at_appointment }} руб.</td>
                                     <td>
                                         Каб. {{ app.cabinet.number }}
                                         {% if app.cabinet.name_of_cabinet %}

@@ -8,6 +8,7 @@ from timetable.models import (
     Doctor,
     MedicalService,
     MedicalServiceCategory,
+    MedicalServicePrice,
 )
 
 
@@ -150,6 +151,12 @@ class DoctorAdmin(admin.ModelAdmin):
     has_comment.boolean = True
 
 
+class MedicalServicePriceInline(admin.TabularInline):
+    model = MedicalServicePrice
+    extra = 0
+    ordering = ("-valid_from",)
+
+
 @admin.register(MedicalService)
 class MedicalServiceAdmin(admin.ModelAdmin):
     list_display = (
@@ -161,6 +168,8 @@ class MedicalServiceAdmin(admin.ModelAdmin):
     )
     list_filter = ("category", "is_active")
     search_fields = ("name", "code")
+
+    inlines = [MedicalServicePriceInline]
 
 
 @admin.register(BloodTestCategory)
