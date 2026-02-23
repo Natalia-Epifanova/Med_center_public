@@ -1,13 +1,13 @@
 import json
 from datetime import datetime
-
+from timetable.services import get_service_price_on_date
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
-
+import datetime
 from appointments.services import AppointmentChainService
 from appointments.utils_for_caches import (
     get_cached_active_doctors,
@@ -27,6 +27,13 @@ def get_doctor_services_api(request):
     try:
         data = json.loads(request.body)
         doctor_id = data.get("doctor_id")
+        date_str = data.get("date")
+        target_date = None
+        if date_str:
+            try:
+                target_date = datetime.date.fromisoformat(date_str)
+            except ValueError:
+                target_date = None
 
         if not doctor_id:
             return JsonResponse({"error": "Не указан doctor_id"}, status=400)
@@ -36,11 +43,16 @@ def get_doctor_services_api(request):
 
         services_data = []
         for service in services:
+            price_value = (
+                get_service_price_on_date(service, target_date)
+                if target_date
+                else service.price
+            )
             services_data.append(
                 {
                     "id": service.id,
                     "name": service.name,
-                    "price": float(service.price),
+                    "price": float(price_value),
                     "category": service.category,
                     "duration": (
                         service.duration if hasattr(service, "duration") else None
