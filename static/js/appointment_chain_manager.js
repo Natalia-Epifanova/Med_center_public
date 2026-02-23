@@ -889,13 +889,19 @@ AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorI
     const doctorNameSpan = formElement.querySelector('.doctor-name');
 
     try {
+        const dateInput = formElement.querySelector('.date-select');
+        const selectedDate = dateInput ? dateInput.value : null;
+
         const response = await fetch('/appointments/api/doctor-services/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': this.csrfToken
             },
-            body: JSON.stringify({ doctor_id: doctorId })
+            body: JSON.stringify({
+                doctor_id: doctorId,
+                date: selectedDate || null
+            })
         });
 
         const data = await response.json();
@@ -936,6 +942,39 @@ AppointmentChainManager.prototype.onDateSelect = async function(index, date) {
     const isSameDate = date === window.originalDate;
 
     if (dateSpan) dateSpan.textContent = date;
+        // Обновим цены услуг на выбранную дату (не меняя выбранную услугу)
+    try {
+        const serviceSelect = formElement.querySelector('.service-select');
+        if (serviceSelect) {
+            const currentServiceValue = serviceSelect.value;
+
+            const respServices = await fetch('/appointments/api/doctor-services/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({ doctor_id: doctorId, date: date })
+            });
+
+            const servicesData = await respServices.json();
+            if (servicesData.success && servicesData.services) {
+                const map = new Map();
+                servicesData.services.forEach(s => map.set(String(s.id), s));
+
+                Array.from(serviceSelect.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const s = map.get(String(opt.value));
+                    if (!s) return;
+                    opt.textContent = `${s.name} (${s.price} руб.)`;
+                    opt.dataset.price = s.price;
+                });
+
+                serviceSelect.value = currentServiceValue;
+                serviceSelect.dispatchEvent(new Event('change'));
+            }
+        }
+    } catch (e) {}
 
     try {
         const requestData = {

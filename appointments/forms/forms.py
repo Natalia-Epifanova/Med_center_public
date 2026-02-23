@@ -19,6 +19,7 @@ from appointments.utils_for_caches import (
 )
 from patients.services import PatientService
 from timetable.models import BloodTest, Doctor, MedicalService, TimeSlot
+from timetable.services import get_service_price_on_date
 
 
 class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
@@ -251,7 +252,10 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                     if procedural_appointment:
                         if not procedural_appointment.price_at_appointment:
                             procedural_appointment.price_at_appointment = (
-                                procedural_appointment.service.price
+                                get_service_price_on_date(
+                                    procedural_appointment.service,
+                                    procedural_appointment.time_slot.date,
+                                )
                             )
                         procedural_appointment.total_with_blood_tests = (
                             procedural_appointment.price_at_appointment
@@ -282,14 +286,18 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
 
     @staticmethod
     def _set_appointment_price(appointment, service=None):
-        """Устанавливает цену услуги для записи"""
-        if not appointment.price_at_appointment:
-            if service:
-                appointment.price_at_appointment = service.price
-            elif appointment.service:
-                appointment.price_at_appointment = appointment.service.price
+        """Устанавливает цену услуги для записи на дату визита (time_slot.date)."""
+        visit_date = appointment.time_slot.date if appointment.time_slot else None
+        svc = service or appointment.service
 
-        # Устанавливает итоговую сумму
+        if svc and visit_date:
+            appointment.price_at_appointment = get_service_price_on_date(
+                svc, visit_date
+            )
+        elif svc:
+            appointment.price_at_appointment = svc.price
+
+        # Итоговая сумма (на старте = цена услуги, дальше может увеличиваться анализами)
         if not appointment.total_with_blood_tests:
             appointment.total_with_blood_tests = appointment.price_at_appointment
 
@@ -571,9 +579,28 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         if self.appointment:
             # Ограничиваем услуги только для этого врача
-            self.fields["service"].queryset = get_cached_doctor_services(
-                self.appointment.doctor
-            )
+            if self.appointment and self.appointment.doctor:
+                self.fields["service"].queryset = get_cached_doctor_services(
+                    self.appointment.doctor
+                )
+                self.fields["service"].widget.attrs["data-doctor-id"] = str(
+                    self.appointment.doctor.id
+                )
+
+                # Показываем в выпадающем списке цену, актуальную на дату визита (редактируемой записи)
+                visit_date = None
+                if getattr(self.appointment, "time_slot", None):
+                    visit_date = self.appointment.time_slot.date
+
+                def _service_label(service_obj):
+                    if visit_date:
+                        price = get_service_price_on_date(service_obj, visit_date)
+                    else:
+                        # fallback, если по какой-то причине нет time_slot/date
+                        price = service_obj.price
+                    return f"{service_obj.name} - {price} руб."
+
+                self.fields["service"].label_from_instance = _service_label
 
             # Инициализируем поля изменения времени
             if self.appointment.time_slot:
@@ -594,6 +621,13 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        if self.appointment and self.appointment.pk:
+            procedural_exists = Appointment.objects.filter(
+                previous_appointment=self.appointment,
+                time_slot__cabinet__number=6,
+            ).exists()
+            if procedural_exists:
+                cleaned_data["needs_procedural"] = True
 
         # Проверяем, разрешено ли изменение времени
         allow_time_change = cleaned_data.get("allow_time_change", False)
@@ -900,7 +934,9 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         # Всегда обновляем на ту же услугу что и в основной записи
         if appointment.service:
             procedural_appointment.service = appointment.service
-            procedural_appointment.price_at_appointment = appointment.service.price
+            procedural_appointment.price_at_appointment = get_service_price_on_date(
+                procedural_appointment.service, procedural_appointment.time_slot.date
+            )
             procedural_appointment.save()
         else:
             print("DEBUG: Appointment has no service, cannot update procedural")
@@ -1046,7 +1082,9 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
 
         # Устанавливаем цену услуги
         if appointment.service and not appointment.price_at_appointment:
-            appointment.price_at_appointment = appointment.service.price
+            appointment.price_at_appointment = get_service_price_on_date(
+                appointment.service, appointment.time_slot.date
+            )
 
         # Обрабатываем анализы крови
         selected_blood_tests_input = self.cleaned_data.get(
@@ -1086,6 +1124,7 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
         appointment.total_with_blood_tests = total_sum
 
         # Сохраняем запись
+        # Сохраняем запись
         if commit:
             appointment.save()
 
@@ -1101,6 +1140,14 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                     AppointmentBloodTest.objects.create(
                         appointment=appointment, blood_test_id=test_id
                     )
+
+            # ВАЖНО: пересчитываем итог ПОСЛЕ добавления анализов
+            service_price = appointment.price_at_appointment or (
+                appointment.service.price if appointment.service else 0
+            )
+            tests_price = appointment.get_tests_price
+            appointment.total_with_blood_tests = tests_price + service_price
+            appointment.save()
 
             # Обновляем комментарий если есть анализы
             if selected_test_ids and appointment.comment:
@@ -1311,8 +1358,12 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
             )
 
             # Сохраняем цену
-            additional_appointment.price_at_appointment = service.price
-            additional_appointment.total_with_blood_tests = service.price
+            additional_appointment.price_at_appointment = get_service_price_on_date(
+                service, time_slot.date
+            )
+            additional_appointment.total_with_blood_tests = get_service_price_on_date(
+                service, time_slot.date
+            )
             additional_appointment.save()
 
             # Создаем связь
@@ -1334,12 +1385,19 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                 f"Ошибка создания дополнительной записи: {str(e)}"
             )
 
-    def _set_appointment_price(self, appointment):
-        """Устанавливает цену услуги для записи"""
-        if not appointment.price_at_appointment and appointment.service:
-            appointment.price_at_appointment = appointment.service.price
+    def _set_appointment_price(appointment, service=None):
+        """Устанавливает цену услуги для записи на дату визита (time_slot.date)."""
+        visit_date = appointment.time_slot.date if appointment.time_slot else None
+        svc = service or appointment.service
 
-        # Устанавливаем итоговую сумму
+        if svc and visit_date:
+            appointment.price_at_appointment = get_service_price_on_date(
+                svc, visit_date
+            )
+        elif svc:
+            appointment.price_at_appointment = svc.price
+
+        # Итоговая сумма (на старте = цена услуги, дальше может увеличиваться анализами)
         if not appointment.total_with_blood_tests:
             appointment.total_with_blood_tests = appointment.price_at_appointment
 

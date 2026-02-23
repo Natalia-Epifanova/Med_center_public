@@ -85,6 +85,11 @@ class Command(BaseCommand):
                             else ""
                         ),
                         (
+                            apt.time_slot.date.strftime("%d.%m.%Y")
+                            if apt.time_slot
+                            else "Н/Д"
+                        ),
+                        (
                             f"{apt.time_slot.start_time.strftime('%H:%M')}-{apt.time_slot.end_time.strftime('%H:%M')}"
                             if apt.time_slot
                             else "Н/Д"

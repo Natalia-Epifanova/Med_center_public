@@ -8,6 +8,7 @@ from appointments.utils_for_caches import (
     get_procedural_cabinet,
 )
 from timetable.models import Cabinet, Doctor, MedicalService, TimeSlot
+from timetable.services import get_service_price_on_date
 
 
 class AppointmentChainService:
@@ -59,9 +60,18 @@ class AppointmentChainService:
                     chain_type=Appointment.ChainType.MULTIPLE_DOCTORS,
                 )
 
-                # Сохраняем цену
-                appointment.price_at_appointment = service.price
-                appointment.total_with_blood_tests = service.price
+                # Сохраняем цену на дату визита
+                visit_date = (
+                    appointment.time_slot.date if appointment.time_slot else None
+                )
+                price = (
+                    get_service_price_on_date(appointment.service, visit_date)
+                    if visit_date and appointment.service
+                    else (appointment.service.price if appointment.service else 0)
+                )
+
+                appointment.price_at_appointment = price
+                appointment.total_with_blood_tests = price
                 appointment.save()
 
                 # Создаем связь
@@ -401,9 +411,25 @@ class ProceduralAppointmentService:
         existing_procedural.status = main_appointment.status
         existing_procedural.comment = main_appointment.doctor.surname
 
-        # ВАЖНО: Сохраняем сумму
+        # ВАЖНО: Сохраняем сумму (по дате процедурной записи)
+        procedural_visit_date = (
+            existing_procedural.time_slot.date
+            if existing_procedural.time_slot
+            else None
+        )
         if not existing_procedural.price_at_appointment:
-            existing_procedural.price_at_appointment = existing_procedural.service.price
+            existing_procedural.price_at_appointment = (
+                get_service_price_on_date(
+                    existing_procedural.service, procedural_visit_date
+                )
+                if procedural_visit_date and existing_procedural.service
+                else (
+                    existing_procedural.service.price
+                    if existing_procedural.service
+                    else 0
+                )
+            )
+
         existing_procedural.total_with_blood_tests = (
             existing_procedural.price_at_appointment
         )
@@ -426,10 +452,24 @@ class ProceduralAppointmentService:
         )
 
         if procedural_appointment:
+            procedural_visit_date = (
+                procedural_appointment.time_slot.date
+                if procedural_appointment.time_slot
+                else None
+            )
             if not procedural_appointment.price_at_appointment:
                 procedural_appointment.price_at_appointment = (
-                    procedural_appointment.service.price
+                    get_service_price_on_date(
+                        procedural_appointment.service, procedural_visit_date
+                    )
+                    if procedural_visit_date and procedural_appointment.service
+                    else (
+                        procedural_appointment.service.price
+                        if procedural_appointment.service
+                        else 0
+                    )
                 )
+
             procedural_appointment.total_with_blood_tests = (
                 procedural_appointment.price_at_appointment
             )
@@ -588,7 +628,12 @@ class ConsecutiveAppointmentService:
         """
         # Сохраняем цену услуги на момент записи, если еще не сохранена
         if not appointment.price_at_appointment:
-            appointment.price_at_appointment = appointment.service.price
+            visit_date = appointment.time_slot.date if appointment.time_slot else None
+            appointment.price_at_appointment = (
+                get_service_price_on_date(appointment.service, visit_date)
+                if visit_date and appointment.service
+                else (appointment.service.price if appointment.service else 0)
+            )
 
         # Устанавливаем общую сумму (пока без анализов крови)
         appointment.total_with_blood_tests = appointment.price_at_appointment

@@ -403,7 +403,6 @@ class EmergencySlotCreateView(MedicalAdminOrAdminRequiredMixin, View):
             conflicting_slots = TimeSlot.objects.filter(
                 date=date,
                 cabinet_id=cabinet_id,
-                doctor_id=doctor_id,
                 start_time__lt=end_time_obj,
                 end_time__gt=start_time_obj,
             ).exists()

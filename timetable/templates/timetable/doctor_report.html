@@ -302,43 +302,81 @@
 
 <script>
     function exportToExcel() {
-        // Создаем HTML таблицу
-        let table = '<table border="1">';
-        table += '<tr><th>Врач</th><th>Специализация</th><th>ОМС всего</th><th>ОМС первичные</th><th>ОМС повторные</th><th>Манипуляции</th><th>PRP терапия</th><th>Другие услуги</th></tr>';
+    // Создаем HTML таблицу
+    let table = '<table border="1">';
+    table += '<tr>' +
+             '<th>Врач</th>' +
+             '<th>Специализация</th>' +
+             '<th>Другие услуги</th>' +
+             '<th>Манипуляции</th>' +
+             '<th>PRP терапия</th>' +
+             '<th>ОМС всего</th>' +
+             '<th>ОМС первичные</th>' +
+             '<th>ОМС повторные</th>' +
+             '<th>Сумма услуг (Платицына)</th>' +
+             '</tr>';
 
-        {% for doctor, data in report_data.items %}
-        table += '<tr>';
-        table += '<td>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</td>';
-        table += '<td>{{ doctor.get_specialization_display }}</td>';
-        table += '<td>{{ data.oms_total }}</td>';
-        table += '<td>{{ data.oms_primary }}</td>';
-        table += '<td>{{ data.oms_repeat }}</td>';
-        table += '<td>{{ data.manipulations }}</td>';
-        table += '<td>{{ data.prp_therapy }}</td>';
-        table += '<td>';
+    {% for doctor, data in report_data.items %}
+    table += '<tr>';
+    table += '<td>{{ doctor.surname }} {{ doctor.first_name.0 }}.{{ doctor.last_name.0 }}.</td>';
+    table += '<td>{{ doctor.get_specialization_display }}</td>';
+
+    // Другие услуги
+    table += '<td>';
+    {% if data.other_services %}
         {% for service_name, count in data.other_services.items %}
-        table += '{{ service_name }}: {{ count }}<br>';
+        table += '{{ service_name }}: {{ count }}\n';
         {% endfor %}
-        table += '</td>';
-        table += '</tr>';
-        {% endfor %}
+    {% else %}
+        table += '-';
+    {% endif %}
+    table += '</td>';
 
-        table += '</table>';
+    // Манипуляции
+    table += '<td>{{ data.manipulations|default:"0" }}</td>';
 
-        // Создаем Blob и скачиваем
-        const blob = new Blob([table], { type: 'application/vnd.ms-excel' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+    // PRP терапия
+    table += '<td>{{ data.prp_therapy|default:"0" }}</td>';
 
-        {% if is_period %}
-        a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}_по_{{ end_date|date:"Y-m-d" }}.xls';
-        {% else %}
-        a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}.xls';
-        {% endif %}
+    // ОМС всего
+    table += '<td>{{ data.oms_total|default:"0" }}</td>';
 
-        a.href = url;
-        a.click();
-        URL.revokeObjectURL(url);
+    // ОМС первичные
+    table += '<td>{{ data.oms_primary|default:"0" }}</td>';
+
+    // ОМС повторные
+    table += '<td>{{ data.oms_repeat|default:"0" }}</td>';
+
+    // Сумма для Платицыной
+    {% if doctor.surname == "Платицына" or "Платицына" in doctor.surname %}
+    table += '<td>{{ data.doctor_total_sum|floatformat:2 }} ₽</td>';
+    {% else %}
+    table += '<td>-</td>';
+    {% endif %}
+
+    table += '</tr>';
+    {% endfor %}
+
+    // Добавляем итоговые строки с суммами анализов и рентгена
+    table += '<tr><td colspan="8" style="text-align:right"><strong>ИТОГО Анализы:</strong></td><td><strong>{{ total_analyses_sum|floatformat:2 }} ₽</strong></td></tr>';
+    table += '<tr><td colspan="8" style="text-align:right"><strong>ИТОГО Рентген:</strong></td><td><strong>{{ total_xray_sum|floatformat:2 }} ₽</strong></td></tr>';
+
+    table += '</table>';
+
+    // Создаем Blob и скачиваем
+    const blob = new Blob([table], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    {% if is_period %}
+    a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}_по_{{ end_date|date:"Y-m-d" }}.xls';
+    {% else %}
+    a.download = 'Отчет_врачей_{{ start_date|date:"Y-m-d" }}.xls';
+    {% endif %}
+
+    a.href = url;
+    a.click();
+    URL.revokeObjectURL(url);
     }
 
     // Автоматически устанавливаем даты в быстрой форме
@@ -396,19 +434,224 @@
     }
 
     @media print {
-        .btn,
-        .card:not(.doctor-report) {
+        @page {
+            size: A4;
+            margin: 10mm 8mm 10mm 8mm;
+        }
+
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            font-size: 11px !important;
+            line-height: 1.25 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* ВАЖНО: убираем старую схему visibility:hidden/visible */
+        body * {
+            visibility: visible !important;
+        }
+
+        * {
+            box-shadow: none !important;
+        }
+
+        /* Шапка отчёта */
+        .pricing-header {
+            text-align: center !important;
+            margin: 0 0 4mm 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+        }
+
+        /* Убираем bootstrap-отступы у шапки */
+        .pricing-header,
+        .pricing-header.px-3,
+        .pricing-header.py-3,
+        .pricing-header.pt-md-5,
+        .pricing-header.pb-md-4 {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+        }
+
+        .pricing-header h1,
+        .pricing-header .display-6,
+        .pricing-header .display-4 {
+            margin: 0 0 2mm 0 !important;
+            font-size: 20px !important;
+            line-height: 1.15 !important;
+            font-weight: 500 !important;
+        }
+
+        .pricing-header .lead {
+            margin: 0 0 1mm 0 !important;
+            font-size: 11px !important;
+            line-height: 1.2 !important;
+        }
+
+        .pricing-header .small,
+        .pricing-header .text-muted,
+        .pricing-header .text-muted.small {
+            margin: 0 !important;
+            font-size: 9px !important;
+            line-height: 1.1 !important;
+        }
+
+        /* Контейнер */
+        .container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 2mm !important;
+        }
+
+        /* ===== УБИРАЕМ ЛИШНИЕ ВЕРХНИЕ БЛОКИ (они и создают "дыру") ===== */
+        /* 1) Кнопка выбора периода */
+        .container > .row.mb-3 {
             display: none !important;
         }
 
-        .doctor-report {
-            break-inside: avoid;
-            page-break-inside: avoid;
-            border: 1px solid #ddd !important;
+        /* 2) Блок "Быстрый переход" — это первый row.mb-4 внутри content */
+        .container > .row.mb-4:first-of-type {
+            display: none !important;
         }
 
-        h5, h6 {
-            color: black !important;
+        /* 3) Печать/Excel кнопки в шапке основной карточки */
+        .card-header .btn,
+        .card-header button,
+        .btn,
+        button {
+            display: none !important;
+        }
+
+        /* Основной ряд с отчетом (второй row.mb-4) — без лишних отступов */
+        .container > .row.mb-4:last-of-type {
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
+        }
+
+        .container > .row.mb-4:last-of-type > [class*="col"] {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Карточки */
+        .card {
+            border: 1px solid #bbb !important;
+            border-radius: 4px !important;
+            margin: 0 0 4mm 0 !important;
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        .card-header {
+            padding: 2mm 3mm !important;
+            border-bottom: 1px solid #ccc !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+        }
+
+        .card-body {
+            padding: 2.5mm 3mm !important;
+        }
+
+        /* Карточки врачей */
+        .doctor-report {
+            margin: 0 0 3mm 0 !important;
+            padding: 2.5mm !important;
+            border: 1px solid #ccc !important;
+            border-radius: 3px !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .doctor-header {
+            margin-bottom: 2mm !important;
+        }
+
+        /* Итого по врачу (например, зеленый блок у Платицыной) — печатать обязательно */
+        .doctor-report .alert,
+        .doctor-report .alert-success,
+        .doctor-report .alert-info,
+        .doctor-report .alert-warning,
+        .doctor-report .bg-success-subtle,
+        .doctor-report .bg-info-subtle,
+        .doctor-report .bg-warning-subtle {
+            display: block !important;
+            visibility: visible !important;
+            border: 1px solid #bbb !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        /* Итоговый блок за период (анализы / рентген) — печатать обязательно */
+        .row.mt-4,
+        .row.mt-4 * {
+            display: revert !important;
+            visibility: visible !important;
+        }
+
+        .row.mt-4 {
+            margin-top: 3mm !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .row.mt-4 .card {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Компактнее отступы */
+        .mb-4 { margin-bottom: 3mm !important; }
+        .mb-3 { margin-bottom: 2mm !important; }
+        .mb-2 { margin-bottom: 1.5mm !important; }
+        .mb-1 { margin-bottom: 1mm !important; }
+
+        .mt-4 { margin-top: 3mm !important; }
+        .mt-3 { margin-top: 2mm !important; }
+        .mt-2 { margin-top: 1.5mm !important; }
+        .mt-1 { margin-top: 1mm !important; }
+
+        h2, h3, h4, h5, h6 {
+            margin-top: 0 !important;
+            margin-bottom: 1.5mm !important;
+            line-height: 1.2 !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+        }
+
+        p {
+            margin: 0 0 1.2mm 0 !important;
+        }
+
+        ul, ol {
+            margin: 0 0 1.5mm 0 !important;
+            padding-left: 4mm !important;
+        }
+
+        li {
+            margin-bottom: 0.8mm !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Бейджи/счетчики */
+        .badge {
+            font-size: 9px !important;
+            padding: 0.5mm 2mm !important;
+            border-radius: 8px !important;
         }
     }
 </style>
