@@ -279,7 +279,8 @@ def check_procedural_availability(request):
                 return JsonResponse({"error": "Не указана дата"}, status=400)
 
             try:
-                appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
+
+                appointment_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
 
                 # Находим процедурный кабинет (кабинет №6)
                 procedural_cabinet = get_procedural_cabinet()
@@ -302,8 +303,10 @@ def check_procedural_availability(request):
                 elif start_time and end_time:
                     # Или используем переданные время начала и окончания
                     try:
-                        start_time = datetime.strptime(start_time, "%H:%M").time()
-                        end_time = datetime.strptime(end_time, "%H:%M").time()
+                        start_time = datetime.datetime.strptime(
+                            start_time, "%H:%M"
+                        ).time()
+                        end_time = datetime.datetime.strptime(end_time, "%H:%M").time()
                     except ValueError:
                         return JsonResponse(
                             {"error": "Неверный формат времени"}, status=400
