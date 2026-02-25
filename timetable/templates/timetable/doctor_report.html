@@ -434,69 +434,224 @@
     }
 
     @media print {
-        /* Скрываем всё, кроме самого отчета */
-        body * {
-            visibility: hidden;
+        @page {
+            size: A4;
+            margin: 10mm 8mm 10mm 8mm;
         }
 
-        /* Показываем только нужные элементы */
-        .pricing-header,
-        .pricing-header *,
-        .container > .row.mb-4:last-child .card,
-        .container > .row.mb-4:last-child .card *,
-        .doctor-report,
-        .doctor-report *,
-        .row.mt-4,
-        .row.mt-4 * {
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            font-size: 11px !important;
+            line-height: 1.25 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* ВАЖНО: убираем старую схему visibility:hidden/visible */
+        body * {
             visibility: visible !important;
         }
 
-        /* Убираем позиционирование */
-        .pricing-header,
-        .container > .row.mb-4:last-child .card,
-        .doctor-report,
-        .row.mt-4 {
-            position: static !important;
+        * {
+            box-shadow: none !important;
         }
 
-        /* Стили для печати */
+        /* Шапка отчёта */
         .pricing-header {
             text-align: center !important;
-
+            margin: 0 0 4mm 0 !important;
+            padding: 0 !important;
+            min-height: auto !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
         }
 
-        .doctor-report {
-            border: 1px solid #000 !important;
-            margin-bottom: 20px !important;
-            padding: 15px !important;
-            page-break-inside: avoid !important;
+        /* Убираем bootstrap-отступы у шапки */
+        .pricing-header,
+        .pricing-header.px-3,
+        .pricing-header.py-3,
+        .pricing-header.pt-md-5,
+        .pricing-header.pb-md-4 {
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
         }
 
-        .service-item {
-            display: flex !important;
-            justify-content: space-between !important;
-            padding: 5px 0 !important;
-            border-bottom: 1px solid #ccc !important;
+        .pricing-header h1,
+        .pricing-header .display-6,
+        .pricing-header .display-4 {
+            margin: 0 0 2mm 0 !important;
+            font-size: 20px !important;
+            line-height: 1.15 !important;
+            font-weight: 500 !important;
         }
 
-        .badge {
-            border: 1px solid #000 !important;
-            padding: 2px 8px !important;
+        .pricing-header .lead {
+            margin: 0 0 1mm 0 !important;
+            font-size: 11px !important;
+            line-height: 1.2 !important;
         }
 
-        .alert {
-            border: 1px solid #000 !important;
-            margin: 10px 0 !important;
-            padding: 10px !important;
+        .pricing-header .small,
+        .pricing-header .text-muted,
+        .pricing-header .text-muted.small {
+            margin: 0 !important;
+            font-size: 9px !important;
+            line-height: 1.1 !important;
         }
 
+        /* Контейнер */
+        .container {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 !important;
+            padding: 0 2mm !important;
+        }
+
+        /* ===== УБИРАЕМ ЛИШНИЕ ВЕРХНИЕ БЛОКИ (они и создают "дыру") ===== */
+        /* 1) Кнопка выбора периода */
+        .container > .row.mb-3 {
+            display: none !important;
+        }
+
+        /* 2) Блок "Быстрый переход" — это первый row.mb-4 внутри content */
+        .container > .row.mb-4:first-of-type {
+            display: none !important;
+        }
+
+        /* 3) Печать/Excel кнопки в шапке основной карточки */
+        .card-header .btn,
+        .card-header button,
+        .btn,
+        button {
+            display: none !important;
+        }
+
+        /* Основной ряд с отчетом (второй row.mb-4) — без лишних отступов */
+        .container > .row.mb-4:last-of-type {
+            margin: 0 !important;
+            padding: 0 !important;
+            page-break-before: avoid !important;
+            break-before: avoid !important;
+        }
+
+        .container > .row.mb-4:last-of-type > [class*="col"] {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Карточки */
         .card {
-            border: 1px solid #000 !important;
-            margin-bottom: 10px !important;
+            border: 1px solid #bbb !important;
+            border-radius: 4px !important;
+            margin: 0 0 4mm 0 !important;
+            page-break-inside: auto;
+            break-inside: auto;
+        }
+
+        .card-header {
+            padding: 2mm 3mm !important;
+            border-bottom: 1px solid #ccc !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+        }
+
+        .card-body {
+            padding: 2.5mm 3mm !important;
+        }
+
+        /* Карточки врачей */
+        .doctor-report {
+            margin: 0 0 3mm 0 !important;
+            padding: 2.5mm !important;
+            border: 1px solid #ccc !important;
+            border-radius: 3px !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .doctor-header {
+            margin-bottom: 2mm !important;
+        }
+
+        /* Итого по врачу (например, зеленый блок у Платицыной) — печатать обязательно */
+        .doctor-report .alert,
+        .doctor-report .alert-success,
+        .doctor-report .alert-info,
+        .doctor-report .alert-warning,
+        .doctor-report .bg-success-subtle,
+        .doctor-report .bg-info-subtle,
+        .doctor-report .bg-warning-subtle {
+            display: block !important;
+            visibility: visible !important;
+            border: 1px solid #bbb !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+        }
+
+        /* Итоговый блок за период (анализы / рентген) — печатать обязательно */
+        .row.mt-4,
+        .row.mt-4 * {
+            display: revert !important;
+            visibility: visible !important;
         }
 
         .row.mt-4 {
-            margin-top: 30px !important;
+            margin-top: 3mm !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        .row.mt-4 .card {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Компактнее отступы */
+        .mb-4 { margin-bottom: 3mm !important; }
+        .mb-3 { margin-bottom: 2mm !important; }
+        .mb-2 { margin-bottom: 1.5mm !important; }
+        .mb-1 { margin-bottom: 1mm !important; }
+
+        .mt-4 { margin-top: 3mm !important; }
+        .mt-3 { margin-top: 2mm !important; }
+        .mt-2 { margin-top: 1.5mm !important; }
+        .mt-1 { margin-top: 1mm !important; }
+
+        h2, h3, h4, h5, h6 {
+            margin-top: 0 !important;
+            margin-bottom: 1.5mm !important;
+            line-height: 1.2 !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+        }
+
+        p {
+            margin: 0 0 1.2mm 0 !important;
+        }
+
+        ul, ol {
+            margin: 0 0 1.5mm 0 !important;
+            padding-left: 4mm !important;
+        }
+
+        li {
+            margin-bottom: 0.8mm !important;
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
+        /* Бейджи/счетчики */
+        .badge {
+            font-size: 9px !important;
+            padding: 0.5mm 2mm !important;
+            border-radius: 8px !important;
         }
     }
 </style>
