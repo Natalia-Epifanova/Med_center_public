@@ -579,10 +579,23 @@ class AppointmentChainManager {
                 body: JSON.stringify({ date: date, time_slot_id: timeSlotId })
             });
 
-            if (!response.ok) return false;
+            if (!response.ok) {
+                let errText = '';
+                try {
+                    const errData = await response.json();
+                    errText = errData.error || JSON.stringify(errData);
+                } catch (e) {
+                    errText = `HTTP ${response.status}`;
+                }
+                console.warn('checkProceduralAvailability error:', { date, timeSlotId, status: response.status, errText });
+                return false;
+            }
+
             const data = await response.json();
+            console.log('checkProceduralAvailability response:', { date, timeSlotId, data });
             return data.is_available === true;
         } catch (error) {
+            console.error('checkProceduralAvailability fetch exception:', { date, timeSlotId, error });
             return false;
         }
     }
