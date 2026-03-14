@@ -607,26 +607,45 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 self.fields["new_time_slot_id"].initial = self.appointment.time_slot.id
                 self.fields["new_appointment_date"].initial = self.appointment.date
                 # Проверяем, есть ли уже процедурная запись
-            procedural_exists = Appointment.objects.filter(
-                previous_appointment=self.appointment,
-                time_slot__cabinet__number=6,
-            ).exists()
+                # Проверяем, есть ли уже процедурная запись
+                procedural_exists = Appointment.objects.filter(
+                    previous_appointment=self.appointment,
+                    time_slot__cabinet__number=6,
+                ).exists()
 
-            # Если процедурная запись уже есть, делаем чекбокс отмеченным и неактивным
-            if procedural_exists:
-                self.fields["needs_procedural"].initial = True
-                self.fields["needs_procedural"].widget.attrs.update(
-                    {"disabled": "disabled", "title": "Процедурная запись уже создана"}
-                )
+                # Если процедурная запись уже есть, показываем это в форме.
+                # ВАЖНО: блокируем чекбокс только для услуг, где процедурная запись обязательна
+                # (медблокады и аналогичные). Для остальных услуг администратор должен иметь
+                # возможность снять галочку, чтобы связанная процедурная запись была удалена.
+                if procedural_exists:
+                    self.fields["needs_procedural"].initial = True
+
+                    if self._is_medical_blockade_service(self.appointment.service):
+                        self.fields["needs_procedural"].widget.attrs.update(
+                            {
+                                "disabled": "disabled",
+                                "title": "Для этой услуги процедурная запись обязательна",
+                            }
+                        )
 
     def clean(self):
         cleaned_data = super().clean()
+
+        service = cleaned_data.get("service") or (
+            self.instance.service if self.instance else None
+        )
+
         if self.appointment and self.appointment.pk:
             procedural_exists = Appointment.objects.filter(
                 previous_appointment=self.appointment,
                 time_slot__cabinet__number=6,
             ).exists()
-            if procedural_exists:
+
+            # Если процедурная запись уже существует, НЕ нужно всегда
+            # принудительно оставлять её.
+            # Принудительно сохраняем needs_procedural=True только для услуг,
+            # которым процедурный кабинет обязателен (например, медблокады).
+            if procedural_exists and self._is_medical_blockade_service(service):
                 cleaned_data["needs_procedural"] = True
 
         # Проверяем, разрешено ли изменение времени
@@ -672,9 +691,6 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         # ===== ИСПРАВЛЕНИЕ: Проверяем процедурную запись ТОЛЬКО если нужно =====
         needs_procedural = cleaned_data.get("needs_procedural", False)
-        service = cleaned_data.get("service") or (
-            self.instance.service if self.instance else None
-        )
 
         # Проверяем процедурную запись только если:
         # 1. Явно стоит галочка "Занять окошко в процедурном кабинете"
