@@ -1075,6 +1075,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
         """Сохраняет запись с логированием решений по процедурному кабинету"""
         appointment = super().save(commit=False)
         service_changed = False
+        procedural_was_moved = False
 
         original_service = getattr(self.instance, "service", None)
         new_service = self.cleaned_data.get("service") or appointment.service
@@ -1129,7 +1130,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     )
 
                     if old_time_slot.id != new_time_slot.id:
-                        self._move_procedural_appointment(
+                        procedural_was_moved = self._move_procedural_appointment(
                             appointment, old_time_slot, new_time_slot
                         )
 
@@ -1143,16 +1144,26 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 )
 
                 needs_procedural = self.cleaned_data.get("needs_procedural", False)
-                logger.info(
-                    "Сохранение отредактированной записи: перед обработкой процедурной записи appointment_id=%s cleaned_needs_procedural=%s is_medical_blockade=%s",
-                    appointment.id,
-                    needs_procedural,
-                    self._is_medical_blockade_service(
-                        self.cleaned_data.get("service") or appointment.service
-                    ),
+                service = self.cleaned_data.get("service") or appointment.service
+                requires_procedural = (
+                    needs_procedural or self._is_medical_blockade_service(service)
                 )
 
-                self._handle_procedural_appointment(appointment, needs_procedural)
+                logger.info(
+                    "Сохранение отредактированной записи: перед обработкой процедурной записи appointment_id=%s cleaned_needs_procedural=%s is_medical_blockade=%s procedural_was_moved=%s",
+                    appointment.id,
+                    needs_procedural,
+                    self._is_medical_blockade_service(service),
+                    procedural_was_moved,
+                )
+
+                if procedural_was_moved and requires_procedural:
+                    logger.info(
+                        "Сохранение отредактированной записи: связанная процедурная запись уже перенесена, повторная обработка не требуется appointment_id=%s",
+                        appointment.id,
+                    )
+                else:
+                    self._handle_procedural_appointment(appointment, needs_procedural)
 
                 if service_changed and hasattr(self, "_update_procedural_service"):
                     logger.info(
@@ -1282,7 +1293,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 "Перенос процедурной записи: процедурная запись отсутствует, перенос не требуется appointment_id=%s",
                 getattr(appointment, "id", None),
             )
-            return
+            return False
 
         procedural_cabinet = get_procedural_cabinet()
 
@@ -1344,6 +1355,8 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                 "Перенос процедурной записи: старый пустой процедурный слот удалён slot_id=%s",
                 old_slot_id,
             )
+
+        return True
 
     def _update_procedural_service(self, appointment):
         """Всегда обновляет услугу в процедурной записи на ту же что и в основной записи"""
