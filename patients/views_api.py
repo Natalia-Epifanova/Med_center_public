@@ -19,6 +19,7 @@ def check_patient_api(request):
         data = json.loads(request.body)
         surname = data.get("surname", "").strip()
         first_name = data.get("first_name", "").strip()
+        last_name = data.get("last_name", "").strip()
         date_of_birth = data.get("date_of_birth", "")
 
         if not surname or not first_name:
@@ -30,6 +31,9 @@ def check_patient_api(request):
         query = Patient.objects.filter(
             surname__iexact=surname, first_name__iexact=first_name
         )
+
+        if last_name:
+            query = query.filter(last_name__iexact=last_name)
 
         if date_of_birth:
             # Преобразуем строку даты
@@ -64,6 +68,9 @@ def check_patient_api(request):
                     "exists": True,
                     "patient": {
                         "id": existing_patient.id,
+                        "surname": existing_patient.surname,
+                        "first_name": existing_patient.first_name,
+                        "last_name": existing_patient.last_name or "",
                         "full_name": existing_patient.get_full_name(),
                         "card_number": existing_patient.card_number,
                         "phone_number": existing_patient.phone_number,
