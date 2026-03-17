@@ -152,6 +152,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 15. Инициализация выбора анализов крови
     initializeBloodTestSelection();
 
+    // 16. ДОБАВЬТЕ ЭТУ СТРОКУ:
+    initializeXRayWarning(); // Уведомление для рентгеновских услуг
+
 
 });
 
@@ -1446,6 +1449,62 @@ function initializeTimeSlotSelector() {
         return service.text;
     }
 
+    async function updateServicePricesForDate(visitDate) {
+        if (!visitDate) return;
+
+        const serviceSelect = document.getElementById('id_service');
+        const additionalServiceSelect = document.getElementById('id_additional_service');
+
+        // если на странице нет селектов — выходим
+        if (!serviceSelect && !additionalServiceSelect) return;
+
+        try {
+            const response = await fetch('/appointments/api/doctor-services/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    doctor_id: doctorId,
+                    date: visitDate
+                })
+            });
+
+            const data = await response.json();
+            if (!data.success || !data.services) return;
+
+            const servicesMap = new Map();
+            data.services.forEach(s => servicesMap.set(String(s.id), s));
+
+            function patchSelect(selectEl) {
+                if (!selectEl) return;
+                const currentValue = selectEl.value;
+
+                Array.from(selectEl.options).forEach(opt => {
+                    if (!opt.value) return;
+                    const s = servicesMap.get(String(opt.value));
+                    if (!s) return;
+
+                    opt.textContent = `${s.name} (${s.price} руб.)`;
+                    opt.dataset.price = s.price;
+                    if (s.category) opt.dataset.category = s.category;
+                });
+
+                // восстановим выбор
+                selectEl.value = currentValue;
+            }
+
+            patchSelect(serviceSelect);
+            patchSelect(additionalServiceSelect);
+
+            // если у вас есть пересчёт суммы по dataset.price — можно триггернуть change
+            if (serviceSelect) serviceSelect.dispatchEvent(new Event('change'));
+        } catch (e) {
+            // тихо, чтобы не ломать UX
+        }
+    }
+
     // Функция для форматирования выбранного элемента
     function formatServiceSelection(service) {
         return service.text;
@@ -1521,6 +1580,8 @@ function initializeTimeSlotSelector() {
                     onSlotSelect: function(slotData) {
                         selectedSlot = slotData;
 
+                        updateServicePricesForDate(slotData.date);
+
                         if (confirmBtn) confirmBtn.disabled = false;
 
                         const infoDiv = document.getElementById('timeslot-info');
@@ -1576,6 +1637,7 @@ function initializeTimeSlotSelector() {
 
             toggleTimeChangeMode(false);
             updateOriginalDisplay(null);
+            updateServicePricesForDate(originalSlotData.date);
         });
     }
 
@@ -1638,4 +1700,80 @@ function initializeBloodTestSelection() {
 
     // Инициализация при загрузке
     toggleBloodTestSection();
+}
+// Добавьте эту функцию после initializeBloodTestSelection()
+function initializeXRayWarning() {
+    const serviceSelect = document.getElementById('id_service');
+
+    if (!serviceSelect) return;
+
+    // Список рентгеновских услуг
+    const xrayServices = [
+        'Рентгенография грудного отдела позвоночника (в 1ой проекции)',
+        'Рентгенография грудного отдела позвоночника (в 2х проекциях)',
+        'Рентгенография поясничного отдела позвоночника (в 1ой проекции)',
+        'Рентгенография поясничного отдела позвоночника (в 2х проекциях)',
+        'Рентгенография позвоночника с функциональными пробами (грудной отдел)',
+        'Рентгенография позвоночника с функциональными пробами (поясничный отдел)'
+    ];
+
+    // Создаем блок для уведомления, если его нет
+    let xrayWarningDiv = document.getElementById('xray-warning');
+    if (!xrayWarningDiv) {
+        xrayWarningDiv = document.createElement('div');
+        xrayWarningDiv.id = 'xray-warning';
+        xrayWarningDiv.className = 'alert alert-warning mt-3';
+        xrayWarningDiv.style.display = 'none';
+        xrayWarningDiv.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <strong>ВНИМАНИЕ! Рентгенография:</strong><br>
+            СПРОСИТЬ ВЕС и РОСТ!<br>
+            150-50 кг<br>
+            160-60 кг<br>
+            170-70 кг<br>
+            180/190-80 кг<br>
+            Больше 80кг нельзя!<br>
+            Вес не больше роста - 100
+        `;
+
+        // Вставляем после блока с выбором услуги
+        const serviceFormGroup = serviceSelect.closest('.mb-3');
+        if (serviceFormGroup) {
+            serviceFormGroup.parentNode.insertBefore(xrayWarningDiv, serviceFormGroup.nextSibling);
+        }
+    }
+
+    // Функция проверки выбранной услуги
+    function checkXRayService() {
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        if (!selectedOption || !selectedOption.value) {
+            xrayWarningDiv.style.display = 'none';
+            return;
+        }
+
+        const serviceName = selectedOption.text.trim();
+
+        // Проверяем, является ли услуга рентгеновской
+        const isXRay = xrayServices.some(xray =>
+            serviceName.toLowerCase().includes(xray.toLowerCase()) ||
+            xray.toLowerCase().includes(serviceName.toLowerCase())
+        );
+
+        if (isXRay) {
+            xrayWarningDiv.style.display = 'block';
+        } else {
+            xrayWarningDiv.style.display = 'none';
+        }
+    }
+
+    // Добавляем обработчик события
+    serviceSelect.addEventListener('change', checkXRayService);
+
+    // Также отслеживаем выбор через Select2
+    $(serviceSelect).on('select2:select', function(e) {
+        setTimeout(checkXRayService, 100);
+    });
+
+    // Проверяем при загрузке, если услуга уже выбрана
+    setTimeout(checkXRayService, 500);
 }

@@ -3,7 +3,27 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.db import transaction
 
-from .models import TimeSlot
+from .models import TimeSlot, MedicalServicePrice
+
+
+def get_service_price_on_date(service, target_date):
+    """
+    Возвращает цену услуги, актуальную на target_date.
+    Fallback: если истории цен нет — возвращаем service.price (текущее поле).
+    """
+    if not service or not target_date:
+        return getattr(service, "price", 0) or 0
+
+    price_obj = (
+        MedicalServicePrice.objects.filter(service=service, valid_from__lte=target_date)
+        .order_by("-valid_from")
+        .first()
+    )
+    if price_obj:
+        return price_obj.price
+
+    # Fallback на старое поле
+    return service.price
 
 
 class TimeSlotService:

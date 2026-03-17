@@ -436,7 +436,7 @@
                                                             {% if appointment.patient.insurance_company %}
                                                                 ({{ appointment.patient.insurance_company }} карта {{ appointment.patient.card_number_IP }})
                                                             {% else %}
-                                                                (карта {{ appointment.patient.card_number_IP }})
+                                                                (карта ИП {{ appointment.patient.card_number_IP }})
                                                             {% endif %}
                                                         </small>
                                                     {% endif %}
@@ -664,6 +664,10 @@
             <form method="post" action="{% url 'timetable:emergency_slot_create' %}">
                 {% csrf_token %}
                 <input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">
+                <div id="emergency-slot-errors" class="alert alert-danger mx-3 mt-3" style="display: none;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="emergency-slot-error-message"></span>
+                </div>
                 <div class="modal-body">
                     <div class="row mb-3">
                         <div class="col-md-6">

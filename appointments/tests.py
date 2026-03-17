@@ -1,0 +1,465 @@
+import json
+from django.core.cache import cache
+from datetime import date, time
+
+from django.test import TestCase
+
+from appointments.forms.forms import AppointmentSimpleEditForm, AppointmentForm
+from appointments.models import Appointment, AppointmentChain
+from patients.models import Patient
+from timetable.models import (
+    Cabinet,
+    Doctor,
+    MedicalService,
+    MedicalServiceCategory,
+    TimeSlot,
+)
+
+
+class AppointmentSimpleEditFormTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.visit_date = date(2026, 3, 17)
+
+        self.doctor_cabinet = Cabinet.objects.create(
+            number=1,
+            name_of_cabinet="Кабинет врача",
+        )
+        self.procedural_cabinet = Cabinet.objects.create(
+            number=6,
+            name_of_cabinet="Процедурный кабинет",
+        )
+
+        self.doctor = Doctor.objects.create(
+            first_name="Иван",
+            last_name="Иванович",
+            surname="Петров",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[
+                MedicalServiceCategory.MEDICAL_BLOCKADES,
+                MedicalServiceCategory.JOINT_ULTRASOUND,
+            ],
+        )
+
+        self.nurse = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Сергеевна",
+            surname="Медсестра",
+            specialization=Doctor.DoctorSpecialization.NURSE,
+            provided_services=[],
+        )
+
+        self.blockade_service = MedicalService.objects.create(
+            code="BL-001",
+            name="Околосуставное введение препарата",
+            price=1500,
+            category=MedicalServiceCategory.MEDICAL_BLOCKADES,
+            is_active=True,
+        )
+
+        self.us_service = MedicalService.objects.create(
+            code="US-001",
+            name="УЗИ коленного сустава",
+            price=1200,
+            category=MedicalServiceCategory.JOINT_ULTRASOUND,
+            is_active=True,
+        )
+
+        self.patient = Patient.objects.create(
+            surname="Сидорова",
+            first_name="Мария",
+            last_name="Ивановна",
+            date_of_birth=date(1985, 5, 20),
+        )
+
+        self.main_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(9, 0),
+            end_time=time(9, 10),
+            slot_type="working",
+        )
+
+        self.main_appointment = Appointment.objects.create(
+            time_slot=self.main_slot,
+            patient=self.patient,
+            service=self.blockade_service,
+            insurance_type=Appointment.InsuranceType.PAID,
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            comment="Основная запись",
+        )
+
+        self.procedural_slot = TimeSlot.objects.create(
+            doctor=self.nurse,
+            cabinet=self.procedural_cabinet,
+            date=self.visit_date,
+            start_time=time(9, 0),
+            end_time=time(9, 10),
+            slot_type="working",
+        )
+
+        self.procedural_appointment = Appointment.objects.create(
+            time_slot=self.procedural_slot,
+            patient=self.patient,
+            service=self.blockade_service,
+            insurance_type=Appointment.InsuranceType.PAID,
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            comment=self.doctor.surname,
+            is_consecutive=True,
+            previous_appointment=self.main_appointment,
+        )
+
+    def test_changing_procedural_service_to_regular_deletes_procedural_appointment(
+        self,
+    ):
+        form = AppointmentSimpleEditForm(
+            instance=self.main_appointment,
+            data={
+                "service": self.us_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "comment": "Меняем услугу на обычную",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        updated_appointment = form.save()
+
+        self.assertEqual(updated_appointment.service_id, self.us_service.id)
+
+        self.assertFalse(
+            Appointment.objects.filter(
+                previous_appointment=updated_appointment,
+                time_slot__cabinet__number=6,
+            ).exists()
+        )
+
+        self.assertFalse(TimeSlot.objects.filter(id=self.procedural_slot.id).exists())
+
+    def test_changing_regular_service_to_procedural_creates_procedural_appointment(
+        self,
+    ):
+        self.procedural_appointment.delete()
+        self.procedural_slot.delete()
+
+        self.main_appointment.service = self.us_service
+        self.main_appointment.save()
+
+        form = AppointmentSimpleEditForm(
+            instance=self.main_appointment,
+            data={
+                "service": self.blockade_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "comment": "Меняем услугу на процедурную",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        updated_appointment = form.save()
+
+        self.assertEqual(updated_appointment.service_id, self.blockade_service.id)
+
+        procedural_appointment = Appointment.objects.filter(
+            previous_appointment=updated_appointment,
+            time_slot__cabinet__number=6,
+        ).first()
+
+        self.assertIsNotNone(procedural_appointment)
+        self.assertEqual(procedural_appointment.patient_id, self.patient.id)
+        self.assertEqual(procedural_appointment.service_id, self.blockade_service.id)
+        self.assertEqual(procedural_appointment.time_slot.date, self.visit_date)
+        self.assertEqual(procedural_appointment.time_slot.start_time, time(9, 0))
+        self.assertEqual(procedural_appointment.time_slot.end_time, time(9, 10))
+
+    def test_changing_time_moves_linked_procedural_appointment(self):
+        """При изменении времени основной записи связанная процедурная запись переносится на новый слот."""
+        new_main_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(9, 10),
+            end_time=time(9, 20),
+            slot_type="working",
+        )
+
+        old_procedural_slot_id = self.procedural_slot.id
+        procedural_appointment_id = self.procedural_appointment.id
+
+        form = AppointmentSimpleEditForm(
+            instance=self.main_appointment,
+            data={
+                "service": self.blockade_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "comment": "Меняем время записи",
+                "allow_time_change": "on",
+                "new_time_slot_id": new_main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "needs_procedural": "on",
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        updated_appointment = form.save()
+
+        self.assertEqual(updated_appointment.time_slot_id, new_main_slot.id)
+
+        procedural_appointment = Appointment.objects.get(id=procedural_appointment_id)
+        self.assertEqual(
+            procedural_appointment.previous_appointment_id, updated_appointment.id
+        )
+        self.assertEqual(procedural_appointment.time_slot.date, self.visit_date)
+        self.assertEqual(procedural_appointment.time_slot.start_time, time(9, 10))
+        self.assertEqual(procedural_appointment.time_slot.end_time, time(9, 20))
+        self.assertEqual(procedural_appointment.time_slot.cabinet.number, 6)
+
+        self.assertFalse(TimeSlot.objects.filter(id=old_procedural_slot_id).exists())
+
+
+class AppointmentFormTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.visit_date = date(2026, 3, 17)
+
+        self.doctor_cabinet = Cabinet.objects.create(
+            number=1,
+            name_of_cabinet="Кабинет врача",
+        )
+        self.procedural_cabinet = Cabinet.objects.create(
+            number=6,
+            name_of_cabinet="Процедурный кабинет",
+        )
+
+        self.doctor = Doctor.objects.create(
+            first_name="Иван",
+            last_name="Иванович",
+            surname="Петров",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[
+                MedicalServiceCategory.MEDICAL_BLOCKADES,
+                MedicalServiceCategory.JOINT_ULTRASOUND,
+            ],
+        )
+
+        self.nurse = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Сергеевна",
+            surname="Медсестра",
+            specialization=Doctor.DoctorSpecialization.NURSE,
+            provided_services=[],
+        )
+
+        self.us_service = MedicalService.objects.create(
+            code="US-001",
+            name="УЗИ коленного сустава",
+            price=1200,
+            category=MedicalServiceCategory.JOINT_ULTRASOUND,
+            is_active=True,
+        )
+
+        self.main_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(10, 0),
+            end_time=time(10, 10),
+            slot_type="working",
+        )
+
+    def test_creating_regular_appointment_does_not_create_procedural_appointment(self):
+        """Создание обычной записи не должно создавать связанную процедурную запись."""
+        form = AppointmentForm(
+            time_slot=self.main_slot,
+            doctor=self.doctor,
+            data={
+                "service": self.us_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Обычная запись без процедурки",
+                "appointment_chain_type": "none",
+                "additional_appointments_data": "",
+                "procedural_appointments_data": "",
+                "needs_procedural": "",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "selected_blood_tests_input": "",
+                "total_sum": "1200.00",
+                "surname": "Сидорова",
+                "first_name": "Мария",
+                "last_name": "Ивановна",
+                "date_of_birth": "1985-05-20",
+                "phone": "",
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        appointment = form.save()
+
+        self.assertEqual(appointment.service_id, self.us_service.id)
+        self.assertEqual(appointment.time_slot_id, self.main_slot.id)
+
+        self.assertFalse(
+            Appointment.objects.filter(
+                previous_appointment=appointment,
+                time_slot__cabinet__number=6,
+            ).exists()
+        )
+
+    def test_creating_appointment_with_needs_procedural_creates_linked_procedural_appointment(
+        self,
+    ):
+        """Создание записи с флагом needs_procedural должно создавать связанную процедурную запись."""
+        blockade_service = MedicalService.objects.create(
+            code="BL-001",
+            name="Блокада коленного сустава",
+            price=1500,
+            category=MedicalServiceCategory.MEDICAL_BLOCKADES,
+            is_active=True,
+        )
+
+        form = AppointmentForm(
+            time_slot=self.main_slot,
+            doctor=self.doctor,
+            data={
+                "service": blockade_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Запись с процедуркой",
+                "appointment_chain_type": "none",
+                "additional_appointments_data": "",
+                "procedural_appointments_data": "",
+                "needs_procedural": "on",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "selected_blood_tests_input": "",
+                "total_sum": "1500.00",
+                "surname": "Сидорова",
+                "first_name": "Мария",
+                "last_name": "Ивановна",
+                "date_of_birth": "1985-05-20",
+                "phone": "",
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        appointment = form.save()
+
+        self.assertEqual(appointment.service_id, blockade_service.id)
+        self.assertEqual(appointment.time_slot_id, self.main_slot.id)
+
+        procedural_appointment = Appointment.objects.filter(
+            previous_appointment=appointment,
+            time_slot__cabinet__number=6,
+        ).first()
+
+        self.assertIsNotNone(procedural_appointment)
+        self.assertEqual(procedural_appointment.patient_id, appointment.patient_id)
+        self.assertEqual(procedural_appointment.service_id, blockade_service.id)
+        self.assertEqual(procedural_appointment.time_slot.date, self.visit_date)
+        self.assertEqual(procedural_appointment.time_slot.start_time, time(10, 0))
+        self.assertEqual(procedural_appointment.time_slot.end_time, time(10, 10))
+
+    def test_creating_appointment_with_additional_doctor_creates_chain_and_related_appointment(
+        self,
+    ):
+        """Создание записи с дополнительным врачом должно создавать связанную дополнительную запись и цепочку."""
+        second_doctor_cabinet = Cabinet.objects.create(
+            number=2,
+            name_of_cabinet="Кабинет второго врача",
+        )
+
+        second_doctor = Doctor.objects.create(
+            first_name="Елена",
+            last_name="Петровна",
+            surname="Епифанова",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[MedicalServiceCategory.JOINT_ULTRASOUND],
+        )
+
+        second_service = MedicalService.objects.create(
+            code="US-002",
+            name="УЗИ плечевого сустава",
+            price=2000,
+            category=MedicalServiceCategory.JOINT_ULTRASOUND,
+            is_active=True,
+        )
+
+        second_slot = TimeSlot.objects.create(
+            doctor=second_doctor,
+            cabinet=second_doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(10, 10),
+            end_time=time(10, 20),
+            slot_type="working",
+        )
+
+        additional_data = json.dumps(
+            [
+                {
+                    "index": 1,
+                    "doctor_id": second_doctor.id,
+                    "service_id": second_service.id,
+                    "time_slot_id": second_slot.id,
+                    "comment": "Доп. запись к другому врачу",
+                    "insurance_type": Appointment.InsuranceType.PAID,
+                }
+            ]
+        )
+
+        form = AppointmentForm(
+            time_slot=self.main_slot,
+            doctor=self.doctor,
+            data={
+                "service": self.us_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Основная запись",
+                "appointment_chain_type": "another_doctor",
+                "additional_appointments_data": additional_data,
+                "procedural_appointments_data": "[]",
+                "needs_procedural": "",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "selected_blood_tests_input": "",
+                "total_sum": "1200.00",
+                "surname": "Сидорова",
+                "first_name": "Мария",
+                "last_name": "Ивановна",
+                "date_of_birth": "1985-05-20",
+                "phone": "",
+            },
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+
+        main_appointment = form.save()
+
+        related_appointment = Appointment.objects.filter(
+            patient=main_appointment.patient,
+            time_slot=second_slot,
+            is_chain_main=False,
+        ).first()
+
+        self.assertIsNotNone(related_appointment)
+        self.assertEqual(related_appointment.service_id, second_service.id)
+
+        chain = AppointmentChain.objects.filter(
+            main_appointment=main_appointment,
+            related_appointment=related_appointment,
+        ).first()
+
+        self.assertIsNotNone(chain)
+        self.assertEqual(chain.order, 1)

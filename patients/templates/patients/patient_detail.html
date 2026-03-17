@@ -164,6 +164,8 @@
                    class="btn btn-outline-primary">
                     <i class="fas fa-edit"></i> Редактировать
                 </a>
+                {% endif %}
+                {% if is_admin %}
                 <a href="{% url 'patients:patient_delete' patient.pk %}"
                    class="btn btn-outline-danger">
                     <i class="fas fa-trash"></i> Удалить пациента

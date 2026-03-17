@@ -263,21 +263,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const originalDate = document.getElementById('js-original-date').value;
     const availableSlotsUrl = "{% url 'appointments:api_available_slots_for_doctor' %}";
 
-    if (!window.AppointmentUtils || !window.AppointmentUtils.TimeSlotSelector) {
-        console.error('TimeSlotSelector not found');
-        return;
-    }
 
-    if (!window.AppointmentUtils || !window.AppointmentUtils.TimeSlotSelector) {
-        console.error('TimeSlotSelector not found');
-        return;
-    }
-
-    // Получаем элементы для автоматического выставления чекбокса
+    // Получаем элементы для автоматического управления чекбоксом процедурного кабинета
     const serviceSelect = document.getElementById('id_service');
     const proceduralCheckbox = document.getElementById('id_needs_procedural');
 
-    // Функция для проверки, является ли услуга медблокадой
     function isMedicalBlockadeService(serviceName) {
         if (!serviceName) return false;
 
@@ -291,47 +281,69 @@ document.addEventListener('DOMContentLoaded', function() {
         return blockadeKeywords.some(keyword => serviceLower.includes(keyword));
     }
 
-    // Автоматически выставляем чекбокс при выборе услуги
-    if (serviceSelect && proceduralCheckbox && !proceduralCheckbox.disabled) {
-        serviceSelect.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            if (selectedOption && selectedOption.text) {
-                if (isMedicalBlockadeService(selectedOption.text)) {
-                    proceduralCheckbox.checked = true;
+    function showProceduralInfo(message) {
+        if (!proceduralCheckbox) return;
 
-                    // Показываем уведомление
-                    const alertDiv = document.createElement('div');
-                    alertDiv.className = 'alert alert-info mt-2';
-                    alertDiv.innerHTML = `
-                        <i class="fas fa-info-circle"></i>
-                        <strong>Автоматически выбрано:</strong>
-                        Для услуги "${selectedOption.text}" требуется создание записи в процедурном кабинете.
-                    `;
-
-                    // Удаляем предыдущее уведомление если есть
-                    const existingAlert = proceduralCheckbox.parentNode.querySelector('.alert');
-                    if (existingAlert) {
-                        existingAlert.remove();
-                    }
-
-                    proceduralCheckbox.parentNode.appendChild(alertDiv);
-
-                    // Убираем уведомление через 5 секунд
-                    setTimeout(() => {
-                        alertDiv.remove();
-                    }, 5000);
-                }
-            }
-        });
-
-        // Проверяем текущую выбранную услугу при загрузке
-        if (serviceSelect.value) {
-            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-            if (selectedOption && selectedOption.text && isMedicalBlockadeService(selectedOption.text)) {
-                proceduralCheckbox.checked = true;
-            }
+        const parent = proceduralCheckbox.parentNode;
+        const existingAlert = parent.querySelector('.procedural-service-alert');
+        if (existingAlert) {
+            existingAlert.remove();
         }
+
+        if (!message) return;
+
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-info mt-2 procedural-service-alert';
+        alertDiv.innerHTML = `
+            <i class="fas fa-info-circle"></i>
+            <strong>Автоматически выбрано:</strong>
+            ${message}
+        `;
+        parent.appendChild(alertDiv);
     }
+
+    function syncProceduralCheckbox() {
+        if (!serviceSelect || !proceduralCheckbox) return;
+
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        const selectedText = selectedOption && selectedOption.text ? selectedOption.text : '';
+        const isBlockade = isMedicalBlockadeService(selectedText);
+        const wasAutoDisabled = proceduralCheckbox.dataset.autoDisabled === 'true';
+
+        if (isBlockade) {
+            proceduralCheckbox.checked = true;
+            proceduralCheckbox.disabled = true;
+            proceduralCheckbox.dataset.autoDisabled = 'true';
+            showProceduralInfo(`Для услуги "${selectedText}" требуется создание записи в процедурном кабинете.`);
+            return;
+        }
+
+        if (wasAutoDisabled) {
+            proceduralCheckbox.checked = false;
+        }
+
+        proceduralCheckbox.disabled = false;
+        proceduralCheckbox.dataset.autoDisabled = 'false';
+        showProceduralInfo('');
+    }
+
+    if (proceduralCheckbox) {
+        proceduralCheckbox.dataset.autoDisabled = proceduralCheckbox.disabled ? 'true' : 'false';
+    }
+
+    if (serviceSelect && proceduralCheckbox) {
+        serviceSelect.addEventListener('change', syncProceduralCheckbox);
+        syncProceduralCheckbox();
+    }
+
+    if (!window.AppointmentUtils || !window.AppointmentUtils.TimeSlotSelector) {
+        console.error('TimeSlotSelector not found');
+        return;
+    }
+
+
+
+
 
     // Проверка доступности процедурного кабинета при изменении времени
     async function checkProceduralAvailability(timeSlotId, date) {
@@ -416,6 +428,100 @@ document.addEventListener('DOMContentLoaded', function() {
             if (originalCabinetSpan) {
                 originalCabinetSpan.textContent = originalSlotData.cabinet;
             }
+        }
+    }
+    // ====== ДОБАВИТЬ: обновление цен услуг по выбранной дате ======
+    async function updateServicePricesForDate(visitDate) {
+        if (!visitDate) return;
+
+        const serviceSelect = document.getElementById('id_service');
+        if (!serviceSelect) return;
+
+        // doctor_id берём из data-атрибута (ниже покажу, как добавить), либо из hidden/input
+        let doctorIdForApi = serviceSelect.dataset.doctorId || doctorId;
+
+        // fallback-варианты, если data-doctor-id не добавите
+        if (!doctorId) {
+            const doctorInput = document.getElementById('id_doctor');
+            if (doctorInput) doctorId = doctorInput.value;
+        }
+        if (!doctorId) {
+            const hiddenDoctor = document.querySelector('input[name="doctor_id"]');
+            if (hiddenDoctor) doctorId = hiddenDoctor.value;
+        }
+
+        if (!doctorId) {
+            console.warn('Не найден doctor_id для обновления цен услуг');
+            return;
+        }
+
+        // CSRF
+        let csrfToken = '';
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfInput) csrfToken = csrfInput.value;
+
+        try {
+            const response = await fetch('/appointments/api/doctor-services/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    doctor_id: doctorIdForApi,
+                    date: visitDate
+                })
+            });
+
+            const data = await response.json();
+
+            if (!data.success || !Array.isArray(data.services)) {
+                console.warn('API услуг вернул неожиданный ответ:', data);
+                return;
+            }
+
+            const servicesMap = new Map();
+            data.services.forEach(s => servicesMap.set(String(s.id), s));
+
+            // Сохраним текущий выбор
+            const currentValue = serviceSelect.value;
+
+            // Обновим подписи option
+            Array.from(serviceSelect.options).forEach(opt => {
+                if (!opt.value) return; // пропускаем пустую опцию
+
+                const serviceData = servicesMap.get(String(opt.value));
+                if (!serviceData) return;
+
+                // Формат подписи как у вас в форме редактирования
+                opt.textContent = `${serviceData.name} - ${serviceData.price} руб.`;
+                opt.dataset.price = serviceData.price;
+            });
+
+            // Восстановим выбранное значение
+            serviceSelect.value = currentValue;
+
+            // Если есть логика, завязанная на change (например обновление подписи/суммы)
+            serviceSelect.dispatchEvent(new Event('change'));
+
+            // (Опционально) Обновляем строку "Текущая услуга: ..."
+            // Ищем элемент под select по тексту/классу — если структура шаблона немного отличается, подправьте селектор.
+            const currentServiceInfo =
+                serviceSelect.closest('.form-group, .mb-3, .form-group-custom')?.querySelector('small, .form-text')
+                || serviceSelect.parentElement.querySelector('small, .form-text');
+
+            if (currentServiceInfo) {
+                const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+                if (selectedOption && selectedOption.value) {
+                    const selectedServiceData = servicesMap.get(String(selectedOption.value));
+                    if (selectedServiceData) {
+                        currentServiceInfo.textContent = `Текущая услуга: ${selectedServiceData.name} (${selectedServiceData.price} руб.)`;
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('Ошибка при обновлении цен услуг:', error);
         }
     }
 
@@ -533,7 +639,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Ошибка сохранения выбранного времени');
                 return;
             }
-
+            updateServicePricesForDate(selectedSlot.date);
             toggleTimeChangeMode(false);
             updateOriginalDisplay(selectedSlot);
         });

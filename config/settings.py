@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv()
 
+LOGS_DIR = BASE_DIR / "logs"
+LOGS_DIR.mkdir(exist_ok=True)
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 DEBUG = os.getenv("DEBUG")
@@ -133,4 +136,65 @@ CACHES = {
         "LOCATION": "unique-snowflake",
         "TIMEOUT": 300,  # 5 минут по умолчанию для всех кэшей
     }
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {name} {module} | {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} | {name} | {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+        "app_file": {
+            "class": "logging.FileHandler",
+            "filename": LOGS_DIR / "app.log",
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+        "errors_file": {
+            "class": "logging.FileHandler",
+            "filename": LOGS_DIR / "errors.log",
+            "formatter": "verbose",
+            "level": "ERROR",
+            "encoding": "utf-8",
+        },
+        "appointments_file": {
+            "class": "logging.FileHandler",
+            "filename": LOGS_DIR / "appointments.log",
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
+    },
+    "root": {
+        "handlers": ["console", "app_file", "errors_file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "app_file", "errors_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console", "errors_file"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "appointments": {
+            "handlers": ["console", "appointments_file", "errors_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
 }

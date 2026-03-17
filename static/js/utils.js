@@ -71,7 +71,7 @@
                 if (!serviceName) return false;
 
                 const serviceNameLower = serviceName.toLowerCase();
-                const insolesKeywords = ["плантонграфия", "плантонгр", "manufacture_of_insoles"];
+                const insolesKeywords = ["плантография", "плантогр", "manufacture_of_insoles"];
 
                 return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
             },
@@ -96,7 +96,7 @@
                 if (isPishchelev && slotDuration === 20 && !isInsolesServiceValue) {
                     return {
                         allowed: false,
-                        message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантонграфию. Выберите услугу "Плантонграфия" или 30-минутный интервал.'
+                        message: 'Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантографию. Выберите услугу "Плантография" или 30-минутный интервал.'
                     };
                 }
 
@@ -267,6 +267,7 @@
                         button.addEventListener('click', async function() {
                             const surname = document.getElementById('id_surname')?.value.trim();
                             const firstName = document.getElementById('id_first_name')?.value.trim();
+                            const lastName = document.getElementById('id_last_name')?.value.trim();
                             const dateOfBirth = document.getElementById('id_date_of_birth')?.value;
 
                             if (!surname || !firstName) {
@@ -283,6 +284,7 @@
                             resultContainer.style.display = 'block';
 
                             const requestData = { surname, first_name: firstName };
+                            if (lastName) requestData.last_name = lastName;
                             if (dateOfBirth) requestData.date_of_birth = dateOfBirth;
 
                             try {
@@ -811,7 +813,7 @@ AppointmentUtils.PishchelevValidator = {
     isInsolesService: function(serviceName) {
         if (!serviceName) return false;
         const serviceNameLower = serviceName.toLowerCase();
-        const insolesKeywords = ["плантонграфия", "плантон", "manufacture_of_insoles"];
+        const insolesKeywords = ["плантография", "планто", "manufacture_of_insoles"];
         return insolesKeywords.some(keyword => serviceNameLower.includes(keyword));
     },
 
@@ -857,7 +859,7 @@ AppointmentUtils.PishchelevValidator = {
         if (isPishchelev && slotDuration === 20 && !isInsolesService) {
             return {
                 valid: false,
-                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантонграфию!\n\nВыберите услугу "Плантонграфия" или выберите 30-минутный интервал.'
+                message: '❌ Врач Пищелев П.В. на 20-минутные интервалы принимает ТОЛЬКО на плантографию!\n\nВыберите услугу "Плантография" или выберите 30-минутный интервал.'
             };
         }
 
