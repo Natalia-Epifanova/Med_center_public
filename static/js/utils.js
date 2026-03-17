@@ -267,6 +267,7 @@
                         button.addEventListener('click', async function() {
                             const surname = document.getElementById('id_surname')?.value.trim();
                             const firstName = document.getElementById('id_first_name')?.value.trim();
+                            const lastName = document.getElementById('id_last_name')?.value.trim();
                             const dateOfBirth = document.getElementById('id_date_of_birth')?.value;
 
                             if (!surname || !firstName) {
@@ -283,6 +284,7 @@
                             resultContainer.style.display = 'block';
 
                             const requestData = { surname, first_name: firstName };
+                            if (lastName) requestData.last_name = lastName;
                             if (dateOfBirth) requestData.date_of_birth = dateOfBirth;
 
                             try {
