@@ -206,7 +206,7 @@
                                     {{ appointment.time_slot.date|date:"d.m.Y" }} -
                                     {{ appointment.doctor.surname }} -
                                     {{ appointment.service.name }} -
-                                    {{ appointment.service.price }} руб.
+                                    {{ appointment.price_at_appointment|default:appointment.service.price }} руб.
                                 </option>
                                 {% endfor %}
                             </select>
