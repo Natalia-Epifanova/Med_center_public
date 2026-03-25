@@ -198,7 +198,7 @@ class DocumentGenerator:
         dates = []
 
         for i, appointment in enumerate(appointments, 1):
-            service_price = appointment.service.price
+            service_price = appointment.actual_price
             if isinstance(service_price, str):
                 try:
                     service_price = float(service_price)
@@ -266,7 +266,7 @@ class DocumentGenerator:
 
         # Проверяем, существует ли appointment
         if appointment and appointment.doctor:
-            service_price = appointment.service.price if appointment.service else 0
+            service_price = appointment.actual_price if appointment.service else 0
             doctor_short_name = DocumentGenerator.get_doctor_short_name(
                 appointment.doctor
             )
