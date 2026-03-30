@@ -24,6 +24,26 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    {% if messages %}
+                    <div class="messages mb-4">
+                        {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger mb-4">
+                        {% for error in form.non_field_errors %}
+                        <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     <div class="row">
                         <div class="col-md-8">
                             <p class="mb-3">У пациента есть предыдущие приемы. Вы можете скопировать данные из них.</p>
@@ -449,11 +469,26 @@ textarea.form-control {
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const treatmentForm = document.getElementById('treatmentForm');
+    const submitButton = treatmentForm ? treatmentForm.querySelector('button[type="submit"]') : null;
+    const initialSubmitButtonHtml = submitButton ? submitButton.innerHTML : '';
     const mkb10Search = document.getElementById('mkb10Search');
     const mkb10SearchBtn = document.getElementById('mkb10SearchBtn');
     const mkb10Results = document.getElementById('mkb10Results');
     const mkb10ResultsList = document.getElementById('mkb10ResultsList');
     const mkb10Select = document.getElementById('id_mkb10_diagnoses');
+    const isCreateMode = {% if object %}false{% else %}true{% endif %};
+    const treatmentDraftKey = "{% if object %}treatment-draft:update:{{ object.id }}{% else %}treatment-draft:create:{{ appointment.id }}{% endif %}";
+    const treatmentDraftFields = [
+        'id_complaints',
+        'id_life_anamnesis',
+        'id_disease_anamnesis',
+        'id_objective_status',
+        'id_additional_surveys',
+        'id_diagnosis',
+        'id_recommendations',
+        'id_mkb10_diagnoses'
+    ];
 
     // Функция для поиска диагнозов МКБ-10
     async function searchMKB10(query) {
@@ -564,6 +599,124 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 3000);
     }
 
+    function getFieldValue(field) {
+        if (!field) {
+            return null;
+        }
+
+        if (field.tagName === 'SELECT' && field.multiple) {
+            return Array.from(field.selectedOptions).map(option => option.value);
+        }
+
+        if (field.type === 'checkbox') {
+            return field.checked;
+        }
+
+        return field.value;
+    }
+
+    function setFieldValue(field, value) {
+        if (!field || value === null || value === undefined) {
+            return;
+        }
+
+        if (field.tagName === 'SELECT' && field.multiple) {
+            const selectedValues = Array.isArray(value) ? value.map(String) : [];
+            Array.from(field.options).forEach(option => {
+                option.selected = selectedValues.includes(option.value);
+            });
+            field.dispatchEvent(new Event('change'));
+            return;
+        }
+
+        if (field.type === 'checkbox') {
+            field.checked = Boolean(value);
+            return;
+        }
+
+        field.value = value;
+    }
+
+    function hasMeaningfulFormData() {
+        return treatmentDraftFields.some(fieldId => {
+            const field = document.getElementById(fieldId);
+            const value = getFieldValue(field);
+
+            if (Array.isArray(value)) {
+                return value.length > 0;
+            }
+
+            if (typeof value === 'boolean') {
+                return value;
+            }
+
+            return typeof value === 'string' && value.trim() !== '';
+        });
+    }
+
+    function saveTreatmentDraft() {
+        if (!isCreateMode || !treatmentForm) {
+            return;
+        }
+
+        const draft = {
+            savedAt: new Date().toISOString(),
+            fields: {},
+        };
+
+        treatmentDraftFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            draft.fields[fieldId] = getFieldValue(field);
+        });
+
+        localStorage.setItem(treatmentDraftKey, JSON.stringify(draft));
+    }
+
+    function restoreTreatmentDraft() {
+        if (!isCreateMode || !treatmentForm) {
+            return;
+        }
+
+        const rawDraft = localStorage.getItem(treatmentDraftKey);
+        if (!rawDraft || hasMeaningfulFormData()) {
+            return;
+        }
+
+        try {
+            const draft = JSON.parse(rawDraft);
+            const fields = draft.fields || {};
+
+            Object.entries(fields).forEach(([fieldId, value]) => {
+                setFieldValue(document.getElementById(fieldId), value);
+            });
+
+            showToast('Черновик приема восстановлен', 'warning');
+        } catch (error) {
+            console.error('Ошибка восстановления черновика приема:', error);
+            localStorage.removeItem(treatmentDraftKey);
+        }
+    }
+
+    function lockSubmitButton() {
+        if (!submitButton) {
+            return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.dataset.locked = 'true';
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохраняем...';
+    }
+
+    function unlockSubmitButton() {
+        if (!submitButton) {
+            return;
+        }
+
+        submitButton.disabled = false;
+        submitButton.dataset.locked = 'false';
+        submitButton.innerHTML = initialSubmitButtonHtml;
+    }
+
     // Обработчики событий
     if (mkb10SearchBtn) {
         mkb10SearchBtn.addEventListener('click', function() {
@@ -589,6 +742,36 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Закрытие результатов поиска при клике вне области
+    if (isCreateMode && treatmentForm) {
+        restoreTreatmentDraft();
+
+        treatmentDraftFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (!field) {
+                return;
+            }
+
+            field.addEventListener('input', saveTreatmentDraft);
+            field.addEventListener('change', saveTreatmentDraft);
+        });
+
+        treatmentForm.addEventListener('submit', function(event) {
+            if (submitButton && submitButton.dataset.locked === 'true') {
+                event.preventDefault();
+                return;
+            }
+
+            saveTreatmentDraft();
+            lockSubmitButton();
+
+            // If the request fails before navigation, let the user retry.
+            setTimeout(unlockSubmitButton, 15000);
+        });
+
+        window.addEventListener('pageshow', unlockSubmitButton);
+        window.addEventListener('beforeunload', saveTreatmentDraft);
+    }
+
     document.addEventListener('click', function(e) {
         if (!mkb10Results.contains(e.target) && e.target !== mkb10Search && e.target !== mkb10SearchBtn) {
             mkb10Results.style.display = 'none';
@@ -762,6 +945,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showToast(`Скопировано полей: ${selectedFields.length}`, 'success');
 
             // Закрываем модальное окно
+            saveTreatmentDraft();
             selectFieldsModal.hide();
 
         } catch (error) {
