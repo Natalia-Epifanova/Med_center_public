@@ -175,6 +175,12 @@ LOGGING = {
             "formatter": "verbose",
             "encoding": "utf-8",
         },
+        "treatment_file": {
+            "class": "logging.FileHandler",
+            "filename": LOGS_DIR / "treatment.log",
+            "formatter": "verbose",
+            "encoding": "utf-8",
+        },
     },
     "root": {
         "handlers": ["console", "app_file", "errors_file"],
@@ -193,6 +199,11 @@ LOGGING = {
         },
         "appointments": {
             "handlers": ["console", "appointments_file", "errors_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "treatment": {
+            "handlers": ["console", "treatment_file", "errors_file"],
             "level": "INFO",
             "propagate": False,
         },
