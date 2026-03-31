@@ -1,5 +1,7 @@
 import os
+import logging
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse, HttpResponse
@@ -17,6 +19,8 @@ from django.views.generic import (
 from treatment.forms import DoctorTreatmentForm
 from treatment.models import MKB10Diagnosis, DoctorTreatment
 from treatment.services import TreatmentDocumentGenerator
+
+logger = logging.getLogger(__name__)
 
 
 class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
@@ -42,6 +46,13 @@ class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
 
             context["has_previous_treatments"] = has_previous_treatments
             context["patient_id"] = appointment.patient.id
+            logger.info(
+                "DoctorTreatmentCreateView.get_context_data: appointment_id=%s patient_id=%s doctor_id=%s has_previous_treatments=%s",
+                appointment.id,
+                getattr(appointment.patient, "id", None),
+                getattr(appointment.time_slot.doctor, "id", None),
+                has_previous_treatments,
+            )
 
         return context
 
@@ -57,6 +68,11 @@ class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
             try:
                 previous_treatment = DoctorTreatment.objects.get(id=copy_from)
                 fields_to_copy = copy_fields.split(",")
+                logger.info(
+                    "DoctorTreatmentCreateView.get_initial: copy_from_treatment_id=%s copied_fields=%s",
+                    previous_treatment.id,
+                    fields_to_copy,
+                )
 
                 if "complaints" in fields_to_copy:
                     initial["complaints"] = previous_treatment.complaints
@@ -83,17 +99,49 @@ class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
                     )
 
             except DoctorTreatment.DoesNotExist:
+                logger.warning(
+                    "DoctorTreatmentCreateView.get_initial: previous_treatment_not_found copy_from=%s",
+                    copy_from,
+                )
                 pass
 
         return initial
 
     def form_valid(self, form):
-        appointment_id = self.kwargs.get("appointment_id")
-        if appointment_id:
-            from appointments.models import Appointment
+        try:
+            appointment_id = self.kwargs.get("appointment_id")
+            logger.info(
+                "DoctorTreatmentCreateView.form_valid: start appointment_id=%s user_id=%s",
+                appointment_id,
+                getattr(self.request.user, "id", None),
+            )
+            if appointment_id:
+                from appointments.models import Appointment
 
-            form.instance.appointment = Appointment.objects.get(id=appointment_id)
-        return super().form_valid(form)
+                form.instance.appointment = Appointment.objects.get(id=appointment_id)
+            response = super().form_valid(form)
+            logger.info(
+                "DoctorTreatmentCreateView.form_valid: success treatment_id=%s appointment_id=%s patient_id=%s",
+                getattr(self.object, "id", None),
+                getattr(self.object.appointment, "id", None),
+                getattr(self.object.appointment.patient, "id", None),
+            )
+            return response
+        except Exception:
+            logger.exception(
+                "DoctorTreatmentCreateView.form_valid: error appointment_id=%s user_id=%s",
+                self.kwargs.get("appointment_id"),
+                getattr(self.request.user, "id", None),
+            )
+            form.add_error(
+                None,
+                "Не удалось сохранить прием. Данные формы остались на странице, проверьте их и попробуйте сохранить еще раз.",
+            )
+            messages.error(
+                self.request,
+                "Сохранение приема не завершилось. Проверьте данные формы и повторите попытку.",
+            )
+            return self.form_invalid(form)
 
     def get_success_url(self):
         return reverse_lazy("treatment:treatment_detail", kwargs={"pk": self.object.id})
@@ -117,10 +165,48 @@ class DoctorTreatmentUpdateView(LoginRequiredMixin, UpdateView):
         treatment = self.get_object()
         # Добавляем appointment в контекст
         context["appointment"] = treatment.appointment
+        logger.info(
+            "DoctorTreatmentUpdateView.get_context_data: treatment_id=%s appointment_id=%s patient_id=%s",
+            treatment.id,
+            getattr(treatment.appointment, "id", None),
+            getattr(treatment.appointment.patient, "id", None),
+        )
         return context
 
     def get_success_url(self):
         return reverse_lazy("treatment:treatment_detail", kwargs={"pk": self.object.id})
+
+    def form_valid(self, form):
+        try:
+            logger.info(
+                "DoctorTreatmentUpdateView.form_valid: start treatment_id=%s appointment_id=%s user_id=%s",
+                getattr(form.instance, "id", None),
+                getattr(form.instance.appointment, "id", None),
+                getattr(self.request.user, "id", None),
+            )
+            response = super().form_valid(form)
+            logger.info(
+                "DoctorTreatmentUpdateView.form_valid: success treatment_id=%s appointment_id=%s",
+                getattr(self.object, "id", None),
+                getattr(self.object.appointment, "id", None),
+            )
+            return response
+        except Exception:
+            logger.exception(
+                "DoctorTreatmentUpdateView.form_valid: error treatment_id=%s appointment_id=%s user_id=%s",
+                getattr(form.instance, "id", None),
+                getattr(form.instance.appointment, "id", None),
+                getattr(self.request.user, "id", None),
+            )
+            form.add_error(
+                None,
+                "Не удалось сохранить изменения приема. Данные формы остались на странице, проверьте их и попробуйте еще раз.",
+            )
+            messages.error(
+                self.request,
+                "Сохранение изменений не завершилось. Проверьте данные формы и повторите попытку.",
+            )
+            return self.form_invalid(form)
 
 
 class DoctorTreatmentDeleteView(LoginRequiredMixin, DeleteView):
@@ -146,6 +232,11 @@ class PatientTreatmentListView(LoginRequiredMixin, ListView):
         from patients.models import Patient
 
         patient = Patient.objects.get(id=patient_id)
+        logger.info(
+            "PatientTreatmentListView.get_queryset: patient_id=%s user_id=%s",
+            patient.id,
+            getattr(self.request.user, "id", None),
+        )
 
         # Получаем все приемы врача для этого пациента
         return (
@@ -172,6 +263,13 @@ class TreatmentPrintView(LoginRequiredMixin, View):
         from .models import DoctorTreatment
 
         treatment = get_object_or_404(DoctorTreatment, pk=kwargs["pk"])
+        logger.info(
+            "TreatmentPrintView.get: start treatment_id=%s appointment_id=%s patient_id=%s user_id=%s",
+            treatment.id,
+            getattr(treatment.appointment, "id", None),
+            getattr(treatment.appointment.patient, "id", None),
+            getattr(request.user, "id", None),
+        )
 
         try:
             # Генерируем Word документ
@@ -190,12 +288,27 @@ class TreatmentPrintView(LoginRequiredMixin, View):
             # Удаляем временный файл
             try:
                 os.remove(filepath)
-            except:
+            except Exception:
+                logger.warning(
+                    "TreatmentPrintView.get: temporary_file_cleanup_failed filepath=%s",
+                    filepath,
+                    exc_info=True,
+                )
                 pass
 
+            logger.info(
+                "TreatmentPrintView.get: success treatment_id=%s filename=%s",
+                treatment.id,
+                filename,
+            )
             return response
 
         except Exception as e:
+            logger.exception(
+                "TreatmentPrintView.get: error treatment_id=%s user_id=%s",
+                kwargs["pk"],
+                getattr(request.user, "id", None),
+            )
             # В случае ошибки возвращаем сообщение
             return HttpResponse(f"Ошибка при генерации документа: {str(e)}", status=500)
 
@@ -205,6 +318,11 @@ def mkb10_search(request):
     """Поиск диагнозов МКБ-10 для AJAX запросов"""
     query = request.GET.get("q", "")
     if len(query) < 2:
+        logger.info(
+            "mkb10_search: skipped_short_query query=%s user_id=%s",
+            query,
+            getattr(request.user, "id", None),
+        )
         return JsonResponse([], safe=False)
 
     diagnoses = MKB10Diagnosis.search_by_name_or_code(query)[
@@ -221,6 +339,12 @@ def mkb10_search(request):
         for d in diagnoses
     ]
 
+    logger.info(
+        "mkb10_search: success query=%s results_count=%s user_id=%s",
+        query,
+        len(results),
+        getattr(request.user, "id", None),
+    )
     return JsonResponse(results, safe=False)
 
 
@@ -235,6 +359,12 @@ class PatientTreatmentsForCopyView(LoginRequiredMixin, ListView):
         from patients.models import Patient
 
         patient = Patient.objects.get(id=patient_id)
+        logger.info(
+            "PatientTreatmentsForCopyView.get_queryset: patient_id=%s current_appointment=%s user_id=%s",
+            patient.id,
+            self.request.GET.get("current_appointment", None),
+            getattr(self.request.user, "id", None),
+        )
 
         return (
             DoctorTreatment.objects.filter(appointment__patient=patient)
@@ -266,6 +396,12 @@ class PatientTreatmentsForCopyView(LoginRequiredMixin, ListView):
                 }
                 for t in treatments[:20]  # Ограничиваем 20 последними приемами
             ]
+            logger.info(
+                "PatientTreatmentsForCopyView.get: ajax_success patient_id=%s returned_count=%s user_id=%s",
+                self.kwargs.get("patient_id"),
+                len(data),
+                getattr(request.user, "id", None),
+            )
             return JsonResponse({"treatments": data})
         return super().get(request, *args, **kwargs)
 
@@ -274,6 +410,12 @@ class PatientTreatmentsForCopyView(LoginRequiredMixin, ListView):
 def get_previous_treatment_data(request, pk):
     """Получение данных конкретного приема для копирования"""
     treatment = get_object_or_404(DoctorTreatment, pk=pk)
+    logger.info(
+        "get_previous_treatment_data: treatment_id=%s appointment_id=%s user_id=%s",
+        treatment.id,
+        getattr(treatment.appointment, "id", None),
+        getattr(request.user, "id", None),
+    )
 
     data = {
         "complaints": treatment.complaints,
