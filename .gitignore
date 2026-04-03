@@ -170,3 +170,14 @@ cython_debug/
 
 .ini
 .sqlite
+
+# Sensitive local data and generated documents
+media/
+logs/
+temp_docs/
+*_backup*.json
+manual_check_patients_*.txt
+all_data_for_db.xlsx
+test_data_for_db.xlsx
+~$*.xlsx
+~$*.docx
