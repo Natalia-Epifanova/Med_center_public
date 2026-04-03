@@ -10,7 +10,6 @@ from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect, get_object_or_404
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DeleteView, DetailView, UpdateView
 
@@ -457,7 +456,6 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
 
 
 @require_POST
-@csrf_exempt
 @medical_admin_or_admin_required
 def update_appointment_status(request, pk):
     """AJAX view для обновления статуса записи с синхронизацией процедурной"""
