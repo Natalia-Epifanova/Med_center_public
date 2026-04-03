@@ -627,7 +627,7 @@ def check_procedural_availability(request):
                             "id": slot.id,
                             "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
                             "patient": (
-                                slot.appointments.first().patient.full_name()
+                                slot.appointments.first().patient.full_name
                                 if slot.appointments.exists()
                                 else "Неизвестно"
                             ),
