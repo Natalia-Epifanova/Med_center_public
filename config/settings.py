@@ -10,25 +10,48 @@ load_dotenv()
 LOGS_DIR = BASE_DIR / "logs"
 LOGS_DIR.mkdir(exist_ok=True)
 
+
+def env_bool(name, default=False):
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-DEBUG = os.getenv("DEBUG")
+DEBUG = env_bool("DEBUG", default=False)
+ENABLE_HTTPS_SECURITY = env_bool("ENABLE_HTTPS_SECURITY", default=False)
 
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "192.168.8.180",  # IP-адрес сервера в локальной сети
+    "192.168.8.180",
     "192.168.8.122",
     "192.168.0.96",
-    "medcenter-server",  # сетевое имя компьютера
+    "medcenter-server",
 ]
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.8.180:8080",  # IP вашего сервера
-    "http://192.168.8.180",  # Без порта
-    "http://192.168.8.122" "http://медцентр.local",  # Локальное доменное имя
+    "http://192.168.8.180:8080",
+    "http://192.168.8.180",
+    "http://192.168.8.122",
+    "http://medcenter.local",
 ]
+
+# Safe for the current HTTP-only production.
+# Enable HTTPS-specific protection later by setting ENABLE_HTTPS_SECURITY=true.
+SECURE_SSL_REDIRECT = ENABLE_HTTPS_SECURITY
+SESSION_COOKIE_SECURE = ENABLE_HTTPS_SECURITY
+CSRF_COOKIE_SECURE = ENABLE_HTTPS_SECURITY
+SESSION_COOKIE_HTTPONLY = True
+SECURE_HSTS_SECONDS = 31536000 if ENABLE_HTTPS_SECURITY else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = ENABLE_HTTPS_SECURITY
+SECURE_HSTS_PRELOAD = ENABLE_HTTPS_SECURITY
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = "DENY"
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -112,7 +135,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATICFILES_DIRS = (BASE_DIR / "static",)
-STATIC_ROOT = BASE_DIR / "staticfiles"  # для сбора статики
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -125,7 +148,6 @@ LOGOUT_REDIRECT_URL = "/"
 
 USE_L10N = True
 
-# Форматы даты для русской локализации
 DATE_FORMAT = "d.m.Y"
 DATETIME_FORMAT = "d.m.Y H:i"
 TIME_FORMAT = "H:i"
@@ -134,7 +156,7 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "unique-snowflake",
-        "TIMEOUT": 300,  # 5 минут по умолчанию для всех кэшей
+        "TIMEOUT": 300,
     }
 }
 
