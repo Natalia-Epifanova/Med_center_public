@@ -221,6 +221,7 @@ function moveDoctorToNewCabinet(formData) {
         body: formData,
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken,
         }
     })
     .then(response => {
@@ -412,7 +413,10 @@ function updateAppointmentStatus(appointmentId, newStatus, element) {
 
     fetch(`/appointments/${appointmentId}/update-status/`, {
         method: 'POST',
-        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken
+        },
         body: formData
     })
     .then(response => {
@@ -547,12 +551,14 @@ function initDayCommentForm() {
             console.log('Day comment form submitted');
 
             const formData = new FormData(this);
+            const csrfToken = getCSRFToken();
 
             fetch(this.action, {
                 method: 'POST',
                 body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken,
                 }
             })
             .then(response => response.json())
@@ -716,6 +722,7 @@ function updatePaymentMethod(appointmentId, paymentMethod, buttonElement) {
         method: 'POST',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': csrfToken,
         },
         body: formData
     })
@@ -1003,6 +1010,7 @@ function initCabinetComments() {
             e.preventDefault();
 
             const formData = new FormData(this);
+            const csrfToken = getCSRFToken();
             const cabinetId = formData.get('cabinet_id');
             const comment = formData.get('comment');
 
@@ -1011,6 +1019,7 @@ function initCabinetComments() {
                 body: formData,
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken,
                 }
             })
             .then(response => response.json())
@@ -1061,6 +1070,7 @@ function initCabinetComments() {
                         body: formData,
                         headers: {
                             'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': getCSRFToken(),
                         }
                     })
                     .then(response => response.json())

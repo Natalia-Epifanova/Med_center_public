@@ -3,16 +3,18 @@ from datetime import datetime
 
 from django.db import models
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 
 from patients.models import Patient
 from patients.services import CardNumberService
-from users.permissions.decorators import medical_admin_or_admin_required
+from users.permissions.decorators import (
+    medical_admin_or_admin_required,
+    medical_staff_required,
+)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
+@medical_staff_required
 def check_patient_api(request):
     """API для проверки существования пациента (оригинальный рабочий вариант)"""
     try:
@@ -91,8 +93,8 @@ def check_patient_api(request):
         return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
 
 
-@csrf_exempt
 @require_http_methods(["GET"])
+@medical_staff_required
 def search_patients_api(request):
     """API для поиска пациентов с поиском по дате рождения"""
     try:

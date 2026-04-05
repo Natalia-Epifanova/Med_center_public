@@ -2,8 +2,6 @@ import os
 import logging
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
@@ -19,11 +17,13 @@ from django.views.generic import (
 from treatment.forms import DoctorTreatmentForm
 from treatment.models import MKB10Diagnosis, DoctorTreatment
 from treatment.services import TreatmentDocumentGenerator
+from users.permissions.decorators import medical_staff_required
+from users.permissions.mixins import MedicalStaffRequiredMixin
 
 logger = logging.getLogger(__name__)
 
 
-class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
+class DoctorTreatmentCreateView(MedicalStaffRequiredMixin, CreateView):
     model = DoctorTreatment
     form_class = DoctorTreatmentForm
     template_name = "treatment/treatment_form.html"
@@ -147,13 +147,13 @@ class DoctorTreatmentCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("treatment:treatment_detail", kwargs={"pk": self.object.id})
 
 
-class DoctorTreatmentDetailView(LoginRequiredMixin, DetailView):
+class DoctorTreatmentDetailView(MedicalStaffRequiredMixin, DetailView):
     model = DoctorTreatment
     template_name = "treatment/treatment_detail.html"
     context_object_name = "treatment"
 
 
-class DoctorTreatmentUpdateView(LoginRequiredMixin, UpdateView):
+class DoctorTreatmentUpdateView(MedicalStaffRequiredMixin, UpdateView):
     model = DoctorTreatment
     form_class = DoctorTreatmentForm
     template_name = "treatment/treatment_form.html"
@@ -209,7 +209,7 @@ class DoctorTreatmentUpdateView(LoginRequiredMixin, UpdateView):
             return self.form_invalid(form)
 
 
-class DoctorTreatmentDeleteView(LoginRequiredMixin, DeleteView):
+class DoctorTreatmentDeleteView(MedicalStaffRequiredMixin, DeleteView):
     model = DoctorTreatment
     template_name = "treatment/treatment_confirm_delete.html"
 
@@ -221,7 +221,7 @@ class DoctorTreatmentDeleteView(LoginRequiredMixin, DeleteView):
         )
 
 
-class PatientTreatmentListView(LoginRequiredMixin, ListView):
+class PatientTreatmentListView(MedicalStaffRequiredMixin, ListView):
     """Список всех приемов конкретного пациента"""
 
     template_name = "treatment/patient_treatments.html"
@@ -256,7 +256,7 @@ class PatientTreatmentListView(LoginRequiredMixin, ListView):
         return context
 
 
-class TreatmentPrintView(LoginRequiredMixin, View):
+class TreatmentPrintView(MedicalStaffRequiredMixin, View):
     """Генерация Word документа для приема врача"""
 
     def get(self, request, *args, **kwargs):
@@ -313,7 +313,7 @@ class TreatmentPrintView(LoginRequiredMixin, View):
             return HttpResponse(f"Ошибка при генерации документа: {str(e)}", status=500)
 
 
-@login_required
+@medical_staff_required
 def mkb10_search(request):
     """Поиск диагнозов МКБ-10 для AJAX запросов"""
     query = request.GET.get("q", "")
@@ -348,7 +348,7 @@ def mkb10_search(request):
     return JsonResponse(results, safe=False)
 
 
-class PatientTreatmentsForCopyView(LoginRequiredMixin, ListView):
+class PatientTreatmentsForCopyView(MedicalStaffRequiredMixin, ListView):
     """Список приемов пациента для копирования (только для AJAX)"""
 
     template_name = "treatment/treatment_copy_select.html"
@@ -406,7 +406,7 @@ class PatientTreatmentsForCopyView(LoginRequiredMixin, ListView):
         return super().get(request, *args, **kwargs)
 
 
-@login_required
+@medical_staff_required
 def get_previous_treatment_data(request, pk):
     """Получение данных конкретного приема для копирования"""
     treatment = get_object_or_404(DoctorTreatment, pk=pk)
