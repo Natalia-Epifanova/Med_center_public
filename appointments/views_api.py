@@ -15,7 +15,6 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 from timetable.models import Doctor, MedicalService, TimeSlot
 from timetable.services import get_service_price_on_date
@@ -23,7 +22,6 @@ from timetable.services import get_service_price_on_date
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def get_doctor_services_api(request):
@@ -131,7 +129,6 @@ def get_doctor_services_api(request):
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def get_available_slots_for_doctor_api(request):
@@ -204,7 +201,6 @@ def get_available_slots_for_doctor_api(request):
         )
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def validate_additional_appointment_api(request):
@@ -304,7 +300,6 @@ def validate_additional_appointment_api(request):
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500)
 
 
-@csrf_exempt
 @require_http_methods(["POST"])
 @login_required
 def get_available_doctors_api(request):
@@ -340,7 +335,6 @@ def get_available_doctors_api(request):
         return JsonResponse({"error": "Внутренняя ошибка сервера"}, status=500)
 
 
-@csrf_exempt
 @require_POST
 @login_required
 def api_get_next_slot(request):
@@ -517,7 +511,6 @@ def check_slot_lock(request, slot_id):
         return JsonResponse({"is_locked": False, "error": "Внутренняя ошибка сервера"})
 
 
-@csrf_exempt
 @login_required
 def check_procedural_availability(request):
     """API для проверки доступности процедурного кабинета"""
@@ -634,7 +627,7 @@ def check_procedural_availability(request):
                             "id": slot.id,
                             "time": f"{slot.start_time.strftime('%H:%M')}-{slot.end_time.strftime('%H:%M')}",
                             "patient": (
-                                slot.appointments.first().patient.full_name()
+                                slot.appointments.first().patient.full_name
                                 if slot.appointments.exists()
                                 else "Неизвестно"
                             ),

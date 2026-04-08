@@ -40,3 +40,26 @@ def admin_required(view_func):
         return view_func(request, *args, **kwargs)
 
     return _wrapped_view
+
+
+def medical_staff_required(view_func):
+    """Декоратор для допуска суперпользователей, администраторов, медадминов и врачей"""
+
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("users:login")
+
+        allowed_groups = ["Medical Center Administrator", "Admin", "Doctors"]
+        is_allowed = request.user.is_superuser or request.user.groups.filter(
+            name__in=allowed_groups
+        ).exists()
+
+        if not is_allowed:
+            raise PermissionDenied(
+                "У вас нет прав для выполнения этого действия."
+            )
+
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped_view

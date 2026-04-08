@@ -4,7 +4,6 @@ from typing import List, Optional
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.http import HttpRequest, HttpResponse, JsonResponse
@@ -41,12 +40,13 @@ from patients.utils import (
 from timetable.models import Doctor
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import (
+    MedicalStaffRequiredMixin,
     MedicalAdminOrAdminRequiredMixin,
     AdminRequiredMixin,
 )
 
 
-class PatientListView(LoginRequiredMixin, ListView):
+class PatientListView(MedicalStaffRequiredMixin, ListView):
     """Список пациентов с поиском и пагинацией"""
 
     model = Patient
@@ -126,7 +126,7 @@ class PatientUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
         return reverse_lazy("patients:patient_detail", kwargs={"pk": self.object.pk})
 
 
-class PatientDetailView(LoginRequiredMixin, DetailView):
+class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
     """Детальная информация о пациенте"""
 
     model = Patient
@@ -524,7 +524,7 @@ def generate_document(request, pk, doc_type):
 # ===== РЕЗЕРВНЫЕ СПИСКИ =====
 
 
-class ReserveMainView(LoginRequiredMixin, TemplateView):
+class ReserveMainView(MedicalStaffRequiredMixin, TemplateView):
     """Главная страница резервных списков - показываем только врачей с записями"""
 
     template_name = "patients/reserve_main.html"
@@ -638,7 +638,7 @@ class ReserveMainView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class ReservePatientCreateView(LoginRequiredMixin, CreateView):
+class ReservePatientCreateView(MedicalStaffRequiredMixin, CreateView):
     """Создание новой записи в резерве"""
 
     model = ReservePatient
@@ -741,7 +741,7 @@ class ReservePatientCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("patients:reserve_main")
 
 
-class ReservePatientUpdateView(LoginRequiredMixin, UpdateView):
+class ReservePatientUpdateView(MedicalStaffRequiredMixin, UpdateView):
     """Редактирование только КОММЕНТАРИЯ в резервной записи"""
 
     model = ReservePatient
@@ -794,7 +794,7 @@ class ReservePatientDeleteView(MedicalAdminOrAdminRequiredMixin, DeleteView):
         return reverse_lazy("patients:reserve_main")
 
 
-class WaitlistPatientListView(LoginRequiredMixin, ListView):
+class WaitlistPatientListView(MedicalStaffRequiredMixin, ListView):
     """Список пациентов в листе ожидания"""
 
     model = WaitlistPatient
@@ -802,7 +802,7 @@ class WaitlistPatientListView(LoginRequiredMixin, ListView):
     context_object_name = "waitlist_patients"
 
 
-class WaitlistPatientCreateView(LoginRequiredMixin, CreateView):
+class WaitlistPatientCreateView(MedicalStaffRequiredMixin, CreateView):
     """Добавление пациента в лист ожидания"""
 
     model = WaitlistPatient
@@ -813,7 +813,7 @@ class WaitlistPatientCreateView(LoginRequiredMixin, CreateView):
         return reverse_lazy("timetable:reschedule_requests")
 
 
-class WaitlistPatientUpdateView(LoginRequiredMixin, UpdateView):
+class WaitlistPatientUpdateView(MedicalStaffRequiredMixin, UpdateView):
     """Редактирование записи в листе ожидания"""
 
     model = WaitlistPatient
