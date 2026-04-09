@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 
 from django.contrib import messages
@@ -26,6 +27,25 @@ from timetable.models import Doctor, TimeSlot
 from timetable.utils import get_status_badge_class
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
+
+logger = logging.getLogger(__name__)
+
+
+def warn_if_patient_blacklisted(request, appointment):
+    patient = getattr(appointment, "patient", None)
+    if not patient or not patient.is_blacklisted:
+        return
+
+    comment = (patient.blacklist_comment or "").strip() or "Не указана"
+    logger.warning(
+        "Appointment saved for blacklisted patient",
+        extra={
+            "appointment_id": appointment.id,
+            "patient_id": patient.id,
+            "patient_full_name": str(patient),
+        },
+    )
+    messages.warning(request, f"Пациент в черном списке. Причина: {comment}")
 
 
 class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
@@ -116,6 +136,7 @@ class AppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateView):
             cache.delete(cache_key)
 
             messages.success(self.request, "Запись успешно создана!")
+            warn_if_patient_blacklisted(self.request, self.object)
             return HttpResponseRedirect(self.get_success_url())
 
         except ValidationError as e:
@@ -374,6 +395,11 @@ class ProceduralAppointmentCreateView(MedicalAdminOrAdminRequiredMixin, CreateVi
 
     def get_success_url(self):
         return reverse("timetable:schedule_day") + f"?date={self.selected_date}"
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        warn_if_patient_blacklisted(self.request, self.object)
+        return response
 
 
 class ProceduralAppointmentDetailView(MedicalAdminOrAdminRequiredMixin, DetailView):

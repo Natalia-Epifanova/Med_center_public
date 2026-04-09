@@ -3,9 +3,11 @@ from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from patients.forms import PatientBlacklistForm
 from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
 from timetable.models import Doctor
 
@@ -113,6 +115,18 @@ class PatientPageAccessTests(PatientAccessBaseTestCase):
         self.assertEqual(list_response.status_code, 403)
         self.assertEqual(detail_response.status_code, 403)
         self.assertEqual(update_response.status_code, 403)
+
+    def test_blacklisted_patient_is_highlighted_on_patient_list(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Неявка без предупреждения"
+        self.patient.save()
+        client = self.login(self.admin_user)
+
+        response = client.get(reverse("patients:patient_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "blacklist-patient-row")
+        self.assertContains(response, "Черный список")
 
 
 class PatientApiAccessTests(PatientAccessBaseTestCase):
@@ -320,6 +334,170 @@ class PatientCrudViewTests(PatientAccessBaseTestCase):
 
         self.assertRedirects(response, reverse("patients:patient_list"))
         self.assertFalse(Patient.objects.filter(pk=self.patient.pk).exists())
+
+
+class PatientBlacklistModelAndFormTests(TestCase):
+    def setUp(self):
+        self.patient = Patient(
+            surname="Сидоров",
+            first_name="Семен",
+            last_name="Ильич",
+            date_of_birth=date(1985, 5, 20),
+        )
+
+    def test_patient_model_requires_comment_when_blacklisted(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "   "
+
+        with self.assertRaises(ValidationError) as exc:
+            self.patient.full_clean()
+
+        self.assertIn("blacklist_comment", exc.exception.message_dict)
+
+    def test_blacklist_form_requires_comment_when_checkbox_enabled(self):
+        form = PatientBlacklistForm(
+            data={"is_blacklisted": "on", "blacklist_comment": "   "},
+            instance=self.patient,
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("blacklist_comment", form.errors)
+
+
+class PatientBlacklistViewAndApiTests(PatientAccessBaseTestCase):
+    def test_medical_staff_can_add_patient_to_blacklist(self):
+        client = self.login(self.med_admin_user)
+
+        response = client.post(
+            reverse("patients:patient_blacklist_add", kwargs={"pk": self.patient.pk}),
+            data={
+                "is_blacklisted": "on",
+                "blacklist_comment": "Не записывать без согласования",
+            },
+        )
+
+        self.assertRedirects(
+            response, reverse("patients:patient_detail", kwargs={"pk": self.patient.pk})
+        )
+        self.patient.refresh_from_db()
+        self.assertTrue(self.patient.is_blacklisted)
+        self.assertEqual(
+            self.patient.blacklist_comment, "Не записывать без согласования"
+        )
+        self.assertEqual(self.patient.blacklist_created_by, self.med_admin_user)
+        self.assertIsNotNone(self.patient.blacklist_created_at)
+
+    def test_medical_staff_can_remove_patient_from_blacklist(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Неявка"
+        self.patient.blacklist_created_by = self.admin_user
+        self.patient.save()
+        client = self.login(self.doctor_user)
+
+        response = client.post(
+            reverse("patients:patient_blacklist_remove", kwargs={"pk": self.patient.pk})
+        )
+
+        self.assertRedirects(
+            response, reverse("patients:patient_detail", kwargs={"pk": self.patient.pk})
+        )
+        self.patient.refresh_from_db()
+        self.assertFalse(self.patient.is_blacklisted)
+        self.assertEqual(self.patient.blacklist_comment, "")
+        self.assertIsNone(self.patient.blacklist_created_at)
+        self.assertIsNone(self.patient.blacklist_created_by)
+
+    def test_blacklist_api_returns_blacklisted_patient_for_exact_match(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Не явился на прошлый прием"
+        self.patient.save()
+        client = self.login(self.admin_user)
+
+        response = client.post(
+            reverse("patients:api_check_blacklist"),
+            data=json.dumps(
+                {
+                    "surname": self.patient.surname,
+                    "first_name": self.patient.first_name,
+                    "last_name": self.patient.last_name,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["found"])
+        self.assertFalse(payload["multiple_matches"])
+        self.assertTrue(payload["is_blacklisted"])
+        self.assertEqual(payload["comment"], "Не явился на прошлый прием")
+
+    def test_blacklist_api_returns_multiple_matches_without_auto_warning(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Причина 1"
+        self.patient.save()
+        Patient.objects.create(
+            surname=self.patient.surname,
+            first_name=self.patient.first_name,
+            last_name=self.patient.last_name,
+            date_of_birth=date(1999, 1, 1),
+            is_blacklisted=False,
+        )
+        client = self.login(self.admin_user)
+
+        response = client.post(
+            reverse("patients:api_check_blacklist"),
+            data=json.dumps(
+                {
+                    "surname": self.patient.surname,
+                    "first_name": self.patient.first_name,
+                    "last_name": self.patient.last_name,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["found"])
+        self.assertTrue(payload["multiple_matches"])
+        self.assertFalse(payload["is_blacklisted"])
+        self.assertEqual(payload["match_count"], 2)
+
+    def test_blacklist_api_uses_date_of_birth_to_resolve_multiple_matches(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Не записывать к Пищелёву на стельки"
+        self.patient.save()
+        Patient.objects.create(
+            surname=self.patient.surname,
+            first_name=self.patient.first_name,
+            last_name=self.patient.last_name,
+            date_of_birth=date(1999, 1, 1),
+            is_blacklisted=False,
+        )
+        client = self.login(self.admin_user)
+
+        response = client.post(
+            reverse("patients:api_check_blacklist"),
+            data=json.dumps(
+                {
+                    "surname": self.patient.surname,
+                    "first_name": self.patient.first_name,
+                    "last_name": self.patient.last_name,
+                    "date_of_birth": self.patient.date_of_birth.isoformat(),
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["found"])
+        self.assertFalse(payload["multiple_matches"])
+        self.assertTrue(payload["is_blacklisted"])
+        self.assertEqual(
+            payload["comment"], "Не записывать к Пищелёву на стельки"
+        )
 
 
 class ReserveAndWaitlistViewTests(PatientAccessBaseTestCase):

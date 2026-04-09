@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from django.views.generic import (
     CreateView,
     DeleteView,
@@ -23,6 +24,7 @@ from docxtpl import DocxTemplate
 from appointments.models import Appointment
 from patients.constants import DOCUMENT_TYPES
 from patients.forms import (
+    PatientBlacklistForm,
     PatientForm,
     PatientFullForm,
     PatientSearchForm,
@@ -39,6 +41,7 @@ from patients.utils import (
 )
 from timetable.models import Doctor
 from users.permissions.decorators import medical_admin_or_admin_required
+from users.permissions.decorators import medical_staff_required
 from users.permissions.mixins import (
     MedicalStaffRequiredMixin,
     MedicalAdminOrAdminRequiredMixin,
@@ -146,6 +149,7 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
         )
 
         context["appointment_history"] = appointment_history
+        context["blacklist_form"] = PatientBlacklistForm(instance=patient)
         return context
 
 
@@ -155,6 +159,64 @@ class PatientDeleteView(AdminRequiredMixin, DeleteView):
     model = Patient
     template_name = "patients/patient_confirm_delete.html"
     success_url = reverse_lazy("patients:patient_list")
+
+
+@require_POST
+@medical_staff_required
+def add_patient_to_blacklist(request, pk):
+    """Добавление пациента в черный список или обновление причины"""
+    patient = get_object_or_404(Patient, pk=pk)
+    was_blacklisted = patient.is_blacklisted
+    form = PatientBlacklistForm(request.POST, instance=patient)
+
+    if form.is_valid():
+        patient = form.save(commit=False)
+        if patient.is_blacklisted:
+            if not was_blacklisted:
+                patient.blacklist_created_at = timezone.now()
+                patient.blacklist_created_by = request.user
+
+            patient.save()
+            messages.warning(request, "Статус черного списка сохранен.")
+        else:
+            patient.blacklist_comment = ""
+            patient.blacklist_created_at = None
+            patient.blacklist_created_by = None
+            patient.save()
+            messages.success(request, "Пациент снят с черного списка.")
+    else:
+        error_message = "; ".join(
+            error
+            for errors in form.errors.values()
+            for error in errors
+        )
+        messages.error(
+            request,
+            error_message or "Не удалось обновить статус черного списка.",
+        )
+
+    return redirect("patients:patient_detail", pk=patient.pk)
+
+
+@require_POST
+@medical_staff_required
+def remove_patient_from_blacklist(request, pk):
+    """Снятие пациента с черного списка"""
+    patient = get_object_or_404(Patient, pk=pk)
+    patient.is_blacklisted = False
+    patient.blacklist_comment = ""
+    patient.blacklist_created_at = None
+    patient.blacklist_created_by = None
+    patient.save(
+        update_fields=[
+            "is_blacklisted",
+            "blacklist_comment",
+            "blacklist_created_at",
+            "blacklist_created_by",
+        ]
+    )
+    messages.success(request, "Пациент снят с черного списка.")
+    return redirect("patients:patient_detail", pk=patient.pk)
 
 
 class DocumentGenerator:

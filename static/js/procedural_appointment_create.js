@@ -23,6 +23,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         patientChecker.initializeCheckButton('checkPatientBtn', 'patientCheckResult');
 
+        if (checkBlacklistUrl) {
+            const blacklistChecker = window.AppointmentUtils.BlacklistChecker.create({
+                checkBlacklistUrl: checkBlacklistUrl,
+                csrfToken: csrfToken,
+                resultContainerId: 'patientCheckResult',
+                warningContainerId: 'patientBlacklistWarning'
+            });
+            blacklistChecker.initialize();
+            window.currentAppointmentBlacklistChecker = blacklistChecker;
+        }
+
         // ИНИЦИАЛИЗАЦИЯ АВТОМАТИЧЕСКОГО ПОИСКА ПАЦИЕНТА
         initializeAutoPatientSearch();
     }
@@ -388,7 +399,10 @@ function selectPatient(patient) {
         const checkBtn = document.getElementById('checkPatientBtn');
         if (checkBtn) {
             console.log('Запускаем автоматическую проверку пациента...');
-            checkBtn.click();
+                checkBtn.click();
+                if (window.currentAppointmentBlacklistChecker) {
+                    window.currentAppointmentBlacklistChecker.checkCurrentPatient();
+                }
         }
     }, 500);
 }

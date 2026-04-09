@@ -188,6 +188,46 @@ class PatientFullForm(BasePatientForm):
             )
 
 
+class PatientBlacklistForm(StyleFormMixin, ModelForm):
+    """Форма для добавления пациента в черный список и снятия с него"""
+
+    class Meta:
+        model = Patient
+        fields = ["is_blacklisted", "blacklist_comment"]
+        widgets = {
+            "is_blacklisted": forms.CheckboxInput(
+                attrs={"class": "form-check-input"}
+            ),
+            "blacklist_comment": forms.Textarea(
+                attrs={
+                    "rows": 4,
+                    "class": "form-control",
+                    "placeholder": "Укажите причину добавления пациента в черный список...",
+                }
+            ),
+        }
+        labels = {
+            "is_blacklisted": "Пациент в черном списке",
+            "blacklist_comment": "Комментарий для черного списка",
+        }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_blacklisted = cleaned_data.get("is_blacklisted")
+        blacklist_comment = (cleaned_data.get("blacklist_comment") or "").strip()
+
+        if is_blacklisted and not blacklist_comment:
+            self.add_error(
+                "blacklist_comment",
+                "Укажите причину добавления пациента в черный список",
+            )
+
+        if not is_blacklisted:
+            cleaned_data["blacklist_comment"] = ""
+
+        return cleaned_data
+
+
 class PatientSearchForm(forms.Form):
     """Форма для поиска пациентов"""
 

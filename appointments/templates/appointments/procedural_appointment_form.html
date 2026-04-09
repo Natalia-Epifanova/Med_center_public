@@ -355,6 +355,7 @@
 <script>
     // Глобальные переменные для JavaScript
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
+    const checkBlacklistUrl = "{% url 'patients:api_check_blacklist' %}";
     const csrfToken = "{{ csrf_token }}";
     const selectedDate = "{{ selected_date|date:'Y-m-d' }}";
     const initialTestIds = {% if initial_test_ids %}{{ initial_test_ids|safe }}{% else %}[]{% endif %};

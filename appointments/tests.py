@@ -1,6 +1,7 @@
 import json
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.contrib.messages import get_messages
 from django.core.cache import cache
 from datetime import date, time
 
@@ -840,3 +841,165 @@ class AppointmentAjaxSecurityAndStatusTests(TestCase):
         self.assertEqual(anonymous_response.status_code, 302)
         self.assertIn(reverse("users:login"), anonymous_response.url)
         self.assertEqual(no_group_response.status_code, 403)
+
+
+class AppointmentBlacklistWarningTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.User = get_user_model()
+        self.med_admin_group, _ = Group.objects.get_or_create(
+            name="Medical Center Administrator"
+        )
+        self.med_admin_user = self.User.objects.create_user(
+            username="blacklist_med_admin",
+            password="testpass123",
+        )
+        self.med_admin_user.groups.add(self.med_admin_group)
+
+        self.visit_date = date(2026, 3, 17)
+
+        self.doctor_cabinet = Cabinet.objects.create(
+            number=1,
+            name_of_cabinet="Кабинет врача",
+        )
+        self.procedural_cabinet = Cabinet.objects.create(
+            number=6,
+            name_of_cabinet="Процедурный кабинет",
+        )
+
+        self.doctor = Doctor.objects.create(
+            first_name="Иван",
+            last_name="Иванович",
+            surname="Петров",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[
+                MedicalServiceCategory.JOINT_ULTRASOUND,
+                MedicalServiceCategory.MEDICAL_BLOCKADES,
+            ],
+        )
+        self.nurse = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Сергеевна",
+            surname="Медсестра",
+            specialization=Doctor.DoctorSpecialization.NURSE,
+            provided_services=[],
+        )
+
+        self.us_service = MedicalService.objects.create(
+            code="US-BLACKLIST",
+            name="УЗИ сустава",
+            price=1200,
+            category=MedicalServiceCategory.JOINT_ULTRASOUND,
+            is_active=True,
+        )
+        self.blockade_service = MedicalService.objects.create(
+            code="BL-BLACKLIST",
+            name="Блокада сустава",
+            price=1500,
+            category=MedicalServiceCategory.MEDICAL_BLOCKADES,
+            is_active=True,
+        )
+
+        self.main_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(10, 0),
+            end_time=time(10, 10),
+            slot_type="working",
+        )
+
+        self.blacklisted_patient = Patient.objects.create(
+            surname="Сидоров",
+            first_name="Семен",
+            last_name="Ильич",
+            date_of_birth=date(1985, 5, 20),
+            is_blacklisted=True,
+            blacklist_comment="Не явился на прошлый прием без предупреждения",
+        )
+
+    def login(self):
+        client = Client()
+        client.force_login(self.med_admin_user)
+        return client
+
+    def test_regular_appointment_create_shows_blacklist_warning_message(self):
+        client = self.login()
+
+        response = client.post(
+            reverse(
+                "appointments:appointment_create",
+                kwargs={"time_slot_id": self.main_slot.id},
+            ),
+            data={
+                "service": self.us_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Обычная запись",
+                "appointment_chain_type": "none",
+                "additional_appointments_data": "",
+                "procedural_appointments_data": "",
+                "needs_procedural": "",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "selected_blood_tests_input": "",
+                "total_sum": "1200.00",
+                "surname": self.blacklisted_patient.surname,
+                "first_name": self.blacklisted_patient.first_name,
+                "last_name": self.blacklisted_patient.last_name,
+                "date_of_birth": self.blacklisted_patient.date_of_birth.isoformat(),
+                "phone_number": "",
+                "card_number": self.blacklisted_patient.card_number or "",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages = [str(message) for message in get_messages(response.wsgi_request)]
+        self.assertTrue(
+            any(
+                "Пациент в черном списке. Причина: Не явился на прошлый прием без предупреждения"
+                in message
+                for message in messages
+            ),
+            messages,
+        )
+
+    def test_procedural_appointment_create_shows_blacklist_warning_message(self):
+        client = self.login()
+
+        response = client.post(
+            reverse("appointments:appointment_create_procedural"),
+            data={
+                "service": self.blockade_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Процедурная запись",
+                "appointment_chain_type": "none",
+                "additional_appointments_data": "",
+                "procedural_appointments_data": "",
+                "selected_blood_tests_input": "",
+                "total_sum": "1500.00",
+                "surname": self.blacklisted_patient.surname,
+                "first_name": self.blacklisted_patient.first_name,
+                "last_name": self.blacklisted_patient.last_name,
+                "date_of_birth": self.blacklisted_patient.date_of_birth.isoformat(),
+                "phone_number": "",
+                "card_number": self.blacklisted_patient.card_number or "",
+                "procedural_start_time": "10:00",
+                "procedural_end_time": "10:10",
+            },
+            follow=True,
+        )
+
+        self.assertEqual(response.status_code, 200)
+        messages = [str(message) for message in get_messages(response.wsgi_request)]
+        self.assertTrue(
+            any(
+                "Пациент в черном списке. Причина: Не явился на прошлый прием без предупреждения"
+                in message
+                for message in messages
+            ),
+            messages,
+        )

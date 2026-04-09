@@ -98,6 +98,32 @@ function initializeServiceSearch() {
     }
 }
 
+function initializeBlacklistChecker() {
+    if (!window.AppointmentUtils || typeof checkBlacklistUrl === 'undefined' || !checkBlacklistUrl || !csrfToken) {
+        return null;
+    }
+
+    const checker = window.AppointmentUtils.BlacklistChecker.create({
+        checkBlacklistUrl: checkBlacklistUrl,
+        csrfToken: csrfToken,
+        resultContainerId: 'patientCheckResult',
+        warningContainerId: 'patientBlacklistWarning'
+    });
+
+    checker.initialize();
+    window.currentAppointmentBlacklistChecker = checker;
+    return checker;
+}
+
+function triggerBlacklistCheck() {
+    if (
+        window.currentAppointmentBlacklistChecker &&
+        typeof window.currentAppointmentBlacklistChecker.checkCurrentPatient === 'function'
+    ) {
+        window.currentAppointmentBlacklistChecker.checkCurrentPatient();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // 1. Инициализация форматирования телефона
     const phoneInput = document.getElementById('id_phone_number');
@@ -112,6 +138,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // 3. Инициализация проверки пациента
     initializePatientChecker();
+    initializeBlacklistChecker();
     // Инициализация Select2 для поиска услуг
     initializeServiceSearch();
 
@@ -484,6 +511,7 @@ function initializePatientSearch() {
             if (checkBtn) {
                 console.log('Запускаем автоматическую проверку пациента...');
                 checkBtn.click();
+                triggerBlacklistCheck();
             }
         }, 500);
     }
@@ -697,6 +725,7 @@ function initializeAutoPatientSearch() {
             if (checkBtn) {
                 console.log('Запускаем автоматическую проверку пациента...');
                 checkBtn.click();
+                triggerBlacklistCheck();
             }
         }, 500);
     }

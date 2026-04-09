@@ -13,6 +13,26 @@ from users.permissions.decorators import (
 )
 
 
+def _parse_date_of_birth(date_of_birth):
+    """Преобразует дату рождения из строки в date"""
+    if not date_of_birth:
+        return None
+
+    try:
+        if "T" in date_of_birth:
+            return datetime.fromisoformat(date_of_birth.replace("Z", "+00:00")).date()
+
+        for fmt in ("%Y-%m-%d", "%d.%m.%Y", "%d/%m/%Y"):
+            try:
+                return datetime.strptime(date_of_birth, fmt).date()
+            except ValueError:
+                continue
+    except (ValueError, TypeError):
+        return None
+
+    return None
+
+
 @require_http_methods(["POST"])
 @medical_staff_required
 def check_patient_api(request):
@@ -86,6 +106,101 @@ def check_patient_api(request):
             )
         else:
             return JsonResponse({"exists": False})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Неверный формат JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": f"Ошибка сервера: {str(e)}"}, status=500)
+
+
+@require_http_methods(["POST"])
+@medical_staff_required
+def check_patient_blacklist_api(request):
+    """API для точной проверки черного списка по ФИО и, при необходимости, по дате рождения"""
+    try:
+        data = json.loads(request.body)
+        surname = data.get("surname", "").strip()
+        first_name = data.get("first_name", "").strip()
+        last_name = data.get("last_name", "").strip()
+        date_of_birth = data.get("date_of_birth", "")
+
+        if not all([surname, first_name, last_name]):
+            return JsonResponse(
+                {
+                    "error": "Для проверки черного списка необходимо указать фамилию, имя и отчество"
+                },
+                status=400,
+            )
+
+        matches = list(
+            Patient.objects.filter(
+                surname__iexact=surname,
+                first_name__iexact=first_name,
+                last_name__iexact=last_name,
+            ).order_by("date_of_birth", "id")
+        )
+
+        if not matches:
+            return JsonResponse(
+                {
+                    "found": False,
+                    "multiple_matches": False,
+                    "is_blacklisted": False,
+                }
+            )
+
+        resolved_matches = matches
+        date_obj = _parse_date_of_birth(date_of_birth)
+        if len(matches) > 1 and date_obj:
+            filtered_matches = [
+                patient for patient in matches if patient.date_of_birth == date_obj
+            ]
+            if filtered_matches:
+                resolved_matches = filtered_matches
+
+        if len(resolved_matches) == 1:
+            patient = resolved_matches[0]
+            return JsonResponse(
+                {
+                    "found": True,
+                    "multiple_matches": False,
+                    "is_blacklisted": patient.is_blacklisted,
+                    "comment": patient.blacklist_comment if patient.is_blacklisted else "",
+                    "patient": {
+                        "id": patient.id,
+                        "full_name": patient.get_full_name(),
+                        "date_of_birth": (
+                            patient.date_of_birth.strftime("%d.%m.%Y")
+                            if patient.date_of_birth
+                            else ""
+                        ),
+                    },
+                }
+            )
+
+        return JsonResponse(
+            {
+                "found": True,
+                "multiple_matches": True,
+                "is_blacklisted": False,
+                "match_count": len(resolved_matches),
+                "message": "Найдено несколько пациентов с таким ФИО. Для точной проверки используйте дату рождения.",
+                "patients": [
+                    {
+                        "id": patient.id,
+                        "full_name": patient.get_full_name(),
+                        "date_of_birth": (
+                            patient.date_of_birth.strftime("%d.%m.%Y")
+                            if patient.date_of_birth
+                            else ""
+                        ),
+                        "card_number": patient.card_number,
+                        "is_blacklisted": patient.is_blacklisted,
+                    }
+                    for patient in resolved_matches
+                ],
+            }
+        )
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Неверный формат JSON"}, status=400)

@@ -92,9 +92,12 @@
                             </thead>
                             <tbody>
                                 {% for patient in patients %}
-                                <tr>
+                                <tr class="{% if patient.is_blacklisted %}blacklist-patient-row{% endif %}">
                                     <td>
                                         <strong>{{ patient.full_name }}</strong>
+                                        {% if patient.is_blacklisted %}
+                                        <span class="badge bg-danger ms-2">Черный список</span>
+                                        {% endif %}
                                     </td>
                                     <td>{{ patient.phone_number|default:"-" }}</td>
                                     <td>{{ patient.card_number|default:"-" }}</td>
@@ -219,6 +222,15 @@
     }
     #search-results .list-group-item:last-child {
         border-bottom: none;
+    }
+    .blacklist-patient-row {
+        background-color: #fdeaea !important;
+    }
+    .blacklist-patient-row:hover {
+        background-color: #f8d7da !important;
+    }
+    .blacklist-patient-row td {
+        border-color: #f1b0b7;
     }
 </style>
 {% endblock %}

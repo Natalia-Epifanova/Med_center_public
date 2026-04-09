@@ -7,9 +7,12 @@ from .views import (
     WaitlistPatientUpdateView,
     WaitlistPatientCreateView,
     WaitlistPatientDeleteView,
+    add_patient_to_blacklist,
+    remove_patient_from_blacklist,
 )
 from .views_api import (
     check_patient_api,
+    check_patient_blacklist_api,
     search_patients_api,
     generate_new_card_number,
     get_max_card_number,
@@ -23,6 +26,16 @@ urlpatterns = [
     path("<int:pk>/", views.PatientDetailView.as_view(), name="patient_detail"),
     path("<int:pk>/update/", views.PatientUpdateView.as_view(), name="patient_update"),
     path("<int:pk>/delete/", views.PatientDeleteView.as_view(), name="patient_delete"),
+    path(
+        "<int:pk>/blacklist/add/",
+        add_patient_to_blacklist,
+        name="patient_blacklist_add",
+    ),
+    path(
+        "<int:pk>/blacklist/remove/",
+        remove_patient_from_blacklist,
+        name="patient_blacklist_remove",
+    ),
     path(
         "<int:pk>/generate-doc/<str:doc_type>/",
         views.generate_document,
@@ -55,6 +68,11 @@ urlpatterns = [
         "api/search-patients/",
         search_patients_api,
         name="api_search_patients",
+    ),
+    path(
+        "api/check-blacklist/",
+        check_patient_blacklist_api,
+        name="api_check_blacklist",
     ),
     path("get-max-card-number/", get_max_card_number, name="get_max_card_number"),
     path(

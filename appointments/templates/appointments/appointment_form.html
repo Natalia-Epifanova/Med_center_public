@@ -468,6 +468,7 @@
 
 <script>
     const checkPatientUrl = "{% url 'patients:api_check_patient' %}";
+    const checkBlacklistUrl = "{% url 'patients:api_check_blacklist' %}";
     const availableSlotsUrl = "{% url 'appointments:api_available_slots_for_doctor' %}";
     const csrfToken = "{{ csrf_token }}";
     const doctorId = {{ time_slot.doctor.id }};

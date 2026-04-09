@@ -310,6 +310,199 @@
         },
 
         // ==================== МЕНЕДЖЕР ТИПОВ ЗАПИСЕЙ ====================
+        BlacklistChecker: {
+            create: function(options) {
+                const checker = {
+                    checkBlacklistUrl: options.checkBlacklistUrl,
+                    csrfToken: options.csrfToken,
+                    resultContainerId: options.resultContainerId || 'patientCheckResult',
+                    warningContainerId: options.warningContainerId || 'patientBlacklistWarning',
+                    debounceMs: options.debounceMs || 400,
+                    requestCounter: 0,
+                    debounceTimer: null,
+
+                    getPatientData: function() {
+                        return {
+                            surname: document.getElementById('id_surname')?.value.trim() || '',
+                            first_name: document.getElementById('id_first_name')?.value.trim() || '',
+                            last_name: document.getElementById('id_last_name')?.value.trim() || '',
+                            date_of_birth: document.getElementById('id_date_of_birth')?.value || ''
+                        };
+                    },
+
+                    hasRequiredFields: function(patientData) {
+                        return Boolean(patientData.surname && patientData.first_name && patientData.last_name);
+                    },
+
+                    ensureContainer: function() {
+                        let container = document.getElementById(this.warningContainerId);
+                        if (container) {
+                            return container;
+                        }
+
+                        const resultContainer = document.getElementById(this.resultContainerId);
+                        if (!resultContainer || !resultContainer.parentNode) {
+                            return null;
+                        }
+
+                        container = document.createElement('div');
+                        container.id = this.warningContainerId;
+                        container.className = 'mt-2';
+                        container.style.display = 'none';
+                        resultContainer.insertAdjacentElement('afterend', container);
+                        return container;
+                    },
+
+                    clearWarning: function() {
+                        const container = this.ensureContainer();
+                        if (!container) {
+                            return;
+                        }
+
+                        container.innerHTML = '';
+                        container.style.display = 'none';
+                    },
+
+                    showBlacklistWarning: function(data) {
+                        const container = this.ensureContainer();
+                        if (!container) {
+                            return;
+                        }
+
+                        const patientDateOfBirth = data.patient && data.patient.date_of_birth
+                            ? `<div><strong>Дата рождения:</strong> ${data.patient.date_of_birth}</div>`
+                            : '';
+
+                        container.innerHTML = `
+                            <div class="alert alert-danger border border-danger shadow-sm">
+                                <div class="d-flex align-items-start">
+                                    <i class="fas fa-ban me-2 mt-1"></i>
+                                    <div>
+                                        <div class="fw-bold">Пациент в черном списке</div>
+                                        <div><strong>Причина:</strong> ${data.comment || 'Не указана'}</div>
+                                        ${patientDateOfBirth}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        container.style.display = 'block';
+                    },
+
+                    showMultipleMatches: function(data) {
+                        const container = this.ensureContainer();
+                        if (!container) {
+                            return;
+                        }
+
+                        container.innerHTML = `
+                            <div class="alert alert-warning border border-warning">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <strong>Найдено несколько пациентов с таким ФИО.</strong>
+                                ${data.message ? `<div class="mt-1">${data.message}</div>` : ''}
+                                <div class="mt-1">Для точного определения пациента укажите дату рождения или выберите пациента из поиска по базе.</div>
+                            </div>
+                        `;
+                        container.style.display = 'block';
+                    },
+
+                    checkBlacklist: async function(patientData) {
+                        const response = await fetch(this.checkBlacklistUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': this.csrfToken
+                            },
+                            body: JSON.stringify(patientData)
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        return await response.json();
+                    },
+
+                    checkCurrentPatient: async function() {
+                        const patientData = this.getPatientData();
+
+                        if (!this.hasRequiredFields(patientData)) {
+                            this.clearWarning();
+                            return null;
+                        }
+
+                        const requestId = ++this.requestCounter;
+
+                        try {
+                            const data = await this.checkBlacklist(patientData);
+                            if (requestId !== this.requestCounter) {
+                                return null;
+                            }
+
+                            if (data.multiple_matches) {
+                                this.showMultipleMatches(data);
+                            } else if (data.is_blacklisted) {
+                                this.showBlacklistWarning(data);
+                            } else {
+                                this.clearWarning();
+                            }
+
+                            return data;
+                        } catch (error) {
+                            console.error('Error checking blacklist:', error);
+                            return null;
+                        }
+                    },
+
+                    scheduleCheck: function() {
+                        clearTimeout(this.debounceTimer);
+                        this.debounceTimer = setTimeout(() => {
+                            this.checkCurrentPatient();
+                        }, this.debounceMs);
+                    },
+
+                    initialize: function() {
+                        const fields = [
+                            document.getElementById('id_surname'),
+                            document.getElementById('id_first_name'),
+                            document.getElementById('id_last_name'),
+                            document.getElementById('id_date_of_birth')
+                        ].filter(Boolean);
+
+                        if (fields.length === 0) {
+                            return;
+                        }
+
+                        fields.forEach((field) => {
+                            field.addEventListener('input', () => {
+                                const patientData = this.getPatientData();
+                                if (this.hasRequiredFields(patientData)) {
+                                    this.scheduleCheck();
+                                } else {
+                                    this.clearWarning();
+                                }
+                            });
+
+                            field.addEventListener('change', () => {
+                                const patientData = this.getPatientData();
+                                if (this.hasRequiredFields(patientData)) {
+                                    this.scheduleCheck();
+                                } else {
+                                    this.clearWarning();
+                                }
+                            });
+                        });
+
+                        const patientData = this.getPatientData();
+                        if (this.hasRequiredFields(patientData)) {
+                            this.scheduleCheck();
+                        }
+                    }
+                };
+
+                return checker;
+            }
+        },
+
         AppointmentTypeManager: {
             create: function(options) {
                 const manager = {

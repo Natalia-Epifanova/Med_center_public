@@ -19,6 +19,27 @@
                     </h5>
                 </div>
                 <div class="card-body">
+                    {% if patient.is_blacklisted %}
+                    <div class="alert alert-danger border-danger shadow-sm mb-3" role="alert">
+                        <div class="d-flex justify-content-between align-items-start gap-3">
+                            <div>
+                                <div class="fw-bold text-uppercase mb-1">
+                                    <i class="fas fa-exclamation-triangle"></i> Пациент в черном списке
+                                </div>
+                                <div><strong>Причина:</strong> {{ patient.blacklist_comment }}</div>
+                                {% if patient.blacklist_created_at %}
+                                <div class="small mt-1">
+                                    Добавлен: {{ patient.blacklist_created_at|date:"d.m.Y H:i" }}
+                                    {% if patient.blacklist_created_by %}
+                                        , {{ patient.blacklist_created_by.username }}
+                                    {% endif %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-danger fs-6">Черный список</span>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="row mb-2">
                         <div class="col-sm-4"><strong>ФИО:</strong></div>
                         <div class="col-sm-8">{{ patient.surname }} {{ patient.first_name }} {{ patient.last_name }}</div>
@@ -176,6 +197,24 @@
                    class="btn btn-outline-success">
                     <i class="fas fa-stethoscope"></i> История приемов
                 </a>
+                {% endif %}
+                {% if is_doctor or is_medical_admin or is_admin %}
+                <button type="button"
+                        class="btn {% if patient.is_blacklisted %}btn-outline-danger{% else %}btn-outline-warning{% endif %}"
+                        data-bs-toggle="modal"
+                        data-bs-target="#blacklistModal">
+                    <i class="fas fa-ban"></i>
+                </button>
+                {% if patient.is_blacklisted %}
+                <form method="post"
+                      action="{% url 'patients:patient_blacklist_remove' patient.pk %}"
+                      onsubmit="return confirm('Снять пациента с черного списка?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="fas fa-user-check"></i> Снять с черного списка
+                    </button>
+                </form>
+                {% endif %}
                 {% endif %}
                 <a href="{% url 'patients:patient_list' %}"
                    class="btn btn-outline-secondary">
@@ -426,6 +465,44 @@
     </div>
 
 </div>
+{% if is_doctor or is_medical_admin or is_admin %}
+<div class="modal fade" id="blacklistModal" tabindex="-1" aria-labelledby="blacklistModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'patients:patient_blacklist_add' patient.pk %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="blacklistModalLabel">
+                        {% if patient.is_blacklisted %}Редактирование черного списка{% else %}Добавление в черный список{% endif %}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-check mb-3">
+                        {{ blacklist_form.is_blacklisted }}
+                        <label class="form-check-label" for="{{ blacklist_form.is_blacklisted.id_for_label }}">
+                            {{ blacklist_form.is_blacklisted.label }}
+                        </label>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ blacklist_form.blacklist_comment.id_for_label }}">
+                            {{ blacklist_form.blacklist_comment.label }}
+                        </label>
+                        {{ blacklist_form.blacklist_comment }}
+                    </div>
+                    <div class="small text-muted">
+                        Укажите причину, по которой пациент должен отображаться как находящийся в черном списке.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 <script>
 function generateDocument(docType) {
     const appointmentSelect = document.getElementById('appointmentSelect');

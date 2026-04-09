@@ -140,6 +140,28 @@ class Patient(models.Model):
     insurance_company = models.CharField(
         max_length=200, blank=True, default="", verbose_name="Страховая компания"
     )
+    is_blacklisted = models.BooleanField(
+        default=False,
+        verbose_name="В черном списке",
+    )
+    blacklist_comment = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Причина черного списка",
+    )
+    blacklist_created_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Дата добавления в черный список",
+    )
+    blacklist_created_by = models.ForeignKey(
+        "users.User",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="blacklisted_patients",
+        verbose_name="Кто добавил в черный список",
+    )
 
     # === СВОЙСТВА (PROPERTIES) ===
     @property
@@ -239,6 +261,11 @@ class Patient(models.Model):
                 errors.setdefault("__all__", []).append(
                     "Пациент с такими ФИО и датой рождения уже существует"
                 )
+
+        if self.is_blacklisted and not self.blacklist_comment.strip():
+            errors.setdefault("blacklist_comment", []).append(
+                "Укажите причину добавления пациента в черный список"
+            )
 
         if errors:
             raise ValidationError(errors)
