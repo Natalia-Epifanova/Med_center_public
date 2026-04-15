@@ -199,11 +199,12 @@
                 </a>
                 {% endif %}
                 {% if is_doctor or is_medical_admin or is_admin %}
-                <button type="button"
+                    <button type="button"
                         class="btn {% if patient.is_blacklisted %}btn-outline-danger{% else %}btn-outline-warning{% endif %}"
                         data-bs-toggle="modal"
                         data-bs-target="#blacklistModal">
                     <i class="fas fa-ban"></i>
+                    {% if patient.is_blacklisted %}Редактировать комментарий для ЧС{% else %}Добавить в черный список{% endif %}
                 </button>
                 {% if patient.is_blacklisted %}
                 <form method="post"

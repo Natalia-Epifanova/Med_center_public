@@ -223,6 +223,15 @@ class DocumentGenerator:
     """Класс для генерации документов"""
 
     @staticmethod
+    def get_doctor_full_name(doctor):
+        """Получить полное ФИО врача в формате 'Фамилия Имя Отчество'."""
+        if not doctor:
+            return ""
+        return " ".join(
+            part for part in [doctor.surname, doctor.first_name, doctor.last_name] if part
+        )
+
+    @staticmethod
     def get_doctor_short_name(doctor):
         """Получить краткое ФИО врача в формате 'Фамилия И.О.'"""
         if doctor and doctor.last_name:  # Если есть отчество
@@ -241,6 +250,40 @@ class DocumentGenerator:
         return ""
 
     @staticmethod
+    def build_services_with_doctors_text(appointments):
+        """Сформировать перечень услуг для договора с учетом ФИО врачей."""
+        appointments = list(appointments)
+        doctor_names = []
+
+        for appointment in appointments:
+            doctor_name = DocumentGenerator.get_doctor_full_name(appointment.doctor)
+            if doctor_name:
+                doctor_names.append(doctor_name)
+
+        unique_doctor_names = list(dict.fromkeys(doctor_names))
+        same_doctor_for_all = (
+            len(unique_doctor_names) == 1 and len(doctor_names) == len(appointments)
+        )
+
+        services_list = []
+        for i, appointment in enumerate(appointments, 1):
+            service_name = appointment.service.name if appointment.service else ""
+            item_text = f"{i}. {service_name}"
+            doctor_name = DocumentGenerator.get_doctor_full_name(appointment.doctor)
+
+            if not same_doctor_for_all and doctor_name:
+                item_text += f" (ФИО врача: {doctor_name})"
+
+            services_list.append(item_text)
+
+        services_text = ", ".join(services_list)
+
+        if same_doctor_for_all:
+            services_text += f" (ФИО врача: {unique_doctor_names[0]})"
+
+        return services_text
+
+    @staticmethod
     def get_multiple_appointments_context(patient, appointment_ids):
         """Формирует контекст для нескольких записей"""
         from appointments.models import Appointment
@@ -253,6 +296,8 @@ class DocumentGenerator:
 
         if not appointments:
             return None
+
+        appointments = list(appointments)
 
         # Формируем список услуг
         services_list = []
@@ -277,6 +322,9 @@ class DocumentGenerator:
 
         # Объединяем услуги в одну строку через запятую и пробел
         services_text = ", ".join(services_list)
+        services_with_doctors_text = DocumentGenerator.build_services_with_doctors_text(
+            appointments
+        )
 
         # Обрабатываем даты
         if dates:
@@ -299,11 +347,12 @@ class DocumentGenerator:
             "appointments": appointments,
             "services_list": services_list,
             "services_text": services_text,
+            "services_with_doctors_text": services_with_doctors_text,
             "total_price": total_price,
             "total_price_words": number_to_words(int(total_price)),
             "services_count": len(appointments),
-            "first_appointment": appointments.first(),
-            "last_appointment": appointments.last(),
+            "first_appointment": appointments[0],
+            "last_appointment": appointments[-1],
             # Даты
             "min_date": min_date.strftime("%d.%m.%Y") if dates else "",
             "max_date": max_date.strftime("%d.%m.%Y") if dates else "",
@@ -332,6 +381,7 @@ class DocumentGenerator:
             doctor_short_name = DocumentGenerator.get_doctor_short_name(
                 appointment.doctor
             )
+            doctor_full_name = DocumentGenerator.get_doctor_full_name(appointment.doctor)
             patient_short_name = DocumentGenerator.get_patient_short_name(
                 appointment.patient
             )
@@ -349,6 +399,7 @@ class DocumentGenerator:
             # Устанавливаем значения по умолчанию если appointment или doctor отсутствуют
             service_price = 0
             doctor_short_name = ""
+            doctor_full_name = ""
             patient_short_name = DocumentGenerator.get_patient_short_name(patient)
             doctor_specialization = ""
             doc_surname = ""
@@ -476,6 +527,11 @@ class DocumentGenerator:
             "multiple_services": False,
             "services_count": 1,
             "services_text": service_name,
+            "services_with_doctors_text": (
+                f"{service_name} (ФИО врача: {doctor_full_name})"
+                if service_name and doctor_full_name
+                else service_name
+            ),
             "total_price": service_price,
             "total_price_words": (
                 number_to_words(int(service_price)) if service_price else "ноль"
