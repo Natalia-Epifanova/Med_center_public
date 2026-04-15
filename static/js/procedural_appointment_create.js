@@ -150,6 +150,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const appointmentForm = document.getElementById('appointmentForm');
     if (appointmentForm) {
         appointmentForm.addEventListener('submit', function(e) {
+            if (appointmentForm.dataset.isSubmitting === 'true') {
+                e.preventDefault();
+                return false;
+            }
+
             console.log('Form submission started...');
 
             // Обновляем все скрытые поля перед отправкой
@@ -169,6 +174,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     e.preventDefault();
                     return false;
                 }
+            }
+
+            appointmentForm.dataset.isSubmitting = 'true';
+
+            const submitBtn = appointmentForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохраняем...';
             }
 
             console.log('Form submitting...');

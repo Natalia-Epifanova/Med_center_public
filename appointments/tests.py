@@ -966,6 +966,46 @@ class AppointmentBlacklistWarningTests(TestCase):
             messages,
         )
 
+    def test_repeated_regular_appointment_post_does_not_create_duplicate(self):
+        client = self.login()
+        url = reverse(
+            "appointments:appointment_create",
+            kwargs={"time_slot_id": self.main_slot.id},
+        )
+        payload = {
+            "service": self.us_service.id,
+            "insurance_type": Appointment.InsuranceType.PAID,
+            "needs_reschedule": "",
+            "comment": "Проверка дубля",
+            "appointment_chain_type": "none",
+            "additional_appointments_data": "",
+            "procedural_appointments_data": "",
+            "needs_procedural": "",
+            "allow_time_change": "",
+            "new_time_slot_id": self.main_slot.id,
+            "new_appointment_date": self.visit_date.isoformat(),
+            "selected_blood_tests_input": "",
+            "total_sum": "1200.00",
+            "surname": self.blacklisted_patient.surname,
+            "first_name": self.blacklisted_patient.first_name,
+            "last_name": self.blacklisted_patient.last_name,
+            "date_of_birth": self.blacklisted_patient.date_of_birth.isoformat(),
+            "phone_number": "",
+            "card_number": self.blacklisted_patient.card_number or "",
+        }
+
+        first_response = client.post(url, data=payload, follow=True)
+        second_response = client.post(url, data=payload, follow=True)
+
+        self.assertEqual(first_response.status_code, 200)
+        self.assertEqual(second_response.status_code, 200)
+        self.assertEqual(Appointment.objects.filter(time_slot=self.main_slot).count(), 1)
+        self.assertContains(
+            second_response,
+            "Выбранный временной слот уже занят",
+            status_code=200,
+        )
+
     def test_procedural_appointment_create_shows_blacklist_warning_message(self):
         client = self.login()
 

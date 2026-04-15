@@ -100,6 +100,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
 
         allow_time_change = cleaned_data.get("allow_time_change")
         new_time_slot_id = cleaned_data.get("new_time_slot_id")
+        target_time_slot = self.time_slot
 
         logger.info(
             "AppointmentForm.clean: allow_time_change=%s new_time_slot_id=%s service_id=%s insurance_type=%s needs_procedural=%s",
@@ -111,8 +112,10 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
         )
 
         if allow_time_change and new_time_slot_id:
+            target_time_slot = None
             try:
                 new_time_slot = TimeSlot.objects.get(id=new_time_slot_id)
+                target_time_slot = new_time_slot
 
                 if not new_time_slot.is_available():
                     logger.warning(
@@ -153,7 +156,40 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                 )
                 raise forms.ValidationError("Выбранный временной слот не существует")
 
+        if target_time_slot and not target_time_slot.is_available():
+            logger.warning(
+                "AppointmentForm.clean: исходный слот уже занят time_slot_id=%s doctor_id=%s date=%s",
+                getattr(target_time_slot, "id", None),
+                getattr(getattr(target_time_slot, "doctor", None), "id", None),
+                getattr(target_time_slot, "date", None),
+            )
+            raise forms.ValidationError(
+                "Выбранный временной слот уже занят. Пожалуйста, обновите страницу и выберите другое время."
+            )
+
         return cleaned_data
+
+    def _lock_target_time_slot(self, appointment):
+        """Блокирует слот и повторно проверяет его доступность перед сохранением."""
+        target_slot = TimeSlot.objects.select_for_update().get(pk=appointment.time_slot_id)
+        conflicting_appointments = Appointment.objects.select_for_update().filter(
+            time_slot=target_slot
+        )
+
+        if appointment.pk:
+            conflicting_appointments = conflicting_appointments.exclude(pk=appointment.pk)
+
+        if conflicting_appointments.exists():
+            logger.warning(
+                "AppointmentForm._lock_target_time_slot: слот уже занят time_slot_id=%s appointment_id=%s",
+                target_slot.id,
+                conflicting_appointments.first().id,
+            )
+            raise forms.ValidationError(
+                "Невозможно создать запись: выбранное время уже занято. Пожалуйста, обновите страницу и попробуйте снова."
+            )
+
+        return target_slot
 
     def _validate_consecutive_for_pishchelev(
         self, main_appointment, appointment_chain_type
@@ -230,6 +266,8 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                         getattr(appointment, "id", None),
                         getattr(self.time_slot, "id", None),
                     )
+
+                appointment.time_slot = self._lock_target_time_slot(appointment)
 
                 appointment.is_chain_main = True
 

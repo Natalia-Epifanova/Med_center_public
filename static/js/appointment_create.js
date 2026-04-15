@@ -1206,6 +1206,11 @@ function setupFormValidation() {
     if (!appointmentForm) return;
 
     appointmentForm.addEventListener('submit', function(e) {
+        if (appointmentForm.dataset.isSubmitting === 'true') {
+            e.preventDefault();
+            return false;
+        }
+
         console.log('=== FORM SUBMIT DEBUG ===');
 
         // Проверяем валидацию Пищелева перед отправкой
@@ -1240,6 +1245,15 @@ function setupFormValidation() {
             // Обновляем скрытые поля
             window.chainManager.updateHiddenField();
             window.chainManager.updateProceduralHiddenField();
+        }
+
+        appointmentForm.dataset.isSubmitting = 'true';
+
+        const submitBtn = appointmentForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.dataset.originalHtml = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохраняем...';
         }
 
         return true;
