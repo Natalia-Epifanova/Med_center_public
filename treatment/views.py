@@ -3,7 +3,7 @@ import logging
 
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.generic import (
@@ -27,6 +27,34 @@ class DoctorTreatmentCreateView(MedicalStaffRequiredMixin, CreateView):
     model = DoctorTreatment
     form_class = DoctorTreatmentForm
     template_name = "treatment/treatment_form.html"
+
+    def get_existing_treatment(self):
+        appointment_id = self.kwargs.get("appointment_id")
+        if not appointment_id:
+            return None
+
+        return DoctorTreatment.objects.filter(appointment_id=appointment_id).first()
+
+    def redirect_to_existing_treatment(self, treatment):
+        appointment_id = self.kwargs.get("appointment_id")
+        logger.warning(
+            "DoctorTreatmentCreateView: duplicate_create_prevented appointment_id=%s treatment_id=%s user_id=%s",
+            appointment_id,
+            treatment.id,
+            getattr(self.request.user, "id", None),
+        )
+        messages.info(
+            self.request,
+            "Для этой записи прием врача уже существует. Открыт ранее созданный прием.",
+        )
+        return redirect("treatment:treatment_detail", pk=treatment.pk)
+
+    def dispatch(self, request, *args, **kwargs):
+        existing_treatment = self.get_existing_treatment()
+        if existing_treatment:
+            return self.redirect_to_existing_treatment(existing_treatment)
+
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

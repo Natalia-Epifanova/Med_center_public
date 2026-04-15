@@ -202,6 +202,41 @@ class TreatmentViewTests(TreatmentBaseTestCase):
         self.assertEqual(created_treatment.recommendations, "Новые рекомендации")
         self.assertEqual(created_treatment.mkb10_diagnoses.count(), 1)
 
+    def test_create_view_redirects_to_existing_treatment_on_get(self):
+        client = self.login(self.doctor_user)
+
+        response = client.get(
+            reverse(
+                "treatment:treatment_create",
+                kwargs={"appointment_id": self.current_appointment.pk},
+            )
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("treatment:treatment_detail", kwargs={"pk": self.current_treatment.pk}),
+        )
+
+    def test_create_view_redirects_to_existing_treatment_on_post_without_duplicate(self):
+        client = self.login(self.doctor_user)
+        initial_count = DoctorTreatment.objects.count()
+
+        response = client.post(
+            reverse(
+                "treatment:treatment_create",
+                kwargs={"appointment_id": self.current_appointment.pk},
+            ),
+            data=self.get_treatment_form_data(
+                complaints="РџРѕРІС‚РѕСЂРЅР°СЏ РѕС‚РїСЂР°РІРєР° С„РѕСЂРјС‹",
+            ),
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("treatment:treatment_detail", kwargs={"pk": self.current_treatment.pk}),
+        )
+        self.assertEqual(DoctorTreatment.objects.count(), initial_count)
+
     def test_detail_view(self):
         client = self.login(self.doctor_user)
 
