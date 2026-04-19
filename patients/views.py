@@ -250,6 +250,40 @@ class DocumentGenerator:
         return ""
 
     @staticmethod
+    def is_blood_collection_service(appointment):
+        service_name = (appointment.service.name if appointment and appointment.service else "").lower()
+        return "забор крови" in service_name or "взятие крови" in service_name
+
+    @staticmethod
+    def get_blood_test_names(appointment):
+        if not appointment or not getattr(appointment, "pk", None):
+            return []
+
+        selected_tests = appointment.selected_blood_tests.select_related("blood_test").all()
+        return [relation.blood_test.name for relation in selected_tests if relation.blood_test]
+
+    @staticmethod
+    def get_contract_service_name(appointment):
+        service_name = appointment.service.name if appointment and appointment.service else ""
+
+        if DocumentGenerator.is_blood_collection_service(appointment):
+            blood_test_names = DocumentGenerator.get_blood_test_names(appointment)
+            if blood_test_names:
+                return f"{service_name} ({', '.join(blood_test_names)})"
+
+        return service_name
+
+    @staticmethod
+    def get_contract_total_price(appointment):
+        if not appointment:
+            return 0
+
+        if appointment.total_with_blood_tests:
+            return appointment.total_with_blood_tests
+
+        return appointment.actual_price if appointment.service else 0
+
+    @staticmethod
     def build_services_with_doctors_text(appointments):
         """Сформировать перечень услуг для договора с учетом ФИО врачей."""
         appointments = list(appointments)
@@ -264,21 +298,26 @@ class DocumentGenerator:
         same_doctor_for_all = (
             len(unique_doctor_names) == 1 and len(doctor_names) == len(appointments)
         )
+        has_blood_collection = any(
+            DocumentGenerator.is_blood_collection_service(appointment)
+            for appointment in appointments
+        )
 
         services_list = []
         for i, appointment in enumerate(appointments, 1):
-            service_name = appointment.service.name if appointment.service else ""
+            service_name = DocumentGenerator.get_contract_service_name(appointment)
             item_text = f"{i}. {service_name}"
             doctor_name = DocumentGenerator.get_doctor_full_name(appointment.doctor)
+            skip_doctor_name = DocumentGenerator.is_blood_collection_service(appointment)
 
-            if not same_doctor_for_all and doctor_name:
+            if (not same_doctor_for_all or has_blood_collection) and doctor_name and not skip_doctor_name:
                 item_text += f" (ФИО врача: {doctor_name})"
 
             services_list.append(item_text)
 
         services_text = ", ".join(services_list)
 
-        if same_doctor_for_all:
+        if same_doctor_for_all and not has_blood_collection:
             services_text += f" (ФИО врача: {unique_doctor_names[0]})"
 
         return services_text
@@ -291,6 +330,7 @@ class DocumentGenerator:
         appointments = (
             Appointment.objects.filter(id__in=appointment_ids, patient=patient)
             .select_related("time_slot__doctor", "service")
+            .prefetch_related("selected_blood_tests__blood_test")
             .order_by("time_slot__date", "time_slot__start_time")
         )
 
@@ -305,7 +345,7 @@ class DocumentGenerator:
         dates = []
 
         for i, appointment in enumerate(appointments, 1):
-            service_price = appointment.actual_price
+            service_price = DocumentGenerator.get_contract_total_price(appointment)
             if isinstance(service_price, str):
                 try:
                     service_price = float(service_price)
@@ -313,7 +353,9 @@ class DocumentGenerator:
                     service_price = 0
 
             # Добавляем услугу с номером
-            services_list.append(f"{i}. {appointment.service.name}")
+            services_list.append(
+                f"{i}. {DocumentGenerator.get_contract_service_name(appointment)}"
+            )
             total_price += service_price
 
             # Собираем даты
@@ -377,7 +419,7 @@ class DocumentGenerator:
 
         # Проверяем, существует ли appointment
         if appointment and appointment.doctor:
-            service_price = appointment.actual_price if appointment.service else 0
+            service_price = DocumentGenerator.get_contract_total_price(appointment)
             doctor_short_name = DocumentGenerator.get_doctor_short_name(
                 appointment.doctor
             )
@@ -389,7 +431,7 @@ class DocumentGenerator:
             doc_surname = appointment.doctor.surname
             doc_f_name = appointment.doctor.first_name
             doc_l_name = appointment.doctor.last_name or ""
-            service_name = appointment.service.name if appointment.service else ""
+            service_name = DocumentGenerator.get_contract_service_name(appointment)
             appointment_date = (
                 appointment.time_slot.date.strftime("%d.%m.%Y")
                 if appointment.time_slot and appointment.time_slot.date
@@ -529,7 +571,11 @@ class DocumentGenerator:
             "services_text": service_name,
             "services_with_doctors_text": (
                 f"{service_name} (ФИО врача: {doctor_full_name})"
-                if service_name and doctor_full_name
+                if (
+                    service_name
+                    and doctor_full_name
+                    and not DocumentGenerator.is_blood_collection_service(appointment)
+                )
                 else service_name
             ),
             "total_price": service_price,

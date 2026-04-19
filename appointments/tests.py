@@ -10,15 +10,102 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from appointments.forms.forms import AppointmentSimpleEditForm, AppointmentForm
-from appointments.models import Appointment, AppointmentChain
+from appointments.models import Appointment, AppointmentBloodTest, AppointmentChain
 from patients.models import Patient
+from patients.views import DocumentGenerator
 from timetable.models import (
+    BloodTest,
+    BloodTestCategory,
     Cabinet,
     Doctor,
     MedicalService,
     MedicalServiceCategory,
     TimeSlot,
 )
+
+
+class ContractDocumentGeneratorTests(TestCase):
+    def test_blood_collection_service_includes_tests_and_total_price(self):
+        visit_date = date(2026, 3, 17)
+        cabinet = Cabinet.objects.create(number=6, name_of_cabinet="Процедурный")
+        doctor = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Сергеевна",
+            surname="Медсестра",
+            specialization=Doctor.DoctorSpecialization.NURSE,
+            provided_services=[MedicalServiceCategory.ANALYZES],
+        )
+        patient = Patient.objects.create(
+            surname="Иванов",
+            first_name="Иван",
+            last_name="Иванович",
+            date_of_birth=date(1990, 1, 1),
+        )
+        service = MedicalService.objects.create(
+            code="BLOOD-COLLECTION",
+            name="Забор крови",
+            price=300,
+            category=MedicalServiceCategory.ANALYZES,
+            is_active=True,
+        )
+        category = BloodTestCategory.objects.create(name="Биохимия")
+        glucose = BloodTest.objects.create(
+            code="GLU",
+            name="Глюкоза",
+            category=category,
+            price=200,
+        )
+        cholesterol = BloodTest.objects.create(
+            code="CHOL",
+            name="Холестерин",
+            category=category,
+            price=400,
+        )
+        slot = TimeSlot.objects.create(
+            doctor=doctor,
+            cabinet=cabinet,
+            date=visit_date,
+            start_time=time(10, 0),
+            end_time=time(10, 10),
+            slot_type="working",
+        )
+        appointment = Appointment.objects.create(
+            time_slot=slot,
+            patient=patient,
+            service=service,
+            insurance_type=Appointment.InsuranceType.PAID,
+            price_at_appointment=300,
+        )
+        AppointmentBloodTest.objects.create(appointment=appointment, blood_test=glucose)
+        AppointmentBloodTest.objects.create(
+            appointment=appointment,
+            blood_test=cholesterol,
+        )
+        appointment.total_with_blood_tests = 900
+        appointment.save(update_fields=["total_with_blood_tests"])
+        appointment.refresh_from_db()
+
+        service_text = DocumentGenerator.build_services_with_doctors_text([appointment])
+
+        self.assertIn("Забор крови (Глюкоза, Холестерин)", service_text)
+        self.assertNotIn("ФИО врача", service_text)
+        self.assertEqual(DocumentGenerator.get_contract_total_price(appointment), 900)
+
+        doctor_full_name = DocumentGenerator.get_doctor_full_name(appointment.doctor)
+        single_service_text = (
+            f"{DocumentGenerator.get_contract_service_name(appointment)} (ФИО врача: {doctor_full_name})"
+            if (
+                DocumentGenerator.get_contract_service_name(appointment)
+                and doctor_full_name
+                and not DocumentGenerator.is_blood_collection_service(appointment)
+            )
+            else DocumentGenerator.get_contract_service_name(appointment)
+        )
+
+        self.assertEqual(
+            single_service_text,
+            "Забор крови (Глюкоза, Холестерин)",
+        )
 
 
 class AppointmentSimpleEditFormTests(TestCase):
