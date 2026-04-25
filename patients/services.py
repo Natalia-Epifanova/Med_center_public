@@ -1,8 +1,10 @@
+from decimal import Decimal
 from typing import Any, Dict, Optional, Tuple
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Max
+from django.utils import timezone
 from phonenumber_field.phonenumber import PhoneNumber
 
 from patients.models import Patient
@@ -303,3 +305,123 @@ class CardNumberService:
                 return str(next_number)
 
             return next_number
+
+
+TAX_INFO_START_YEAR = 2026
+
+
+def get_tax_info_years() -> list[int]:
+    """Список доступных годов для расчета суммы для налоговой."""
+    current_year = timezone.now().year
+    return list(range(TAX_INFO_START_YEAR, current_year + 1))
+
+
+def get_taxable_appointment_amount(appointment) -> Decimal:
+    """Возвращает сумму записи по приоритету полей для налогового расчета."""
+    if appointment.total_with_blood_tests is not None:
+        return appointment.total_with_blood_tests
+    if appointment.price_at_appointment is not None:
+        return appointment.price_at_appointment
+    if appointment.service and appointment.service.price is not None:
+        return appointment.service.price
+    return Decimal("0.00")
+
+
+def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, object]:
+    """Возвращает сумму и список учтенных записей пациента за год."""
+    from appointments.models import Appointment
+
+    appointments = (
+        Appointment.objects.filter(
+            patient=patient,
+            status=Appointment.AppointmentStatus.COMPLETED,
+            insurance_type=Appointment.InsuranceType.PAID,
+            time_slot__date__year=year,
+        )
+        .select_related("time_slot__doctor", "time_slot__cabinet", "service")
+        .order_by("time_slot__date", "time_slot__start_time", "pk")
+    )
+
+    included_appointments = []
+    last_kept_epifanova_consultation = {}
+
+    for appointment in appointments:
+        if _is_linked_procedural_appointment(appointment):
+            continue
+
+        amount = get_taxable_appointment_amount(appointment)
+
+        if _is_epifanova_consultation(appointment):
+            signature = _get_epifanova_consultation_signature(appointment, amount)
+            previous_appointment = last_kept_epifanova_consultation.get(signature)
+
+            if previous_appointment and _are_neighboring_slots(
+                previous_appointment, appointment
+            ):
+                continue
+
+            last_kept_epifanova_consultation[signature] = appointment
+
+        appointment.tax_amount = amount
+        included_appointments.append(appointment)
+
+    total_amount = sum(
+        (appointment.tax_amount for appointment in included_appointments),
+        Decimal("0.00"),
+    )
+
+    return {
+        "total": total_amount,
+        "appointments": included_appointments,
+    }
+
+
+def calculate_patient_paid_total_for_year(patient: Patient, year: int) -> Decimal:
+    """Считает сумму оплаченных завершенных записей пациента за год."""
+    return get_patient_tax_info_for_year(patient, year)["total"]
+
+
+def _is_linked_procedural_appointment(appointment) -> bool:
+    cabinet = getattr(getattr(appointment, "time_slot", None), "cabinet", None)
+    return bool(
+        appointment.previous_appointment_id
+        and cabinet
+        and cabinet.number == 6
+    )
+
+
+def _is_epifanova_consultation(appointment) -> bool:
+    doctor = getattr(getattr(appointment, "time_slot", None), "doctor", None)
+    service = getattr(appointment, "service", None)
+
+    if not doctor or not service:
+        return False
+
+    service_name = (service.name or "").strip().lower()
+    if "консультац" not in service_name:
+        return False
+
+    return (
+        (doctor.surname or "").strip().lower() == "епифанова"
+        and (doctor.first_name or "").strip().lower().startswith("о")
+        and (doctor.last_name or "").strip().lower().startswith("е")
+    )
+
+
+def _get_epifanova_consultation_signature(
+    appointment, amount: Decimal
+) -> tuple[int, int, object, int | None, Decimal]:
+    return (
+        appointment.patient_id,
+        appointment.doctor.id,
+        appointment.date,
+        appointment.service_id,
+        amount,
+    )
+
+
+def _are_neighboring_slots(left, right) -> bool:
+    if not left.time_slot or not right.time_slot:
+        return False
+
+    return left.date == right.date and left.end_time == right.start_time

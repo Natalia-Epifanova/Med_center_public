@@ -465,6 +465,84 @@
         </div>
     </div>
 
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-file-invoice-dollar"></i> Информация для налоговой
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="taxYearSelect" class="form-label">Год для расчета</label>
+                            <select name="tax_year" id="taxYearSelect" class="form-select">
+                                <option value="">Выберите год</option>
+                                {% for year in available_tax_years %}
+                                <option value="{{ year }}" {% if year == selected_tax_year %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" id="taxInfoSubmitButton" class="btn btn-primary" {% if not selected_tax_year %}disabled{% endif %}>
+                                Посчитать сумму
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if tax_info_calculated %}
+                    <div class="alert alert-light border mt-3 mb-0">
+                        <strong>Сумма оплаченных услуг за {{ selected_tax_year }} год:</strong>
+                        {{ tax_info_total }} руб.
+                    </div>
+
+                    <div class="table-responsive mt-3">
+                        <table class="table table-sm table-striped align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Дата</th>
+                                    <th>Время</th>
+                                    <th>Врач</th>
+                                    <th>Услуга</th>
+                                    <th>Сумма</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for appointment in tax_info_appointments %}
+                                <tr>
+                                    <td>{{ appointment.time_slot.date|date:"d.m.Y" }}</td>
+                                    <td>{{ appointment.time_slot.start_time|time:"H:i" }}</td>
+                                    <td>
+                                        {% if appointment.time_slot.doctor %}
+                                            {{ appointment.time_slot.doctor.surname }}
+                                            {{ appointment.time_slot.doctor.first_name|slice:":1" }}.
+                                            {{ appointment.time_slot.doctor.last_name|slice:":1" }}.
+                                        {% else %}
+                                            Не указан
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ appointment.service.name }}</td>
+                                    <td>{{ appointment.tax_amount }} руб.</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-3">
+                                        За выбранный год подходящие приёмы не найдены.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% if is_doctor or is_medical_admin or is_admin %}
 <div class="modal fade" id="blacklistModal" tabindex="-1" aria-labelledby="blacklistModalLabel" aria-hidden="true">
@@ -505,6 +583,20 @@
 </div>
 {% endif %}
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const taxYearSelect = document.getElementById('taxYearSelect');
+    const taxInfoSubmitButton = document.getElementById('taxInfoSubmitButton');
+
+    if (taxYearSelect && taxInfoSubmitButton) {
+        const toggleTaxButtonState = () => {
+            taxInfoSubmitButton.disabled = !taxYearSelect.value;
+        };
+
+        taxYearSelect.addEventListener('change', toggleTaxButtonState);
+        toggleTaxButtonState();
+    }
+});
+
 function generateDocument(docType) {
     const appointmentSelect = document.getElementById('appointmentSelect');
     const selectedOptions = Array.from(appointmentSelect.selectedOptions);

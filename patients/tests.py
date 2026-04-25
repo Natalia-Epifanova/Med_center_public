@@ -1,5 +1,6 @@
 import json
-from datetime import date
+from datetime import date, time
+from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -7,9 +8,11 @@ from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from appointments.models import Appointment
 from patients.forms import PatientBlacklistForm
 from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
-from timetable.models import Doctor
+from patients.services import calculate_patient_paid_total_for_year
+from timetable.models import Cabinet, Doctor, MedicalService, MedicalServiceCategory, TimeSlot
 
 
 class PatientAccessBaseTestCase(TestCase):
@@ -127,6 +130,292 @@ class PatientPageAccessTests(PatientAccessBaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "blacklist-patient-row")
         self.assertContains(response, "Черный список")
+
+
+class PatientTaxInfoTests(PatientAccessBaseTestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = self.login(self.admin_user)
+        self.year = 2026
+
+        self.main_cabinet = Cabinet.objects.create(
+            number=1,
+            name_of_cabinet="Кабинет врача",
+        )
+        self.procedural_cabinet = Cabinet.objects.create(
+            number=6,
+            name_of_cabinet="Процедурный кабинет",
+        )
+
+        self.epifanova = Doctor.objects.create(
+            first_name="Ольга",
+            last_name="Евгеньевна",
+            surname="Епифанова",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[MedicalServiceCategory.SECOND_CONSULTATION],
+        )
+        self.other_doctor = Doctor.objects.create(
+            first_name="Алексей",
+            last_name="Игоревич",
+            surname="Пищелёв",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[
+                MedicalServiceCategory.FIRST_CONSULTATION,
+                MedicalServiceCategory.MANUFACTURE_OF_INSOLES,
+            ],
+        )
+        self.nurse = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Сергеевна",
+            surname="Медсестра",
+            specialization=Doctor.DoctorSpecialization.NURSE,
+            provided_services=[MedicalServiceCategory.ANALYZES],
+        )
+
+        self.epifanova_consultation = MedicalService.objects.create(
+            code="CONS-EPI",
+            name="Консультация ревматолога повторная",
+            price=Decimal("2500.00"),
+            category=MedicalServiceCategory.SECOND_CONSULTATION,
+            is_active=True,
+        )
+        self.other_consultation = MedicalService.objects.create(
+            code="CONS-OTH",
+            name="Консультация ортопеда",
+            price=Decimal("2500.00"),
+            category=MedicalServiceCategory.FIRST_CONSULTATION,
+            is_active=True,
+        )
+        self.insoles_service = MedicalService.objects.create(
+            code="INS-001",
+            name="Плантография",
+            price=Decimal("1800.00"),
+            category=MedicalServiceCategory.MANUFACTURE_OF_INSOLES,
+            is_active=True,
+        )
+        self.blood_collection_service = MedicalService.objects.create(
+            code="BLD-001",
+            name="Забор крови",
+            price=Decimal("200.00"),
+            category=MedicalServiceCategory.ANALYZES,
+            is_active=True,
+        )
+
+    def create_appointment(
+        self,
+        *,
+        doctor,
+        service,
+        cabinet=None,
+        slot_date=None,
+        start_time=None,
+        end_time=None,
+        status=Appointment.AppointmentStatus.COMPLETED,
+        insurance_type=Appointment.InsuranceType.PAID,
+        price_at_appointment=None,
+        total_with_blood_tests=None,
+        previous_appointment=None,
+        is_consecutive=False,
+        occupies_two_slots=False,
+    ):
+        slot = TimeSlot.objects.create(
+            doctor=doctor,
+            cabinet=cabinet or self.main_cabinet,
+            date=slot_date or date(self.year, 3, 17),
+            start_time=start_time or time(10, 0),
+            end_time=end_time or time(10, 20),
+            slot_type="working",
+        )
+        appointment = Appointment.objects.create(
+            time_slot=slot,
+            patient=self.patient,
+            service=service,
+            status=status,
+            insurance_type=insurance_type,
+            price_at_appointment=price_at_appointment,
+            total_with_blood_tests=total_with_blood_tests,
+            previous_appointment=previous_appointment,
+            is_consecutive=is_consecutive,
+            occupies_two_slots=occupies_two_slots,
+        )
+        final_total = total_with_blood_tests
+        if final_total is None and price_at_appointment is not None:
+            final_total = price_at_appointment
+
+        updates = {}
+        if price_at_appointment is not None:
+            updates["price_at_appointment"] = price_at_appointment
+        if final_total is not None:
+            updates["total_with_blood_tests"] = final_total
+        if updates:
+            Appointment.objects.filter(pk=appointment.pk).update(**updates)
+            appointment.refresh_from_db()
+        return appointment
+
+    def test_calculate_patient_paid_total_counts_only_completed_paid_appointments(self):
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            price_at_appointment=Decimal("1800.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            start_time=time(11, 0),
+            end_time=time(11, 20),
+            insurance_type=Appointment.InsuranceType.OMS,
+            price_at_appointment=Decimal("1800.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            start_time=time(12, 0),
+            end_time=time(12, 20),
+            insurance_type=Appointment.InsuranceType.DMS,
+            price_at_appointment=Decimal("1800.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            start_time=time(13, 0),
+            end_time=time(13, 20),
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            price_at_appointment=Decimal("1800.00"),
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("1800.00"))
+
+    def test_calculate_patient_paid_total_ignores_linked_procedural_duplicate(self):
+        main = self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            price_at_appointment=Decimal("1800.00"),
+        )
+        self.create_appointment(
+            doctor=self.nurse,
+            service=self.blood_collection_service,
+            cabinet=self.procedural_cabinet,
+            start_time=time(10, 20),
+            end_time=time(10, 40),
+            price_at_appointment=Decimal("500.00"),
+            previous_appointment=main,
+            is_consecutive=True,
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("1800.00"))
+
+    def test_calculate_patient_paid_total_counts_standalone_procedural_appointment(self):
+        self.create_appointment(
+            doctor=self.nurse,
+            service=self.blood_collection_service,
+            cabinet=self.procedural_cabinet,
+            price_at_appointment=Decimal("500.00"),
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("500.00"))
+
+    def test_calculate_patient_paid_total_collapses_epifanova_two_slot_consultation(self):
+        self.create_appointment(
+            doctor=self.epifanova,
+            service=self.epifanova_consultation,
+            start_time=time(9, 0),
+            end_time=time(9, 20),
+            price_at_appointment=Decimal("2500.00"),
+            occupies_two_slots=True,
+        )
+        self.create_appointment(
+            doctor=self.epifanova,
+            service=self.epifanova_consultation,
+            start_time=time(9, 20),
+            end_time=time(9, 40),
+            price_at_appointment=Decimal("2500.00"),
+            is_consecutive=True,
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("2500.00"))
+
+    def test_calculate_patient_paid_total_collapses_manual_epifanova_consultation_duplicate(self):
+        self.create_appointment(
+            doctor=self.epifanova,
+            service=self.epifanova_consultation,
+            start_time=time(14, 0),
+            end_time=time(14, 20),
+            price_at_appointment=Decimal("2500.00"),
+        )
+        self.create_appointment(
+            doctor=self.epifanova,
+            service=self.epifanova_consultation,
+            start_time=time(14, 20),
+            end_time=time(14, 40),
+            price_at_appointment=Decimal("2500.00"),
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("2500.00"))
+
+    def test_calculate_patient_paid_total_keeps_duplicate_appointments_for_other_doctors(self):
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.other_consultation,
+            start_time=time(15, 0),
+            end_time=time(15, 20),
+            price_at_appointment=Decimal("2500.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.other_consultation,
+            start_time=time(15, 20),
+            end_time=time(15, 40),
+            price_at_appointment=Decimal("2500.00"),
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("5000.00"))
+
+    def test_calculate_patient_paid_total_prefers_total_with_blood_tests(self):
+        self.create_appointment(
+            doctor=self.nurse,
+            service=self.blood_collection_service,
+            cabinet=self.procedural_cabinet,
+            price_at_appointment=Decimal("200.00"),
+            total_with_blood_tests=Decimal("920.00"),
+        )
+
+        total = calculate_patient_paid_total_for_year(self.patient, self.year)
+
+        self.assertEqual(total, Decimal("920.00"))
+
+    def test_patient_detail_shows_tax_info_for_selected_year(self):
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            price_at_appointment=Decimal("1800.00"),
+        )
+
+        response = self.client.get(
+            reverse("patients:patient_detail", kwargs={"pk": self.patient.pk}),
+            {"tax_year": str(self.year)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Информация для налоговой")
+        self.assertContains(response, "Посчитать сумму")
+        self.assertContains(response, "Сумма оплаченных услуг за 2026 год")
+        self.assertContains(response, "1800,00 руб.")
+        self.assertContains(response, "17.03.2026")
+        self.assertContains(response, "10:00")
+        self.assertContains(response, "Пищелёв")
+        self.assertContains(response, "Плантография")
 
 
 class PatientApiAccessTests(PatientAccessBaseTestCase):

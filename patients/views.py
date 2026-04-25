@@ -33,7 +33,12 @@ from patients.forms import (
     WaitlistPatientForm,
 )
 from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
-from patients.services import PatientService, CardNumberService
+from patients.services import (
+    CardNumberService,
+    PatientService,
+    get_patient_tax_info_for_year,
+    get_tax_info_years,
+)
 from patients.utils import (
     get_russian_month_name,
     number_to_words,
@@ -139,6 +144,10 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
         """Добавление истории записей в контекст"""
         context = super().get_context_data(**kwargs)
         patient = self.object
+        available_tax_years = get_tax_info_years()
+        selected_tax_year = self.request.GET.get("tax_year", "").strip()
+        tax_info_total = None
+        tax_info_appointments = []
 
         # Получаем историю записей с оптимизацией запросов
         appointment_history = (
@@ -150,6 +159,20 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
 
         context["appointment_history"] = appointment_history
         context["blacklist_form"] = PatientBlacklistForm(instance=patient)
+        context["available_tax_years"] = available_tax_years
+        context["selected_tax_year"] = selected_tax_year
+
+        if selected_tax_year.isdigit():
+            selected_tax_year_int = int(selected_tax_year)
+            if selected_tax_year_int in available_tax_years:
+                tax_info = get_patient_tax_info_for_year(patient, selected_tax_year_int)
+                tax_info_total = tax_info["total"]
+                tax_info_appointments = tax_info["appointments"]
+                context["selected_tax_year"] = selected_tax_year_int
+
+        context["tax_info_total"] = tax_info_total
+        context["tax_info_appointments"] = tax_info_appointments
+        context["tax_info_calculated"] = tax_info_total is not None
         return context
 
 
