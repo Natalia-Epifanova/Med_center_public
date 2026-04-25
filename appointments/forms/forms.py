@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import date as date_cls
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -2186,9 +2187,31 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
 
         if self.current_appointment and self.instance.pk:
             self._set_initial_values()
-            self._update_service_queryset()
+            self._update_service_queryset(self._get_target_service_date())
 
-    def _update_service_queryset(self):
+    def _get_target_service_date(self):
+        raw_date = None
+
+        if self.is_bound:
+            raw_date = self.data.get(self.add_prefix("procedural_appointment_date"))
+
+        if raw_date:
+            try:
+                return date_cls.fromisoformat(raw_date)
+            except (TypeError, ValueError):
+                logger.warning(
+                    "Не удалось распознать дату формы редактирования процедурной записи: appointment_id=%s raw_date=%s",
+                    getattr(self.current_appointment, "id", None),
+                    raw_date,
+                )
+
+        return (
+            self.selected_date
+            or getattr(self.current_appointment, "date", None)
+            or getattr(self.instance, "date", None)
+        )
+
+    def _update_service_queryset(self, target_date=None):
         """Обновляет queryset услуг после инициализации формы"""
         from timetable.models import MedicalServiceCategory
 
@@ -2202,10 +2225,18 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         )
 
         self.fields["service"].queryset = nurse_services
+        self.fields["service"].choices = [
+            (
+                service.pk,
+                f"{service.name} - {get_service_price_on_date(service, target_date):.2f} руб.",
+            )
+            for service in nurse_services
+        ]
 
         logger.info(
-            "Обновлен queryset услуг формы редактирования процедурной записи: services_count=%s",
+            "Обновлен queryset услуг формы редактирования процедурной записи: services_count=%s target_date=%s",
             nurse_services.count(),
+            target_date,
         )
 
     def _set_initial_values(self):
@@ -2300,6 +2331,7 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                 service = (
                     cleaned_data.get("service") or self.current_appointment.service
                 )
+                target_date = appointment_date or self.current_appointment.date
                 test_ids_input = cleaned_data.get("selected_blood_tests_input", "")
 
                 test_ids = [
@@ -2312,7 +2344,9 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                         "price", flat=True
                     )
                 )
-                service_price = service.price if service else 0
+                service_price = (
+                    get_service_price_on_date(service, target_date) if service else 0
+                )
                 total = tests_price + service_price
 
                 cleaned_data["total_sum"] = total
@@ -2463,8 +2497,11 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         if user_comment != appointment.comment:
             appointment.comment = user_comment
 
-        if appointment.service and not appointment.price_at_appointment:
-            appointment.price_at_appointment = appointment.service.price
+        target_date = new_date or appointment.date
+        if appointment.service:
+            appointment.price_at_appointment = get_service_price_on_date(
+                appointment.service, target_date
+            )
 
         selected_blood_tests_input = self.cleaned_data.get(
             "selected_blood_tests_input", ""
@@ -2485,9 +2522,7 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                     )
                 )
 
-        service_price = appointment.price_at_appointment or (
-            appointment.service.price if appointment.service else 0
-        )
+        service_price = appointment.price_at_appointment or 0
         appointment.total_with_blood_tests = tests_price + service_price
 
         logger.info(

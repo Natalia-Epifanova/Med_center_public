@@ -24,6 +24,7 @@ from appointments.forms.forms import (
 from appointments.models import Appointment, AppointmentChain
 from appointments.utils_for_caches import get_procedural_cabinet
 from timetable.models import Doctor, TimeSlot
+from timetable.services import get_service_price_on_date
 from timetable.utils import get_status_badge_class
 from users.permissions.decorators import medical_admin_or_admin_required
 from users.permissions.mixins import MedicalAdminOrAdminRequiredMixin
@@ -448,6 +449,9 @@ class ProceduralAppointmentUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateVi
                 "initial_test_ids": json.dumps(initial_test_ids),
                 "current_appointment": self.object,
                 "appointment": self.object,
+                "current_service_price": get_service_price_on_date(
+                    self.object.service, self.object.date
+                ),
             }
         )
         return context

@@ -213,10 +213,88 @@
         console.log('=== Procedural Appointment Edit Form Loaded ===');
 
         const initialTestIds = {{ initial_test_ids|safe|default:"[]" }};
+        const initialServicePrice = parseFloat('{{ current_service_price|default_if_none:0 }}') || 0;
+        const nurseDoctorId = {{ nurse_doctor.id|default:"null" }};
+        const csrfToken = '{{ csrf_token }}';
         console.log('Initial test IDs:', initialTestIds);
 
         const bloodTestSection = document.getElementById('bloodTestSelectionSection');
         const serviceSelect = document.getElementById('id_service');
+
+        function setSelectedOptionPrice(price) {
+            if (!serviceSelect || !serviceSelect.value) return;
+
+            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+            const parsedPrice = parseFloat(price);
+            if (selectedOption && !Number.isNaN(parsedPrice)) {
+                selectedOption.dataset.price = parsedPrice;
+            }
+        }
+
+        function updateServiceOptions(services) {
+            if (!serviceSelect) return;
+
+            const selectedServiceId = serviceSelect.value;
+            const currentOptions = Array.from(serviceSelect.options);
+            const placeholderOption = currentOptions.find(option => option.value === '');
+
+            serviceSelect.innerHTML = '';
+            if (placeholderOption) {
+                serviceSelect.appendChild(placeholderOption.cloneNode(true));
+            }
+
+            services.forEach((service) => {
+                const option = document.createElement('option');
+                option.value = service.id;
+                option.textContent = `${service.name} - ${service.price.toFixed(2)} руб.`;
+                option.dataset.price = service.price;
+
+                if (String(service.id) === String(selectedServiceId)) {
+                    option.selected = true;
+                }
+
+                serviceSelect.appendChild(option);
+            });
+        }
+
+        async function refreshServicePricesForDate(targetDate) {
+            if (!serviceSelect || !nurseDoctorId || !targetDate) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/appointments/api/doctor-services/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        doctor_id: nurseDoctorId,
+                        date: targetDate
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.success || !Array.isArray(data.services)) {
+                    throw new Error('Invalid services payload');
+                }
+
+                updateServiceOptions(data.services);
+
+                if (window.bloodTestSelection) {
+                    window.bloodTestSelection.updateTotalSum();
+                }
+
+                updateBloodTestSectionVisibility();
+            } catch (error) {
+                console.error('Не удалось обновить цены услуг для выбранной даты:', error);
+            }
+        }
 
         // Функция для проверки, является ли услуга "Забор крови"
         function isBloodTestService(serviceName) {
@@ -248,11 +326,14 @@
             console.log('BloodTestSelection class found, initializing...');
 
             window.bloodTestSelection = new BloodTestSelection({
-                initialTests: initialTestIds
+                initialTests: initialTestIds,
+                initialServicePrice: initialServicePrice
             });
 
             // Добавляем обработчик изменения услуги
             if (serviceSelect) {
+                setSelectedOptionPrice(initialServicePrice);
+
                 serviceSelect.addEventListener('change', function() {
                     console.log('Service changed, updating...');
                     updateBloodTestSectionVisibility();
@@ -378,7 +459,12 @@
                 timeoutId = setTimeout(validateTimeAvailability, 500); // 500ms задержка
             }
 
-            if (dateField) dateField.addEventListener('change', debouncedValidate);
+            if (dateField) {
+                dateField.addEventListener('change', function() {
+                    debouncedValidate();
+                    refreshServicePricesForDate(dateField.value);
+                });
+            }
             if (startTimeField) startTimeField.addEventListener('change', debouncedValidate);
             if (endTimeField) endTimeField.addEventListener('change', debouncedValidate);
         }

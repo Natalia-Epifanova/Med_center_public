@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.contrib.messages import get_messages
@@ -9,7 +10,11 @@ from django.middleware.csrf import _get_new_csrf_string
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from appointments.forms.forms import AppointmentSimpleEditForm, AppointmentForm
+from appointments.forms.forms import (
+    AppointmentForm,
+    AppointmentSimpleEditForm,
+    ProceduralAppointmentUpdateForm,
+)
 from appointments.models import Appointment, AppointmentBloodTest, AppointmentChain
 from patients.models import Patient
 from patients.views import DocumentGenerator
@@ -19,6 +24,7 @@ from timetable.models import (
     Cabinet,
     Doctor,
     MedicalService,
+    MedicalServicePrice,
     MedicalServiceCategory,
     TimeSlot,
 )
@@ -314,6 +320,127 @@ class AppointmentSimpleEditFormTests(TestCase):
         self.assertEqual(procedural_appointment.time_slot.cabinet.number, 6)
 
         self.assertFalse(TimeSlot.objects.filter(id=old_procedural_slot_id).exists())
+
+
+class ProceduralAppointmentUpdateFormTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.User = get_user_model()
+        self.med_admin_group, _ = Group.objects.get_or_create(
+            name="Medical Center Administrator"
+        )
+        self.med_admin_user = self.User.objects.create_user(
+            username="procedural_editor",
+            password="testpass123",
+        )
+        self.med_admin_user.groups.add(self.med_admin_group)
+
+        self.original_date = date(2026, 3, 17)
+        self.updated_date = date(2026, 4, 29)
+
+        self.procedural_cabinet = Cabinet.objects.create(
+            number=6,
+            name_of_cabinet="Процедурный кабинет",
+        )
+        self.nurse = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Сергеевна",
+            surname="Медсестра",
+            specialization=Doctor.DoctorSpecialization.NURSE,
+            provided_services=[MedicalServiceCategory.ANALYZES],
+        )
+        self.patient = Patient.objects.create(
+            surname="Гребенщикова",
+            first_name="Кристина",
+            last_name="Александровна",
+            date_of_birth=date(1990, 5, 20),
+        )
+        self.blood_collection_service = MedicalService.objects.create(
+            code="BLD-001",
+            name="Забор крови",
+            price=200,
+            category=MedicalServiceCategory.ANALYZES,
+            is_active=True,
+        )
+        MedicalServicePrice.objects.create(
+            service=self.blood_collection_service,
+            valid_from=date(2026, 1, 1),
+            price=Decimal("150.00"),
+        )
+        MedicalServicePrice.objects.create(
+            service=self.blood_collection_service,
+            valid_from=date(2026, 4, 1),
+            price=Decimal("200.00"),
+        )
+
+        self.procedural_slot = TimeSlot.objects.create(
+            doctor=self.nurse,
+            cabinet=self.procedural_cabinet,
+            date=self.original_date,
+            start_time=time(8, 0),
+            end_time=time(8, 20),
+            slot_type="working",
+        )
+        self.appointment = Appointment.objects.create(
+            time_slot=self.procedural_slot,
+            patient=self.patient,
+            service=self.blood_collection_service,
+            insurance_type=Appointment.InsuranceType.PAID,
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            price_at_appointment=Decimal("150.00"),
+            total_with_blood_tests=Decimal("150.00"),
+        )
+
+    def build_form(self, **overrides):
+        data = {
+            "procedural_appointment_date": self.updated_date.isoformat(),
+            "procedural_start_time": "08:00",
+            "procedural_end_time": "08:20",
+            "service": self.blood_collection_service.id,
+            "insurance_type": Appointment.InsuranceType.PAID,
+            "comment": "Обновление процедурной записи",
+            "selected_blood_tests_input": "",
+            "total_sum": "",
+        }
+        data.update(overrides)
+        return ProceduralAppointmentUpdateForm(
+            data=data,
+            instance=self.appointment,
+            current_appointment=self.appointment,
+            selected_date=self.appointment.date,
+        )
+
+    def test_clean_recalculates_total_sum_using_price_history_for_selected_date(self):
+        form = self.build_form()
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["total_sum"], Decimal("200.00"))
+
+    def test_save_updates_price_at_appointment_using_price_history_for_new_date(self):
+        form = self.build_form()
+
+        self.assertTrue(form.is_valid(), form.errors)
+        appointment = form.save()
+
+        self.assertEqual(appointment.price_at_appointment, Decimal("200.00"))
+        self.assertEqual(appointment.total_with_blood_tests, Decimal("200.00"))
+        self.assertEqual(appointment.time_slot.date, self.updated_date)
+
+    def test_update_page_renders_current_service_price_for_appointment_date(self):
+        client = Client()
+        client.force_login(self.med_admin_user)
+
+        response = client.get(
+            reverse(
+                "appointments:appointment_update_procedural",
+                kwargs={"pk": self.appointment.pk},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Забор крови - 150.00 руб.")
+        self.assertContains(response, "initialServicePrice")
+        self.assertContains(response, "150.00")
 
 
 class AppointmentFormTests(TestCase):
@@ -1052,6 +1179,51 @@ class AppointmentBlacklistWarningTests(TestCase):
             ),
             messages,
         )
+
+
+class AppointmentCreatePageAssetTests(AppointmentBlacklistWarningTests):
+    def setUp(self):
+        super().setUp()
+        self.user = self.med_admin_user
+        self.time_slot = self.main_slot
+
+        self.cabinet, _ = Cabinet.objects.get_or_create(
+            number=1001,
+            defaults={"name_of_cabinet": "РљР°Р±РёРЅРµС‚ 1"},
+        )
+        self.doctor = Doctor.objects.create(
+            first_name="РРІР°РЅ",
+            last_name="РРІР°РЅРѕРІРёС‡",
+            surname="РџРµС‚СЂРѕРІ",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[MedicalServiceCategory.JOINT_ULTRASOUND],
+        )
+        self.time_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=date(2026, 3, 17),
+            start_time=time(10, 0),
+            end_time=time(10, 10),
+            slot_type="working",
+        )
+
+    def test_appointment_create_page_includes_split_javascript_files(self):
+        client = Client()
+        client.force_login(self.user)
+
+        response = client.get(
+            reverse(
+                "appointments:appointment_create",
+                kwargs={"time_slot_id": self.time_slot.id},
+            )
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "/static/js/appointment/patient-search.js")
+        self.assertContains(response, "/static/js/appointment/procedural.js")
+        self.assertContains(response, "/static/js/appointment/chain-manager.js")
+        self.assertContains(response, "/static/js/appointment/blood-tests.js")
+        self.assertContains(response, "/static/js/appointment/time-slot-selector.js")
 
     def test_repeated_regular_appointment_post_does_not_create_duplicate(self):
         client = self.login()

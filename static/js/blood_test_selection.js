@@ -14,6 +14,7 @@ class BloodTestSelection {
         this.currentCategoryId = 'all';
         this.searchTerm = '';
         this.bloodCollectionPrice = 150;
+        this.servicePrice = parseFloat(options.initialServicePrice) || 0;
 
         this.init();
     }
@@ -309,7 +310,8 @@ class BloodTestSelection {
 
         const totalCount = selectedTestsArray.length;
         const testsPrice = selectedTestsArray.reduce((sum, test) => sum + (test.price || 0), 0);
-        const totalPrice = testsPrice + this.bloodCollectionPrice;
+        const servicePrice = this.getCurrentServicePrice();
+        const totalPrice = testsPrice + servicePrice;
 
         const selectedTestsCount = document.getElementById('selectedTestsCount');
         const selectedTestsPrice = document.getElementById('selectedTestsPrice');
@@ -320,8 +322,51 @@ class BloodTestSelection {
 
         if (selectedTestsPrice) {
             selectedTestsPrice.textContent = `${totalPrice} руб.`;
-            selectedTestsPrice.title = `Анализы: ${testsPrice} руб. + Забор крови: ${this.bloodCollectionPrice} руб.`;
+            selectedTestsPrice.title = `Анализы: ${testsPrice} руб. + Забор крови: ${servicePrice} руб.`;
         }
+    }
+
+    setServicePrice(price) {
+        const parsedPrice = parseFloat(price);
+        if (!Number.isNaN(parsedPrice)) {
+            this.servicePrice = parsedPrice;
+        }
+    }
+
+    getCurrentServicePrice() {
+        const serviceSelect = document.getElementById('id_service');
+        if (!serviceSelect || !serviceSelect.value) {
+            return this.servicePrice || 0;
+        }
+
+        const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
+        if (!selectedOption) {
+            return this.servicePrice || 0;
+        }
+
+        const datasetPrice = parseFloat(selectedOption.dataset.price);
+        if (!Number.isNaN(datasetPrice)) {
+            this.servicePrice = datasetPrice;
+            return datasetPrice;
+        }
+
+        if (this.servicePrice > 0) {
+            selectedOption.dataset.price = this.servicePrice;
+            return this.servicePrice;
+        }
+
+        const priceMatch = selectedOption.textContent.match(/[\d\s]+(?:[.,]\d+)?\s*руб\.?/);
+        if (priceMatch) {
+            const normalizedPrice = priceMatch[0].replace(/\s/g, '').replace(',', '.');
+            const parsedPrice = parseFloat(normalizedPrice.replace(/[^\d.]/g, ''));
+            if (!Number.isNaN(parsedPrice)) {
+                this.servicePrice = parsedPrice;
+                selectedOption.dataset.price = parsedPrice;
+                return parsedPrice;
+            }
+        }
+
+        return this.bloodCollectionPrice;
     }
 
 
@@ -332,27 +377,7 @@ class BloodTestSelection {
         // Считаем сумму анализов
         const testsPrice = this.getTotalPrice();
 
-        // Получаем цену услуги - ИСПРАВЛЕНИЕ
-        let servicePrice = 0;
-
-        // Способ 1: Пробуем получить цену из фиксированного значения (для услуги "Забор крови")
-        const serviceSelect = document.getElementById('id_service');
-        if (serviceSelect && serviceSelect.value) {
-            const selectedOption = serviceSelect.options[serviceSelect.selectedIndex];
-            const serviceName = selectedOption.textContent.toLowerCase();
-
-            // Для услуги "Забор крови" используем фиксированную цену 150
-            if (serviceName.includes('забор крови')) {
-                servicePrice = 150;
-            } else {
-                // Для других услуг пытаемся извлечь цену из текста
-                const priceMatch = selectedOption.textContent.match(/[\d\s]+руб\.?/);
-                if (priceMatch) {
-                    const priceStr = priceMatch[0].replace(/[^\d]/g, '');
-                    servicePrice = parseInt(priceStr) || 0;
-                }
-            }
-        }
+        const servicePrice = this.getCurrentServicePrice();
 
         // Общая сумма
         const totalSum = servicePrice + testsPrice;
