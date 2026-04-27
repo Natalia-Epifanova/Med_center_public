@@ -218,12 +218,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
                 <div class="col-md-1">
                     <div class="d-flex gap-1 justify-content-end">
-                        <a href="/patients/${patient.id}/"
+                        <a href="${patient.detail_url || `/patients/${patient.id}/`}"
                            class="btn btn-sm btn-outline-info"
                            title="Подробнее">
                             <i class="fas fa-eye"></i>
                         </a>
-                        <a href="/patients/${patient.id}/edit/"
+                        <a href="${patient.update_url || `/patients/${patient.id}/update/`}"
                            class="btn btn-sm btn-outline-warning"
                            title="Редактировать">
                             <i class="fas fa-edit"></i>

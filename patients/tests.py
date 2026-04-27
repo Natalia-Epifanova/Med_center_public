@@ -11,7 +11,10 @@ from django.urls import reverse
 from appointments.models import Appointment
 from patients.forms import PatientBlacklistForm
 from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
-from patients.services import calculate_patient_paid_total_for_year
+from patients.services import (
+    calculate_patient_paid_total_for_year,
+    get_patient_tax_info_for_year,
+)
 from timetable.models import Cabinet, Doctor, MedicalService, MedicalServiceCategory, TimeSlot
 
 
@@ -282,16 +285,23 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
             status=Appointment.AppointmentStatus.SCHEDULED,
             price_at_appointment=Decimal("1800.00"),
         )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.other_consultation,
+            start_time=time(16, 0),
+            end_time=time(16, 20),
+            price_at_appointment=Decimal("2500.00"),
+        )
 
         total = calculate_patient_paid_total_for_year(self.patient, self.year)
 
-        self.assertEqual(total, Decimal("1800.00"))
+        self.assertEqual(total, Decimal("2500.00"))
 
     def test_calculate_patient_paid_total_ignores_linked_procedural_duplicate(self):
         main = self.create_appointment(
             doctor=self.other_doctor,
-            service=self.insoles_service,
-            price_at_appointment=Decimal("1800.00"),
+            service=self.other_consultation,
+            price_at_appointment=Decimal("2500.00"),
         )
         self.create_appointment(
             doctor=self.nurse,
@@ -306,7 +316,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
 
         total = calculate_patient_paid_total_for_year(self.patient, self.year)
 
-        self.assertEqual(total, Decimal("1800.00"))
+        self.assertEqual(total, Decimal("2500.00"))
 
     def test_calculate_patient_paid_total_counts_standalone_procedural_appointment(self):
         self.create_appointment(
@@ -395,10 +405,55 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
 
         self.assertEqual(total, Decimal("920.00"))
 
-    def test_patient_detail_shows_tax_info_for_selected_year(self):
+    def test_patient_tax_info_splits_ip_and_revmamed_totals(self):
+        self.create_appointment(
+            doctor=self.epifanova,
+            service=self.epifanova_consultation,
+            start_time=time(12, 0),
+            end_time=time(12, 20),
+            price_at_appointment=Decimal("2600.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.other_consultation,
+            start_time=time(13, 0),
+            end_time=time(13, 20),
+            price_at_appointment=Decimal("1500.00"),
+        )
         self.create_appointment(
             doctor=self.other_doctor,
             service=self.insoles_service,
+            start_time=time(14, 0),
+            end_time=time(14, 20),
+            price_at_appointment=Decimal("1800.00"),
+        )
+
+        tax_info = get_patient_tax_info_for_year(self.patient, self.year)
+
+        self.assertEqual(tax_info["total"], Decimal("4100.00"))
+        self.assertEqual(tax_info["ip_total"], Decimal("2600.00"))
+        self.assertEqual(tax_info["revmamed_total"], Decimal("1500.00"))
+
+    def test_patient_detail_shows_tax_info_for_selected_year(self):
+        self.create_appointment(
+            doctor=self.epifanova,
+            service=self.epifanova_consultation,
+            start_time=time(10, 0),
+            end_time=time(10, 20),
+            price_at_appointment=Decimal("2600.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.other_consultation,
+            start_time=time(11, 0),
+            end_time=time(11, 20),
+            price_at_appointment=Decimal("1500.00"),
+        )
+        self.create_appointment(
+            doctor=self.other_doctor,
+            service=self.insoles_service,
+            start_time=time(12, 0),
+            end_time=time(12, 20),
             price_at_appointment=Decimal("1800.00"),
         )
 
@@ -411,11 +466,37 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
         self.assertContains(response, "Информация для налоговой")
         self.assertContains(response, "Посчитать сумму")
         self.assertContains(response, "Сумма оплаченных услуг за 2026 год")
-        self.assertContains(response, "1800,00 руб.")
+        self.assertContains(response, "4100,00 руб.")
+        self.assertContains(response, "Сумма по ИП")
+        self.assertContains(response, "2600,00 руб.")
+        self.assertContains(response, "Сумма по Ревмамеду")
+        self.assertContains(response, "1500,00 руб.")
         self.assertContains(response, "17.03.2026")
         self.assertContains(response, "10:00")
+        self.assertContains(response, "11:00")
+        self.assertContains(response, "Епифанова")
         self.assertContains(response, "Пищелёв")
-        self.assertContains(response, "Плантография")
+        self.assertContains(response, "Консультация ревматолога повторная")
+        self.assertContains(response, "Консультация ортопеда")
+        self.assertContains(response, "Куда учтено")
+        self.assertContains(response, "ИП")
+        self.assertContains(response, "Ревмамед")
+        tax_services = [
+            appointment.service.name
+            for appointment in response.context["tax_info_appointments"]
+        ]
+        tax_buckets = [
+            appointment.tax_bucket
+            for appointment in response.context["tax_info_appointments"]
+        ]
+        self.assertEqual(
+            tax_services,
+            [
+                "Консультация ревматолога повторная",
+                "Консультация ортопеда",
+            ],
+        )
+        self.assertEqual(tax_buckets, ["ИП", "Ревмамед"])
 
 
 class PatientApiAccessTests(PatientAccessBaseTestCase):
@@ -505,6 +586,24 @@ class PatientSearchApiTests(PatientAccessBaseTestCase):
         self.assertEqual(response.status_code, 200)
         patients = response.json()["patients"]
         self.assertTrue(any(p["id"] == self.patient.id for p in patients))
+
+    def test_search_patients_api_returns_detail_and_update_urls(self):
+        response = self.client.get(
+            reverse("patients:api_search_patients"), {"q": self.patient.surname}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        patient_data = next(
+            p for p in response.json()["patients"] if p["id"] == self.patient.id
+        )
+        self.assertEqual(
+            patient_data["detail_url"],
+            reverse("patients:patient_detail", kwargs={"pk": self.patient.pk}),
+        )
+        self.assertEqual(
+            patient_data["update_url"],
+            reverse("patients:patient_update", kwargs={"pk": self.patient.pk}),
+        )
 
     def test_search_patients_by_phone(self):
         response = self.client.get(

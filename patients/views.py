@@ -147,6 +147,8 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
         available_tax_years = get_tax_info_years()
         selected_tax_year = self.request.GET.get("tax_year", "").strip()
         tax_info_total = None
+        tax_info_ip_total = None
+        tax_info_revmamed_total = None
         tax_info_appointments = []
 
         # Получаем историю записей с оптимизацией запросов
@@ -167,10 +169,14 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
             if selected_tax_year_int in available_tax_years:
                 tax_info = get_patient_tax_info_for_year(patient, selected_tax_year_int)
                 tax_info_total = tax_info["total"]
+                tax_info_ip_total = tax_info["ip_total"]
+                tax_info_revmamed_total = tax_info["revmamed_total"]
                 tax_info_appointments = tax_info["appointments"]
                 context["selected_tax_year"] = selected_tax_year_int
 
         context["tax_info_total"] = tax_info_total
+        context["tax_info_ip_total"] = tax_info_ip_total
+        context["tax_info_revmamed_total"] = tax_info_revmamed_total
         context["tax_info_appointments"] = tax_info_appointments
         context["tax_info_calculated"] = tax_info_total is not None
         return context

@@ -3,6 +3,7 @@ from datetime import datetime
 
 from django.db import models
 from django.http import JsonResponse
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
 from patients.models import Patient
@@ -365,6 +366,12 @@ def search_patients_api(request):
                     "first_name": patient.first_name,
                     "last_name": patient.last_name or "",
                     "full_name": patient.get_full_name(),
+                    "detail_url": reverse(
+                        "patients:patient_detail", kwargs={"pk": patient.id}
+                    ),
+                    "update_url": reverse(
+                        "patients:patient_update", kwargs={"pk": patient.id}
+                    ),
                     "card_number": patient.card_number,
                     "card_number_IP": patient.card_number_IP,
                     "card_number_OMS": patient.card_number_OMS,

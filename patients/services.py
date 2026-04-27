@@ -327,6 +327,12 @@ def get_taxable_appointment_amount(appointment) -> Decimal:
     return Decimal("0.00")
 
 
+def _is_excluded_from_tax_info(appointment) -> bool:
+    service = getattr(appointment, "service", None)
+    service_name = (service.name if service else "").strip().lower()
+    return service_name == "плантография"
+
+
 def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, object]:
     """Возвращает сумму и список учтенных записей пациента за год."""
     from appointments.models import Appointment
@@ -346,6 +352,9 @@ def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, obje
     last_kept_epifanova_consultation = {}
 
     for appointment in appointments:
+        if _is_excluded_from_tax_info(appointment):
+            continue
+
         if _is_linked_procedural_appointment(appointment):
             continue
 
@@ -363,15 +372,38 @@ def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, obje
             last_kept_epifanova_consultation[signature] = appointment
 
         appointment.tax_amount = amount
+        appointment.tax_bucket = (
+            "ИП"
+            if _is_epifanova_doctor_appointment(appointment)
+            else "Ревмамед"
+        )
         included_appointments.append(appointment)
 
     total_amount = sum(
         (appointment.tax_amount for appointment in included_appointments),
         Decimal("0.00"),
     )
+    ip_total_amount = sum(
+        (
+            appointment.tax_amount
+            for appointment in included_appointments
+            if _is_epifanova_doctor_appointment(appointment)
+        ),
+        Decimal("0.00"),
+    )
+    revmamed_total_amount = sum(
+        (
+            appointment.tax_amount
+            for appointment in included_appointments
+            if not _is_epifanova_doctor_appointment(appointment)
+        ),
+        Decimal("0.00"),
+    )
 
     return {
         "total": total_amount,
+        "ip_total": ip_total_amount,
+        "revmamed_total": revmamed_total_amount,
         "appointments": included_appointments,
     }
 
@@ -399,6 +431,15 @@ def _is_epifanova_consultation(appointment) -> bool:
 
     service_name = (service.name or "").strip().lower()
     if "консультац" not in service_name:
+        return False
+
+    return _is_epifanova_doctor_appointment(appointment)
+
+
+def _is_epifanova_doctor_appointment(appointment) -> bool:
+    doctor = getattr(getattr(appointment, "time_slot", None), "doctor", None)
+
+    if not doctor:
         return False
 
     return (
