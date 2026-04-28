@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -38,6 +39,99 @@ from users.permissions.mixins import (
     AdminRequiredMixin,
     MedicalAdminOrAdminRequiredMixin,
 )
+
+
+REPORT_SUMMARY_CARDS = [
+    {
+        "key": "analyses",
+        "title": "Анализы",
+        "icon": "fa-flask",
+        "css_class": "alert-info",
+        "description": "Общая сумма за все анализы в выбранном периоде",
+    },
+    {
+        "key": "xray",
+        "title": "Рентген",
+        "icon": "fa-x-ray",
+        "css_class": "alert-warning",
+        "description": "Общая сумма за все рентгеновские снимки в выбранном периоде",
+    },
+    {
+        "key": "magnetolaser",
+        "title": "Магнитолазерная терапия",
+        "icon": "fa-wave-square",
+        "css_class": "alert-success",
+        "description": "Общая сумма за магнитолазерную терапию в выбранном периоде",
+    },
+    {
+        "key": "intramuscular",
+        "title": "Внутримышечные инъекции",
+        "icon": "fa-syringe",
+        "css_class": "alert-primary",
+        "description": "Общая сумма за все внутримышечные введения в выбранном периоде",
+    },
+    {
+        "key": "subcutaneous",
+        "title": "Подкожные и внутрикожные",
+        "icon": "fa-droplet",
+        "css_class": "alert-secondary",
+        "description": "Общая сумма за подкожные и внутрикожные введения в выбранном периоде",
+    },
+    {
+        "key": "continuous_intravenous",
+        "title": "Непрерывное внутривенное",
+        "icon": "fa-notes-medical",
+        "css_class": "alert-danger",
+        "description": "Общая сумма за непрерывное внутривенное введение в выбранном периоде",
+    },
+    {
+        "key": "intravenous",
+        "title": "Внутривенные инъекции",
+        "icon": "fa-briefcase-medical",
+        "css_class": "alert-dark",
+        "description": "Общая сумма за внутривенные введения в выбранном периоде",
+    },
+]
+
+
+def _get_report_summary_group_key(service):
+    if not service:
+        return None
+
+    service_code = (service.code or "").strip()
+    service_name = (service.name or "").strip().lower()
+
+    if service.category == "analyzes":
+        return "analyses"
+    if service.category == "xray":
+        return "xray"
+    if service_code == "A22.01.005" and "магнитолазерная терапия" in service_name:
+        return "magnetolaser"
+    if (
+        service_code == "A11.02.002"
+        and "внутримышечное введение лекарственных препаратов" in service_name
+        and "без учета стоимости препарата" in service_name
+    ):
+        return "intramuscular"
+    if (
+        service_code == "A11.01.002"
+        and "подкожное и внутрикожное введение лекарственных препаратов"
+        in service_name
+    ):
+        return "subcutaneous"
+    if (
+        service_code == "A11.12.003.001"
+        and "непрерывное внутривенное введение лекарственных препаратов"
+        in service_name
+    ):
+        return "continuous_intravenous"
+    if (
+        service_code == "A11.12.003"
+        and "внутривенное введение лекарственных препаратов" in service_name
+    ):
+        return "intravenous"
+
+    return None
 
 
 class HomeView(LoginRequiredMixin, TemplateView):
@@ -610,8 +704,11 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
         report_data = {}
 
         # Добавляем счетчики для сумм
-        total_analyses_sum = 0
-        total_xray_sum = 0
+        summary_totals = {
+            card["key"]: Decimal("0.00") for card in REPORT_SUMMARY_CARDS
+        }
+        total_analyses_sum = Decimal("0.00")
+        total_xray_sum = Decimal("0.00")
 
         for appointment in appointments:
             doctor = appointment.time_slot.doctor
@@ -671,12 +768,19 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
             if service and service.category:
                 if service.category == "analyzes":  # анализы
                     # Проверяем, есть ли связанные анализы крови
-                    if hasattr(appointment, "selected_blood_tests"):
+                    selected_blood_tests = getattr(
+                        appointment, "selected_blood_tests", None
+                    )
+                    has_selected_blood_tests = (
+                        selected_blood_tests is not None
+                        and selected_blood_tests.exists()
+                    )
+                    if has_selected_blood_tests:
                         # Суммируем стоимость всех выбранных анализов
                         tests_price = (
-                            appointment.selected_blood_tests.aggregate(
-                                total=Sum("blood_test__price")
-                            )["total"]
+                            selected_blood_tests.aggregate(total=Sum("blood_test__price"))[
+                                "total"
+                            ]
                             or 0
                         )
                         total_analyses_sum += tests_price
@@ -689,6 +793,13 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                 elif service.category == "xray":  # рентген
                     total_xray_sum += service_price
 
+            summary_totals["analyses"] = total_analyses_sum
+            summary_totals["xray"] = total_xray_sum
+
+            summary_group_key = _get_report_summary_group_key(service)
+            if summary_group_key and summary_group_key not in {"analyses", "xray"}:
+                summary_totals[summary_group_key] += service_price
+
             if doctor.surname == "Платицына" or "Платицына" in str(doctor):
                 # Для анализов используем полную сумму
                 if service and service.category == "analyzes":
@@ -697,6 +808,14 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                     ] += appointment.get_total_price
                 else:
                     report_data[doctor]["doctor_total_sum"] += service_price
+
+        period_summary_cards = [
+            {
+                **card,
+                "amount": summary_totals[card["key"]],
+            }
+            for card in REPORT_SUMMARY_CARDS
+        ]
 
         context.update(
             {
@@ -708,6 +827,7 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                 "selected_end_date": end_date_str,
                 "total_analyses_sum": total_analyses_sum,
                 "total_xray_sum": total_xray_sum,
+                "period_summary_cards": period_summary_cards,
             }
         )
         return context
