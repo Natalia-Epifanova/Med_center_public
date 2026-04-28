@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.cache import cache
-from django.db.models import Sum
+from django.db.models import Count, Q, Sum
 from django.http import HttpResponseRedirect, JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse, reverse_lazy
@@ -418,7 +418,18 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
                 "doctor__specialization",
                 "date",
             )
-            .distinct()
+            .annotate(
+                working_slots_count=Count(
+                    "id",
+                    filter=Q(slot_type="working"),
+                    distinct=True,
+                ),
+                booked_slots_count=Count(
+                    "appointments",
+                    filter=Q(slot_type="working"),
+                    distinct=True,
+                ),
+            )
             .order_by("doctor__surname", "date")
         )
 
@@ -428,8 +439,16 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
 
         for slot in slots_this_month:
             doctor_key = f"{slot['doctor__surname']} {slot['doctor__first_name'][0]}.{slot['doctor__last_name'][0]}."
-            if slot["date"] not in doctor_dates[doctor_key]:
-                doctor_dates[doctor_key].append(slot["date"])
+            doctor_dates[doctor_key].append(
+                {
+                    "date": slot["date"],
+                    "status": (
+                        "available"
+                        if slot["working_slots_count"] > slot["booked_slots_count"]
+                        else "full"
+                    ),
+                }
+            )
             if doctor_key not in doctor_specializations:
                 # Получаем отображаемое название специализации
                 doctor_specializations[doctor_key] = dict(
@@ -442,7 +461,10 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
             result.append(
                 {
                     "name": doctor_name,
-                    "dates": sorted(doctor_dates[doctor_name]),
+                    "dates": sorted(
+                        doctor_dates[doctor_name],
+                        key=lambda item: item["date"],
+                    ),
                     "specialization": doctor_specializations.get(doctor_name, ""),
                 }
             )

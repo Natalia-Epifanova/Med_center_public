@@ -3,12 +3,152 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.cache import cache
 from django.test import TestCase
 from django.urls import reverse
 
 from appointments.models import Appointment
 from patients.models import Patient
 from timetable.models import Cabinet, Doctor, MedicalService, MedicalServiceCategory, TimeSlot
+
+
+class ScheduleDayDoctorDatesTests(TestCase):
+    def setUp(self):
+        cache.clear()
+        self.User = get_user_model()
+        self.user = self.User.objects.create_user(
+            username="schedule_user",
+            password="testpass123",
+        )
+        self.client.force_login(self.user)
+
+        self.cabinet = Cabinet.objects.create(number=201, name_of_cabinet="Тестовый")
+        self.patient = Patient.objects.create(
+            surname="Петров",
+            first_name="Петр",
+            last_name="Петрович",
+            phone_number="+79990001123",
+            card_number="55556",
+            date_of_birth=date(1985, 5, 20),
+        )
+        self.doctor = Doctor.objects.create(
+            first_name="Ольга",
+            last_name="Евгеньевна",
+            surname="Смирнова",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[MedicalServiceCategory.FIRST_CONSULTATION],
+        )
+        self.service = MedicalService.objects.create(
+            code="CONS-001",
+            name="Прием врача",
+            price=Decimal("1000.00"),
+            category=MedicalServiceCategory.FIRST_CONSULTATION,
+            is_active=True,
+        )
+
+    def test_doctor_schedule_dates_marks_available_and_full_days(self):
+        available_date = date(2026, 4, 10)
+        full_date = date(2026, 4, 11)
+
+        available_slot_1 = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=available_date,
+            start_time=time(9, 0),
+            end_time=time(9, 20),
+            slot_type="working",
+        )
+        TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=available_date,
+            start_time=time(9, 20),
+            end_time=time(9, 40),
+            slot_type="working",
+        )
+        full_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=full_date,
+            start_time=time(10, 0),
+            end_time=time(10, 20),
+            slot_type="working",
+        )
+
+        Appointment.objects.create(
+            time_slot=available_slot_1,
+            patient=self.patient,
+            service=self.service,
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            insurance_type=Appointment.InsuranceType.PAID,
+        )
+        Appointment.objects.create(
+            time_slot=full_slot,
+            patient=self.patient,
+            service=self.service,
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            insurance_type=Appointment.InsuranceType.PAID,
+        )
+
+        response = self.client.get(
+            reverse("timetable:schedule_day"),
+            {"date": available_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        doctor_dates = response.context["doctor_schedule_dates"]
+        doctor_entry = next(
+            item for item in doctor_dates if item["name"].startswith("Смирнова")
+        )
+        statuses_by_date = {
+            item["date"]: item["status"] for item in doctor_entry["dates"]
+        }
+
+        self.assertEqual(statuses_by_date[available_date], "available")
+        self.assertEqual(statuses_by_date[full_date], "full")
+        self.assertContains(response, "bg-success")
+        self.assertContains(response, "bg-danger")
+
+    def test_doctor_schedule_dates_cache_is_invalidated_after_booking_last_slot(self):
+        target_date = date(2026, 4, 12)
+        free_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=target_date,
+            start_time=time(11, 0),
+            end_time=time(11, 20),
+            slot_type="working",
+        )
+
+        initial_response = self.client.get(
+            reverse("timetable:schedule_day"),
+            {"date": target_date.isoformat()},
+        )
+        self.assertEqual(initial_response.status_code, 200)
+
+        Appointment.objects.create(
+            time_slot=free_slot,
+            patient=self.patient,
+            service=self.service,
+            status=Appointment.AppointmentStatus.SCHEDULED,
+            insurance_type=Appointment.InsuranceType.PAID,
+        )
+
+        updated_response = self.client.get(
+            reverse("timetable:schedule_day"),
+            {"date": target_date.isoformat()},
+        )
+        self.assertEqual(updated_response.status_code, 200)
+
+        doctor_dates = updated_response.context["doctor_schedule_dates"]
+        doctor_entry = next(
+            item for item in doctor_dates if item["name"].startswith("Смирнова")
+        )
+        statuses_by_date = {
+            item["date"]: item["status"] for item in doctor_entry["dates"]
+        }
+
+        self.assertEqual(statuses_by_date[target_date], "full")
 
 
 class DoctorReportSummaryTests(TestCase):
