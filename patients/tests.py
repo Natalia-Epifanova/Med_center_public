@@ -12,6 +12,7 @@ from appointments.models import Appointment
 from patients.forms import PatientBlacklistForm, PatientFullForm
 from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
 from patients.services import (
+    CardNumberService,
     calculate_patient_paid_total_for_year,
     get_patient_tax_info_for_year,
 )
@@ -133,6 +134,58 @@ class PatientPageAccessTests(PatientAccessBaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "blacklist-patient-row")
         self.assertContains(response, "Черный список")
+
+    def test_patient_list_shows_compact_free_card_numbers_widget(self):
+        Patient.objects.create(
+            surname="Петров",
+            first_name="Петр",
+            last_name="Петрович",
+            card_number=12347,
+        )
+        client = self.login(self.admin_user)
+
+        response = client.get(
+            reverse("patients:patient_list"),
+            {"free_card_from": "12345", "free_card_to": "12348"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Посмотреть свободные номера для карт")
+        self.assertContains(response, "Свободных номеров:")
+        self.assertContains(response, "12346")
+        self.assertContains(response, "12348")
+        self.assertEqual(response.context["free_card_numbers"], [12346, 12348])
+
+    def test_patient_list_shows_validation_error_for_large_range(self):
+        client = self.login(self.admin_user)
+
+        response = client.get(
+            reverse("patients:patient_list"),
+            {"free_card_from": "1", "free_card_to": "2005"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Диапазон не должен превышать 1000 номеров.")
+
+
+class CardNumberServiceTests(TestCase):
+    def test_get_free_regular_card_numbers_in_range_returns_only_missing_numbers(self):
+        Patient.objects.create(
+            surname="Сидоров",
+            first_name="Сидор",
+            last_name="Сидорович",
+            card_number=10,
+        )
+        Patient.objects.create(
+            surname="Алексеев",
+            first_name="Алексей",
+            last_name="Игоревич",
+            card_number=12,
+        )
+
+        free_numbers = CardNumberService.get_free_regular_card_numbers_in_range(10, 13)
+
+        self.assertEqual(free_numbers, [11, 13])
 
 
 class PatientTaxInfoTests(PatientAccessBaseTestCase):

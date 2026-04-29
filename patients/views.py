@@ -62,6 +62,7 @@ class PatientListView(MedicalStaffRequiredMixin, ListView):
     login_url = "/users/login/"
     context_object_name = "patients"
     paginate_by = 100
+    MAX_FREE_CARD_RANGE = 1000
 
     def get_queryset(self):
         """Получение и фильтрация queryset"""
@@ -89,6 +90,51 @@ class PatientListView(MedicalStaffRequiredMixin, ListView):
         context["search_form"] = PatientSearchForm(
             initial={"search": self.request.GET.get("search", "")}
         )
+        free_card_from = self.request.GET.get("free_card_from", "").strip()
+        free_card_to = self.request.GET.get("free_card_to", "").strip()
+
+        context["free_card_from"] = free_card_from
+        context["free_card_to"] = free_card_to
+        context["free_card_numbers"] = []
+        context["free_card_lookup_error"] = ""
+        context["free_card_lookup_performed"] = False
+
+        if free_card_from or free_card_to:
+            context["free_card_lookup_performed"] = True
+
+            if not (free_card_from.isdigit() and free_card_to.isdigit()):
+                context["free_card_lookup_error"] = (
+                    "Укажите числовой диапазон для поиска свободных номеров."
+                )
+                return context
+
+            start_number = int(free_card_from)
+            end_number = int(free_card_to)
+
+            if start_number <= 0 or end_number <= 0:
+                context["free_card_lookup_error"] = (
+                    "Номера карт должны быть больше нуля."
+                )
+                return context
+
+            if start_number > end_number:
+                context["free_card_lookup_error"] = (
+                    "Начальный номер диапазона не может быть больше конечного."
+                )
+                return context
+
+            if end_number - start_number + 1 > self.MAX_FREE_CARD_RANGE:
+                context["free_card_lookup_error"] = (
+                    f"Диапазон не должен превышать {self.MAX_FREE_CARD_RANGE} номеров."
+                )
+                return context
+
+            context["free_card_numbers"] = (
+                CardNumberService.get_free_regular_card_numbers_in_range(
+                    start_number, end_number
+                )
+            )
+
         return context
 
 

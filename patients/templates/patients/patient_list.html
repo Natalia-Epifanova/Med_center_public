@@ -30,41 +30,108 @@
     <!-- Поиск -->
     <div class="row mb-4">
         <div class="col-md-10 mx-auto">
-            <div class="card timetable-form-card">
-                <div class="card-body">
-                    <div class="row g-3 align-items-center">
-                        <div class="col-md-10">
-                            <label for="live-search" class="form-label">Поиск пациентов:</label>
-                            <div class="input-group">
-                                <span class="input-group-text">
-                                    <i class="fas fa-search"></i>
-                                </span>
-                                <input type="text"
-                                       id="live-search"
-                                       class="form-control"
-                                       placeholder="Введите ФИО, телефон, дату рождения или номер карты..."
-                                       autocomplete="off">
-                                <button class="btn btn-outline-secondary" type="button" id="clear-search">
-                                    <i class="fas fa-times"></i>
-                                </button>
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card timetable-form-card h-100">
+                        <div class="card-body">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-10">
+                                    <label for="live-search" class="form-label">Поиск пациентов:</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">
+                                            <i class="fas fa-search"></i>
+                                        </span>
+                                        <input type="text"
+                                               id="live-search"
+                                               class="form-control"
+                                               placeholder="Введите ФИО, телефон, дату рождения или номер карты..."
+                                               autocomplete="off">
+                                        <button class="btn btn-outline-secondary" type="button" id="clear-search">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    <div class="form-text">Поиск начнется автоматически после ввода 3 символов</div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" id="reset-search" class="btn btn-outline-secondary w-100 mt-md-0">
+                                        <i class="fas fa-undo"></i> Сбросить
+                                    </button>
+                                </div>
                             </div>
-                            <div class="form-text">Поиск начнется автоматически после ввода 3 символов</div>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="button" id="reset-search" class="btn btn-outline-secondary w-100 mt-md-0">
-                                <i class="fas fa-undo"></i> Сбросить
-                            </button>
+                            <!-- Результаты поиска -->
+                            <div id="search-results" class="mt-3" style="display: none;">
+                                <div class="card border-info">
+                                    <div class="card-header bg-info text-white py-2">
+                                        <h6 class="mb-0"><i class="fas fa-users"></i> Результаты поиска (<span id="results-count">0</span>)</h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="results-container" class="list-group list-group-flush"></div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <!-- Результаты поиска -->
-                    <div id="search-results" class="mt-3" style="display: none;">
-                        <div class="card border-info">
-                            <div class="card-header bg-info text-white py-2">
-                                <h6 class="mb-0"><i class="fas fa-users"></i> Результаты поиска (<span id="results-count">0</span>)</h6>
+                </div>
+
+                <div class="col-lg-5">
+                    <div class="card timetable-form-card h-100">
+                        <div class="card-body">
+                            <h6 class="mb-3">Посмотреть свободные номера для карт</h6>
+                            <form method="get">
+                                <div class="row g-2">
+                                    <div class="col-sm-6">
+                                        <label for="free-card-from" class="form-label small mb-1">С номера</label>
+                                        <input type="number"
+                                               min="1"
+                                               class="form-control"
+                                               id="free-card-from"
+                                               name="free_card_from"
+                                               value="{{ free_card_from }}"
+                                               placeholder="Например, 20000">
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label for="free-card-to" class="form-label small mb-1">По номер</label>
+                                        <input type="number"
+                                               min="1"
+                                               class="form-control"
+                                               id="free-card-to"
+                                               name="free_card_to"
+                                               value="{{ free_card_to }}"
+                                               placeholder="Например, 20200">
+                                    </div>
+                                    <div class="col-12 d-flex gap-2">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fas fa-list-ol"></i> Показать номера
+                                        </button>
+                                        <a href="{% url 'patients:patient_list' %}" class="btn btn-outline-secondary btn-sm">
+                                            Очистить
+                                        </a>
+                                    </div>
+                                </div>
+                            </form>
+
+                            {% if free_card_lookup_performed %}
+                            <div class="mt-3">
+                                {% if free_card_lookup_error %}
+                                <div class="alert alert-warning py-2 mb-0">
+                                    {{ free_card_lookup_error }}
+                                </div>
+                                {% else %}
+                                <div class="small text-muted mb-2">
+                                    Свободных номеров: <strong>{{ free_card_numbers|length }}</strong>
+                                </div>
+                                <div class="free-card-results">
+                                    {% if free_card_numbers %}
+                                        {% for card_number in free_card_numbers %}
+                                        <span class="badge bg-light text-dark border free-card-badge">{{ card_number }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="text-muted small">В выбранном диапазоне свободных номеров нет.</div>
+                                    {% endif %}
+                                </div>
+                                {% endif %}
                             </div>
-                            <div class="card-body p-0">
-                                <div id="results-container" class="list-group list-group-flush"></div>
-                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -231,6 +298,19 @@
     }
     .blacklist-patient-row td {
         border-color: #f1b0b7;
+    }
+    .free-card-results {
+        max-height: 180px;
+        overflow-y: auto;
+        padding: 0.5rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background: #f8fafc;
+    }
+    .free-card-badge {
+        margin: 0 0.35rem 0.35rem 0;
+        font-size: 0.85rem;
+        font-weight: 500;
     }
 </style>
 {% endblock %}

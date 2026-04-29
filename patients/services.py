@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from django.core.exceptions import ValidationError
 from django.db import models, transaction
@@ -290,21 +290,37 @@ class CardNumberService:
                     except (ValueError, AttributeError):
                         continue
 
-            # Убираем None и 0 из множества
-            existing_numbers = {n for n in existing_numbers if n is not None and n > 0}
+            # Ищем первый свободный номер, начиная с min_start
+            current_number = min_start
+            while current_number in existing_numbers:
+                current_number += 1
 
-            # Начинаем поиск с минимального стартового номера
-            next_number = min_start
-
-            # Ищем первый свободный номер
-            while next_number in existing_numbers:
-                next_number += 1
-
-            # Для ОМС возвращаем строку, для ИП - число
             if card_type == "oms":
-                return str(next_number)
+                return str(current_number)
 
-            return next_number
+            return current_number
+
+    @staticmethod
+    def get_free_regular_card_numbers_in_range(
+        start_number: int, end_number: int
+    ) -> List[int]:
+        """Получить список свободных обычных номеров карт в диапазоне"""
+        if start_number > end_number:
+            raise ValidationError(
+                "Начальный номер диапазона не может быть больше конечного"
+            )
+
+        used_numbers = set(
+            Patient.objects.filter(card_number__isnull=False)
+            .filter(card_number__gte=start_number, card_number__lte=end_number)
+            .values_list("card_number", flat=True)
+        )
+
+        return [
+            number
+            for number in range(start_number, end_number + 1)
+            if number not in used_numbers
+        ]
 
 
 TAX_INFO_START_YEAR = 2026
