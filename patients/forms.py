@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.forms import ModelForm
 from django.utils import timezone
+import re
 
 from patients.models import Patient, ReservePatient, WaitlistPatient
 from timetable.mixins import StyleFormMixin
@@ -11,6 +12,10 @@ from timetable.models import Doctor
 
 class BasePatientForm(StyleFormMixin, ModelForm):
     """Базовая форма для пациента с общей логикой"""
+
+    SNILS_DIGITS_LENGTH = 11
+    SNILS_FORMATTED_LENGTH = 14
+    OMS_POLICY_LENGTH = 16
 
     def clean(self):
         """Общая валидация для всех форм пациента"""
@@ -34,6 +39,36 @@ class BasePatientForm(StyleFormMixin, ModelForm):
             if passport_number and not passport_series:
                 self.add_error(
                     "passport_series", "Укажите серию паспорта при указании номера"
+                )
+
+        polis_oms = (cleaned_data.get("polis_oms") or "").strip()
+        if polis_oms:
+            polis_oms_digits = "".join(char for char in polis_oms if char.isdigit())
+            if len(polis_oms_digits) != self.OMS_POLICY_LENGTH:
+                self.add_error(
+                    "polis_oms",
+                    f"Полис ОМС должен содержать {self.OMS_POLICY_LENGTH} цифр",
+                )
+            else:
+                cleaned_data["polis_oms"] = polis_oms_digits
+
+        snils = (cleaned_data.get("snils") or "").strip()
+        if snils:
+            snils_digits = "".join(char for char in snils if char.isdigit())
+            if len(snils_digits) != self.SNILS_DIGITS_LENGTH:
+                self.add_error(
+                    "snils",
+                    f"СНИЛС должен содержать {self.SNILS_DIGITS_LENGTH} цифр",
+                )
+            elif not re.fullmatch(r"\d{3}-\d{3}-\d{3} \d{2}", snils):
+                self.add_error(
+                    "snils",
+                    "СНИЛС должен быть в формате XXX-XXX-XXX YY",
+                )
+            else:
+                cleaned_data["snils"] = (
+                    f"{snils_digits[:3]}-{snils_digits[3:6]}-"
+                    f"{snils_digits[6:9]} {snils_digits[9:]}"
                 )
 
         return cleaned_data
@@ -186,6 +221,20 @@ class PatientFullForm(BasePatientForm):
             self.initial["passport_issue_date"] = (
                 self.instance.passport_issue_date.strftime("%Y-%m-%d")
             )
+
+        self.fields["polis_oms"].widget.attrs.update(
+            {
+                "maxlength": str(self.OMS_POLICY_LENGTH),
+                "inputmode": "numeric",
+                "placeholder": "16 цифр",
+            }
+        )
+        self.fields["snils"].widget.attrs.update(
+            {
+                "maxlength": str(self.SNILS_FORMATTED_LENGTH),
+                "placeholder": "XXX-XXX-XXX YY",
+            }
+        )
 
 
 class PatientBlacklistForm(StyleFormMixin, ModelForm):

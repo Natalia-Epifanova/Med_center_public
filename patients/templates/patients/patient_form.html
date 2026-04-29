@@ -108,75 +108,85 @@
                             </div>
                         </div>
 
-                        <!-- Обычная карта -->
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label for="{{ form.card_number.id_for_label }}">{{ form.card_number.label }}</label>
-                                <div class="input-group">
-                                    {{ form.card_number }}
-                                    <div class="input-group-append">
-                                        <button type="button"
-                                                class="btn btn-outline-primary"
-                                                id="generate-card-number-btn"
-                                                title="Автоматически присвоить следующий доступный номер">
-                                            <i class="fas fa-plus"></i> Новый номер
-                                        </button>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.card_number.id_for_label }}">{{ form.card_number.label }}</label>
+                                    <div class="input-group">
+                                        {{ form.card_number }}
+                                        <div class="input-group-append">
+                                            <button type="button"
+                                                    class="btn btn-outline-primary"
+                                                    id="generate-card-number-btn"
+                                                    title="Автоматически присвоить следующий доступный номер">
+                                                <i class="fas fa-plus"></i> Новый номер
+                                            </button>
+                                        </div>
                                     </div>
+                                    {% if form.card_number.errors %}
+                                    <div class="text-danger small">{{ form.card_number.errors }}</div>
+                                    {% endif %}
+                                    <small class="form-text text-muted">
+                                        Самый большой текущий номер: <span id="max-card-number">Загрузка...</span>
+                                    </small>
                                 </div>
-                                {% if form.card_number.errors %}
-                                <div class="text-danger small">{{ form.card_number.errors }}</div>
-                                {% endif %}
-                                <small class="form-text text-muted">
-                                    Самый большой текущий номер: <span id="max-card-number">Загрузка...</span>
-                                </small>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.insurance_company.id_for_label }}">{{ form.insurance_company.label }}</label>
+                                    {{ form.insurance_company }}
+                                    {% if form.insurance_company.errors %}
+                                    <div class="text-danger small">{{ form.insurance_company.errors }}</div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Карта ИП -->
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label for="{{ form.card_number_IP.id_for_label }}">{{ form.card_number_IP.label }}</label>
-                                <div class="input-group">
-                                    {{ form.card_number_IP }}
-                                    <div class="input-group-append">
-                                        <button type="button"
-                                                class="btn btn-outline-primary"
-                                                id="generate-ip-card-number-btn"
-                                                title="Номер ИП начинается с 200. Следующий свободный будет присвоен автоматически">
-                                            <i class="fas fa-plus"></i> Новый номер
-                                        </button>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.card_number_IP.id_for_label }}">{{ form.card_number_IP.label }}</label>
+                                    <div class="input-group">
+                                        {{ form.card_number_IP }}
+                                        <div class="input-group-append">
+                                            <button type="button"
+                                                    class="btn btn-outline-primary"
+                                                    id="generate-ip-card-number-btn"
+                                                    title="Номер ИП начинается с 200. Следующий свободный будет присвоен автоматически">
+                                                <i class="fas fa-plus"></i> Новый номер
+                                            </button>
+                                        </div>
                                     </div>
+                                    {% if form.card_number_IP.errors %}
+                                    <div class="text-danger small">{{ form.card_number_IP.errors }}</div>
+                                    {% endif %}
                                 </div>
-                                {% if form.card_number_IP.errors %}
-                                <div class="text-danger small">{{ form.card_number_IP.errors }}</div>
-                                {% endif %}
-
                             </div>
                         </div>
 
-                        <!-- Карта ОМС -->
-                        <div class="col-md-4">
-                            <div class="form-group">
-                                <label for="{{ form.card_number_OMS.id_for_label }}">{{ form.card_number_OMS.label }}</label>
-                                <div class="input-group">
-                                    {{ form.card_number_OMS }}
-                                    <div class="input-group-append">
-                                        <button type="button"
-                                                class="btn btn-outline-primary"
-                                                id="generate-oms-card-number-btn"
-                                                title="Номер ОМС начинается с 620. Следующий свободный будет присвоен автоматически">
-                                            <i class="fas fa-plus"></i> Новый номер
-                                        </button>
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="{{ form.card_number_OMS.id_for_label }}">{{ form.card_number_OMS.label }}</label>
+                                    <div class="input-group">
+                                        {{ form.card_number_OMS }}
+                                        <div class="input-group-append">
+                                            <button type="button"
+                                                    class="btn btn-outline-primary"
+                                                    id="generate-oms-card-number-btn"
+                                                    title="Номер ОМС начинается с 620. Следующий свободный будет присвоен автоматически">
+                                                <i class="fas fa-plus"></i> Новый номер
+                                            </button>
+                                        </div>
                                     </div>
+                                    {% if form.card_number_OMS.errors %}
+                                    <div class="text-danger small">{{ form.card_number_OMS.errors }}</div>
+                                    {% endif %}
                                 </div>
-                                {% if form.card_number_OMS.errors %}
-                                <div class="text-danger small">{{ form.card_number_OMS.errors }}</div>
-                                {% endif %}
-
                             </div>
                         </div>
 
-                        <!-- Остальные поля формы (адрес, паспорт, страховка) -->
                         <div class="row mb-4">
                             <div class="col-md-12">
                                 <h5 class="border-bottom pb-2 mb-3">Адрес</h5>
@@ -236,7 +246,7 @@
                                 <h5 class="border-bottom pb-2 mb-3">Страхование</h5>
                             </div>
                             {% for field in form %}
-                                {% if field.name in insurance_fields %}
+                                {% if field.name in insurance_fields and field.name != "insurance_company" %}
                                 <div class="col-md-4">
                                     <div class="form-group">
                                         <label for="{{ field.id_for_label }}">{{ field.label }}</label>
@@ -325,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const generateBtn = document.getElementById('generate-card-number-btn');
     const cardNumberInput = document.getElementById('{{ form.card_number.id_for_label }}');
     const maxCardNumberSpan = document.getElementById('max-card-number');
+    const snilsInput = document.getElementById('{{ form.snils.id_for_label }}');
 
     const generateIpBtn = document.getElementById('generate-ip-card-number-btn');
     const ipCardNumberInput = document.getElementById('{{ form.card_number_IP.id_for_label }}');
@@ -372,7 +383,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Ошибка:', error);
-            alert(`Ошибка при генерации номера карты`);
+            alert('Ошибка при генерации номера карты');
         }
     }
 
@@ -415,6 +426,43 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             generateNewCardNumber('oms', omsCardNumberInput);
         });
+    }
+
+    function formatSnilsValue(value) {
+        const digits = value.replace(/\D/g, '').slice(0, 11);
+        const parts = [];
+
+        if (digits.length > 0) {
+            parts.push(digits.slice(0, 3));
+        }
+        if (digits.length > 3) {
+            parts.push(digits.slice(3, 6));
+        }
+        if (digits.length > 6) {
+            parts.push(digits.slice(6, 9));
+        }
+
+        let formatted = parts.join('-');
+        if (digits.length > 9) {
+            formatted += ` ${digits.slice(9, 11)}`;
+        }
+
+        return formatted;
+    }
+
+    if (snilsInput) {
+        snilsInput.addEventListener('input', function() {
+            const start = this.selectionStart;
+            const previousLength = this.value.length;
+            this.value = formatSnilsValue(this.value);
+            const newLength = this.value.length;
+            const nextPosition = Math.max(0, start + (newLength - previousLength));
+            this.setSelectionRange(nextPosition, nextPosition);
+        });
+
+        if (snilsInput.value) {
+            snilsInput.value = formatSnilsValue(snilsInput.value);
+        }
     }
 });
 </script>

@@ -9,7 +9,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from appointments.models import Appointment
-from patients.forms import PatientBlacklistForm
+from patients.forms import PatientBlacklistForm, PatientFullForm
 from patients.models import Patient, ReserveList, ReservePatient, WaitlistPatient
 from patients.services import (
     calculate_patient_paid_total_for_year,
@@ -691,7 +691,7 @@ class PatientCrudViewTests(PatientAccessBaseTestCase):
                 "passport_number": "",
                 "passport_issue_date": "",
                 "who_issued_the_passport": "",
-                "polis_oms": "1234567890",
+                "polis_oms": "1234567890123456",
                 "snils": "123-456-789 00",
                 "insurance_company": "СОГАЗ",
             },
@@ -750,6 +750,114 @@ class PatientBlacklistModelAndFormTests(TestCase):
 
         self.assertFalse(form.is_valid())
         self.assertIn("blacklist_comment", form.errors)
+
+
+class PatientFullFormValidationTests(TestCase):
+    def test_full_form_accepts_valid_snils_and_oms_policy(self):
+        form = PatientFullForm(
+            data={
+                "surname": "Иванов",
+                "first_name": "Иван",
+                "last_name": "Иванович",
+                "date_of_birth": "1980-03-19",
+                "gender": "male",
+                "phone_number": "+79991112233",
+                "email": "",
+                "trusted_person": "",
+                "card_number": "",
+                "card_number_IP": "",
+                "card_number_OMS": "",
+                "area": "",
+                "locality": "",
+                "city": "",
+                "district": "",
+                "street": "",
+                "home": "",
+                "building": "",
+                "apartment": "",
+                "passport_series": "",
+                "passport_number": "",
+                "passport_issue_date": "",
+                "who_issued_the_passport": "",
+                "polis_oms": "1234567890123456",
+                "snils": "123-456-789 00",
+                "insurance_company": "",
+            }
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["polis_oms"], "1234567890123456")
+        self.assertEqual(form.cleaned_data["snils"], "123-456-789 00")
+
+    def test_full_form_rejects_snils_with_invalid_format(self):
+        form = PatientFullForm(
+            data={
+                "surname": "Иванов",
+                "first_name": "Иван",
+                "last_name": "Иванович",
+                "date_of_birth": "1980-03-19",
+                "gender": "male",
+                "phone_number": "+79991112233",
+                "email": "",
+                "trusted_person": "",
+                "card_number": "",
+                "card_number_IP": "",
+                "card_number_OMS": "",
+                "area": "",
+                "locality": "",
+                "city": "",
+                "district": "",
+                "street": "",
+                "home": "",
+                "building": "",
+                "apartment": "",
+                "passport_series": "",
+                "passport_number": "",
+                "passport_issue_date": "",
+                "who_issued_the_passport": "",
+                "polis_oms": "1234567890",
+                "snils": "12345678900",
+                "insurance_company": "",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("snils", form.errors)
+
+    def test_full_form_rejects_oms_policy_with_invalid_length(self):
+        form = PatientFullForm(
+            data={
+                "surname": "Иванов",
+                "first_name": "Иван",
+                "last_name": "Иванович",
+                "date_of_birth": "1980-03-19",
+                "gender": "male",
+                "phone_number": "+79991112233",
+                "email": "",
+                "trusted_person": "",
+                "card_number": "",
+                "card_number_IP": "",
+                "card_number_OMS": "",
+                "area": "",
+                "locality": "",
+                "city": "",
+                "district": "",
+                "street": "",
+                "home": "",
+                "building": "",
+                "apartment": "",
+                "passport_series": "",
+                "passport_number": "",
+                "passport_issue_date": "",
+                "who_issued_the_passport": "",
+                "polis_oms": "1234567890",
+                "snils": "123-456-789 00",
+                "insurance_company": "",
+            }
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("polis_oms", form.errors)
 
 
 class PatientBlacklistViewAndApiTests(PatientAccessBaseTestCase):
