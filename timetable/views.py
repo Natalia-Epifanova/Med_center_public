@@ -576,7 +576,7 @@ class RescheduleRequestsView(MedicalAdminOrAdminRequiredMixin, TemplateView):
         waitlist_patients = (
             WaitlistPatient.objects.all()
             .select_related("doctor")
-            .order_by("-created_at")
+            .order_by("created_at", "id")
         )
 
         context.update(

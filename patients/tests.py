@@ -1,5 +1,5 @@
 import json
-from datetime import date, time
+from datetime import date, time, timedelta
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -7,6 +7,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from appointments.models import Appointment
 from patients.forms import PatientBlacklistForm, PatientFullForm
@@ -1216,6 +1217,41 @@ class ReserveAndWaitlistViewTests(PatientAccessBaseTestCase):
             delete_response.url, reverse("timetable:reschedule_requests")
         )
         self.assertFalse(WaitlistPatient.objects.filter(pk=waitlist_patient.pk).exists())
+
+    def test_waitlist_entries_are_shown_oldest_first(self):
+        older_entry = WaitlistPatient.objects.create(
+            doctor=self.reserve_doctor,
+            surname="Старый",
+            first_name="Пациент",
+            last_name="Первый",
+            phone_number="+79990000001",
+            comment="Старая запись",
+        )
+        newer_entry = WaitlistPatient.objects.create(
+            doctor=self.reserve_doctor,
+            surname="Новый",
+            first_name="Пациент",
+            last_name="Второй",
+            phone_number="+79990000002",
+            comment="Новая запись",
+        )
+
+        WaitlistPatient.objects.filter(pk=older_entry.pk).update(
+            created_at=timezone.now() - timedelta(days=1)
+        )
+        WaitlistPatient.objects.filter(pk=newer_entry.pk).update(
+            created_at=timezone.now()
+        )
+
+        client = self.login(self.med_admin_user)
+        response = client.get(reverse("timetable:reschedule_requests"))
+
+        self.assertEqual(response.status_code, 200)
+        waitlist_ids = [entry.pk for entry in response.context["waitlist_patients"]]
+        self.assertLess(
+            waitlist_ids.index(older_entry.pk),
+            waitlist_ids.index(newer_entry.pk),
+        )
 
     def test_roles_without_access_get_403_on_reserve_and_waitlist_views(self):
         no_group_client = self.login(self.no_group_user)

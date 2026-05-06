@@ -399,4 +399,4 @@ class WaitlistPatient(models.Model):
     class Meta:
         verbose_name = "Пациент листа ожидания"
         verbose_name_plural = "Пациенты листа ожидания"
-        ordering = ["-created_at"]
+        ordering = ["created_at", "id"]
