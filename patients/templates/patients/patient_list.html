@@ -34,7 +34,7 @@
                 <div class="col-lg-7">
                     <div class="card timetable-form-card h-100">
                         <div class="card-body">
-                            <div class="row g-3 align-items-center">
+                            <div class="row g-3">
                                 <div class="col-md-10">
                                     <label for="live-search" class="form-label">Поиск пациентов:</label>
                                     <div class="input-group">
@@ -51,9 +51,20 @@
                                         </button>
                                     </div>
                                     <div class="form-text">Поиск начнется автоматически после ввода 3 символов</div>
+                                    <div class="mt-2">
+                                        {% if show_blacklisted %}
+                                        <a href="{% url 'patients:patient_list' %}" class="btn btn-outline-secondary btn-sm">
+                                            <i class="fas fa-users"></i> Все пациенты
+                                        </a>
+                                        {% else %}
+                                        <a href="{% url 'patients:patient_list' %}?blacklisted=1" class="btn btn-outline-danger btn-sm">
+                                            <i class="fas fa-ban"></i> Черный список
+                                        </a>
+                                        {% endif %}
+                                    </div>
                                 </div>
-                                <div class="col-md-2 d-flex align-items-end">
-                                    <button type="button" id="reset-search" class="btn btn-outline-secondary w-100 mt-md-0">
+                                <div class="col-md-2">
+                                    <button type="button" id="reset-search" class="btn btn-outline-secondary w-100 patient-search-reset">
                                         <i class="fas fa-undo"></i> Сброс
                                     </button>
                                 </div>
@@ -143,6 +154,13 @@
     <div class="row" id="patients-table-section">
         <div class="col-md-10 mx-auto">
             <div class="card timetable-form-card">
+                {% if show_blacklisted %}
+                <div class="card-header bg-danger text-white">
+                    <h6 class="mb-0">
+                        <i class="fas fa-ban"></i> Пациенты в черном списке
+                    </h6>
+                </div>
+                {% endif %}
                 <div class="card-body p-0">
                     <div class="table-responsive timetable-table-responsive timetable-patient-table">
                         <table class="table table-striped table-hover timetable-table-sm mb-0">
@@ -154,6 +172,9 @@
                                     <th>Номер карты (ИП)</th>
                                     <th>Номер карты (ОМС)</th>
                                     <th>Дата рождения</th>
+                                    {% if show_blacklisted %}
+                                    <th>Комментарий</th>
+                                    {% endif %}
                                     <th class="text-center">Действия</th>
                                 </tr>
                             </thead>
@@ -171,6 +192,9 @@
                                      <td>{{ patient.card_number_IP|default:"-" }}</td>
                                      <td>{{ patient.card_number_OMS|default:"-" }}</td>
                                     <td>{{ patient.date_of_birth|date:"d.m.Y"|default:"-" }}</td>
+                                    {% if show_blacklisted %}
+                                    <td>{{ patient.blacklist_comment|default:"-"|linebreaksbr }}</td>
+                                    {% endif %}
                                     <td>
                                         <div class="btn-group btn-group-sm" role="group">
                                             <a href="{% url 'patients:patient_detail' patient.pk %}"
@@ -194,9 +218,11 @@
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="5" class="text-center text-muted py-4">
+                                    <td colspan="{% if show_blacklisted %}8{% else %}7{% endif %}" class="text-center text-muted py-4">
                                         <i class="fas fa-users fa-2x mb-3"></i>
-                                        <p class="mb-0">Пациенты не найдены</p>
+                                        <p class="mb-0">
+                                            {% if show_blacklisted %}Пациенты в черном списке не найдены{% else %}Пациенты не найдены{% endif %}
+                                        </p>
                                         {% if request.GET.search %}
                                         <small>Попробуйте изменить параметры поиска</small>
                                         {% endif %}
@@ -219,12 +245,12 @@
                 <ul class="pagination justify-content-center">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page=1{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <a class="page-link" href="?page=1{% if show_blacklisted %}&blacklisted=1{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
                             Первая
                         </a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if show_blacklisted %}&blacklisted=1{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
                             Назад
                         </a>
                     </li>
@@ -238,12 +264,12 @@
 
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if show_blacklisted %}&blacklisted=1{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
                             Вперед
                         </a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if show_blacklisted %}&blacklisted=1{% endif %}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}">
                             Последняя
                         </a>
                     </li>
@@ -278,6 +304,14 @@
     .search-highlight {
         background-color: #fff3cd;
         font-weight: bold;
+    }
+    .patient-search-reset {
+        margin-top: 1.95rem;
+    }
+    @media (max-width: 767.98px) {
+        .patient-search-reset {
+            margin-top: 0;
+        }
     }
     #search-results .list-group-item {
         border-left: none;

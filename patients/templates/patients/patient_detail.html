@@ -519,6 +519,7 @@
                                     <th>Время</th>
                                     <th>Врач</th>
                                     <th>Услуга</th>
+                                    <th>Комментарий</th>
                                     <th>Куда учтено</th>
                                     <th>Сумма</th>
                                 </tr>
@@ -538,12 +539,13 @@
                                         {% endif %}
                                     </td>
                                     <td>{{ appointment.service.name }}</td>
+                                    <td>{{ appointment.comment|default:""|linebreaksbr }}</td>
                                     <td>{{ appointment.tax_bucket }}</td>
                                     <td>{{ appointment.tax_amount }} руб.</td>
                                 </tr>
                                 {% empty %}
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted py-3">
+                                    <td colspan="7" class="text-center text-muted py-3">
                                         За выбранный год подходящие приёмы не найдены.
                                     </td>
                                 </tr>

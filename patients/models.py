@@ -270,11 +270,6 @@ class Patient(models.Model):
         if errors:
             raise ValidationError(errors)
 
-    def save(self, *args, **kwargs):
-        """Сохранение с предварительной очисткой"""
-        self.clean()
-        super().save(*args, **kwargs)
-
     # === МЕТА-ИНФОРМАЦИЯ ===
     class Meta:
         verbose_name = "Пациент"

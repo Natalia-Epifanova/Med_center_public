@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -68,6 +68,10 @@ class PatientListView(MedicalStaffRequiredMixin, ListView):
         """Получение и фильтрация queryset"""
         queryset = super().get_queryset()
         search = self.request.GET.get("search", "").strip()
+        show_blacklisted = self.request.GET.get("blacklisted") == "1"
+
+        if show_blacklisted:
+            queryset = queryset.filter(is_blacklisted=True)
 
         if search:
             # Поиск по нескольким полям
@@ -90,6 +94,7 @@ class PatientListView(MedicalStaffRequiredMixin, ListView):
         context["search_form"] = PatientSearchForm(
             initial={"search": self.request.GET.get("search", "")}
         )
+        context["show_blacklisted"] = self.request.GET.get("blacklisted") == "1"
         free_card_from = self.request.GET.get("free_card_from", "").strip()
         free_card_to = self.request.GET.get("free_card_to", "").strip()
 
@@ -157,6 +162,14 @@ class PatientUpdateView(MedicalAdminOrAdminRequiredMixin, UpdateView):
     model = Patient
     form_class = PatientFullForm
     template_name = "patients/patient_form.html"
+
+    def form_valid(self, form):
+        self.object = form.save(commit=False)
+
+        if form.changed_data:
+            self.object.save(update_fields=form.changed_data)
+
+        return HttpResponseRedirect(self.get_success_url())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

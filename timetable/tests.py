@@ -151,6 +151,76 @@ class ScheduleDayDoctorDatesTests(TestCase):
         self.assertEqual(statuses_by_date[target_date], "full")
 
 
+class WeeklySchedulePreviewTests(TestCase):
+    def setUp(self):
+        self.User = get_user_model()
+        self.admin_group, _ = Group.objects.get_or_create(name="Admin")
+        self.user = self.User.objects.create_user(
+            username="weekly_preview_admin",
+            password="testpass123",
+        )
+        self.user.groups.add(self.admin_group)
+        self.client.force_login(self.user)
+
+        self.cabinet = Cabinet.objects.create(number=301, name_of_cabinet="Тестовый")
+        self.doctor = Doctor.objects.create(
+            first_name="Анна",
+            last_name="Ивановна",
+            surname="Тестова",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[MedicalServiceCategory.FIRST_CONSULTATION],
+        )
+
+    def test_week_schedule_preview_returns_slot_counts_for_selected_days(self):
+        source_week_start = date(2026, 1, 5)
+        target_week_start = date(2026, 5, 25)
+
+        TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=source_week_start,
+            start_time=time(9, 0),
+            end_time=time(9, 20),
+            slot_type="working",
+        )
+        TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=source_week_start,
+            start_time=time(9, 20),
+            end_time=time(9, 40),
+            slot_type="working",
+        )
+        TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=target_week_start,
+            start_time=time(10, 0),
+            end_time=time(10, 20),
+            slot_type="working",
+        )
+
+        response = self.client.get(
+            reverse("timetable:week_schedule_preview"),
+            {
+                "source": source_week_start.isoformat(),
+                "target": target_week_start.isoformat(),
+                "days": "0,1",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["total_slots"], 2)
+        self.assertEqual(payload["days"][0]["day"], 0)
+        self.assertEqual(payload["days"][0]["slot_count"], 2)
+        self.assertEqual(payload["days"][0]["existing_slots"], 1)
+        self.assertTrue(payload["days"][0]["has_schedule"])
+        self.assertEqual(payload["days"][1]["slot_count"], 0)
+        self.assertFalse(payload["days"][1]["has_schedule"])
+
+
 class DoctorReportSummaryTests(TestCase):
     def setUp(self):
         self.User = get_user_model()

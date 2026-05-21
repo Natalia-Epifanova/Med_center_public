@@ -428,11 +428,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         document.getElementById('previewTableBody').innerHTML = previewHtml;
-        document.getElementById('copyPreview').style.display = 'block';
+        const copyPreview = document.getElementById('copyPreview');
+        copyPreview.style.display = 'block';
+        copyPreview.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
         // Запрашиваем данные с сервера
-        fetch(`/timetable/api/week-schedule-preview/?source=${sourceDate}&target=${targetDate}&days=${selectedDays.join(',')}`)
-            .then(response => response.json())
+        const params = new URLSearchParams({
+            source: sourceDate,
+            target: targetDate,
+            days: selectedDays.join(',')
+        });
+
+        function markPreviewError(message) {
+            selectedDays.forEach(day => {
+                const status = document.getElementById(`status_${day}`);
+                if (status) {
+                    status.className = 'badge bg-danger';
+                    status.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+                }
+            });
+        }
+
+        fetch(`/timetable/api/week-schedule-preview/?${params.toString()}`, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const contentType = response.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    throw new Error('Server returned non-JSON response');
+                }
+
+                return response.json();
+            })
             .then(data => {
                 if (data.success) {
                     data.days.forEach(dayData => {
@@ -453,9 +486,12 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                         }
                     });
+                } else {
+                    markPreviewError(data.error || 'Ошибка');
                 }
             })
             .catch(error => {
+                markPreviewError('Ошибка');
                 console.error('Ошибка при предпросмотре:', error);
             });
     };

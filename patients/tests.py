@@ -5,7 +5,9 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
+from django.db import connection
 from django.test import Client, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -135,6 +137,54 @@ class PatientPageAccessTests(PatientAccessBaseTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "blacklist-patient-row")
         self.assertContains(response, "Черный список")
+
+    def test_patient_list_has_blacklist_view_button(self):
+        client = self.login(self.doctor_user)
+
+        response = client.get(reverse("patients:patient_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '?blacklisted=1')
+        self.assertContains(response, "Черный список")
+
+    def test_blacklist_view_is_available_for_medical_staff_groups(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Do not book without approval"
+        self.patient.save()
+
+        for user in (self.admin_user, self.med_admin_user, self.doctor_user):
+            client = self.login(user)
+
+            response = client.get(
+                reverse("patients:patient_list"),
+                {"blacklisted": "1"},
+            )
+
+            self.assertEqual(response.status_code, 200)
+            self.assertContains(response, "Пациенты в черном списке")
+            self.assertContains(response, self.patient.full_name)
+            self.assertContains(response, "Do not book without approval")
+
+    def test_blacklist_view_filters_out_regular_patients(self):
+        self.patient.is_blacklisted = True
+        self.patient.blacklist_comment = "Do not book"
+        self.patient.save()
+        regular_patient = Patient.objects.create(
+            surname="Regular",
+            first_name="Patient",
+            last_name="Visible",
+            date_of_birth=date(1990, 1, 1),
+        )
+        client = self.login(self.admin_user)
+
+        response = client.get(
+            reverse("patients:patient_list"),
+            {"blacklisted": "1"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.patient.full_name)
+        self.assertNotContains(response, regular_patient.full_name)
 
     def test_patient_list_shows_compact_free_card_numbers_widget(self):
         Patient.objects.create(
@@ -274,6 +324,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
         previous_appointment=None,
         is_consecutive=False,
         occupies_two_slots=False,
+        comment="",
     ):
         slot = TimeSlot.objects.create(
             doctor=doctor,
@@ -294,6 +345,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
             previous_appointment=previous_appointment,
             is_consecutive=is_consecutive,
             occupies_two_slots=occupies_two_slots,
+            comment=comment,
         )
         final_total = total_with_blood_tests
         if final_total is None and price_at_appointment is not None:
@@ -495,6 +547,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
             start_time=time(10, 0),
             end_time=time(10, 20),
             price_at_appointment=Decimal("2600.00"),
+            comment="Комментарий для налоговой",
         )
         self.create_appointment(
             doctor=self.other_doctor,
@@ -532,6 +585,8 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
         self.assertContains(response, "Пищелёв")
         self.assertContains(response, "Консультация ревматолога повторная")
         self.assertContains(response, "Консультация ортопеда")
+        self.assertContains(response, "Комментарий")
+        self.assertContains(response, "Комментарий для налоговой")
         self.assertContains(response, "Куда учтено")
         self.assertContains(response, "ИП")
         self.assertContains(response, "Ревмамед")
@@ -760,6 +815,60 @@ class PatientCrudViewTests(PatientAccessBaseTestCase):
         self.assertEqual(self.patient.phone_number, "+79995554433")
         self.assertEqual(self.patient.city, "Новосибирск")
         self.assertEqual(self.patient.card_number_IP, 65432)
+
+    def test_patient_update_saves_only_changed_fields(self):
+        self.patient.street = "Old street"
+        self.patient.save(update_fields=["street"])
+        client = self.login(self.med_admin_user)
+
+        data = {
+            "surname": self.patient.surname,
+            "first_name": self.patient.first_name,
+            "last_name": self.patient.last_name,
+            "date_of_birth": self.patient.date_of_birth.isoformat(),
+            "gender": self.patient.gender,
+            "phone_number": self.patient.phone_number,
+            "email": self.patient.email or "",
+            "trusted_person": self.patient.trusted_person or "",
+            "card_number": self.patient.card_number or "",
+            "card_number_IP": self.patient.card_number_IP or "",
+            "card_number_OMS": self.patient.card_number_OMS or "",
+            "area": self.patient.area,
+            "locality": self.patient.locality,
+            "city": self.patient.city,
+            "district": self.patient.district,
+            "street": "New street",
+            "home": self.patient.home,
+            "building": self.patient.building,
+            "apartment": self.patient.apartment,
+            "passport_series": self.patient.passport_series,
+            "passport_number": self.patient.passport_number,
+            "passport_issue_date": "",
+            "who_issued_the_passport": self.patient.who_issued_the_passport,
+            "polis_oms": self.patient.polis_oms,
+            "snils": self.patient.snils,
+            "insurance_company": self.patient.insurance_company,
+        }
+
+        with CaptureQueriesContext(connection) as queries:
+            response = client.post(
+                reverse("patients:patient_update", kwargs={"pk": self.patient.pk}),
+                data=data,
+            )
+
+        self.assertEqual(response.status_code, 302)
+        self.patient.refresh_from_db()
+        self.assertEqual(self.patient.street, "New street")
+
+        update_queries = [
+            query["sql"]
+            for query in queries
+            if query["sql"].startswith('UPDATE "patients_patient"')
+        ]
+        self.assertEqual(len(update_queries), 1)
+        self.assertIn('"street"', update_queries[0])
+        self.assertNotIn('"surname"', update_queries[0])
+        self.assertNotIn('"area"', update_queries[0])
 
     def test_only_admin_can_delete_patient(self):
         med_admin_client = self.login(self.med_admin_user)
