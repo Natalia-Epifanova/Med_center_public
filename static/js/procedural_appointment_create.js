@@ -41,7 +41,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // 3. Инициализация выбора анализов крови
     if (typeof BloodTestSelection !== 'undefined') {
         window.bloodTestSelection = new BloodTestSelection({
-            initialTests: initialTestIds
+            initialTests: initialTestIds,
+            targetDate: selectedDate
         });
 
         // Показываем/скрываем блок анализов в зависимости от выбранной услуги

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from django.contrib import messages
 from django.db import transaction
 
-from .models import TimeSlot, MedicalServicePrice
+from .models import BloodTestPrice, TimeSlot, MedicalServicePrice
 
 
 def get_service_price_on_date(service, target_date):
@@ -24,6 +24,47 @@ def get_service_price_on_date(service, target_date):
 
     # Fallback на старое поле
     return service.price
+
+
+def get_blood_test_price_on_date(blood_test, target_date):
+    """
+    Возвращает цену анализа, актуальную на target_date.
+    Fallback: если истории цен нет, возвращаем blood_test.price.
+    """
+    if not blood_test or not target_date:
+        return getattr(blood_test, "price", 0) or 0
+
+    price_obj = (
+        BloodTestPrice.objects.filter(
+            blood_test=blood_test,
+            valid_from__lte=target_date,
+        )
+        .order_by("-valid_from")
+        .first()
+    )
+    if price_obj:
+        return price_obj.price
+
+    return blood_test.price
+
+
+def get_blood_tests_total_on_date(blood_tests_or_ids, target_date):
+    """Считает сумму анализов по ценам, действующим на дату приема."""
+    from .models import BloodTest
+
+    items = list(blood_tests_or_ids or [])
+    if not items:
+        return 0
+
+    if isinstance(items[0], BloodTest):
+        blood_tests = items
+    else:
+        blood_tests = BloodTest.objects.filter(id__in=items)
+
+    return sum(
+        get_blood_test_price_on_date(blood_test, target_date)
+        for blood_test in blood_tests
+    )
 
 
 class TimeSlotService:

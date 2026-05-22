@@ -21,7 +21,10 @@ from appointments.utils_for_caches import (
 )
 from patients.services import PatientService
 from timetable.models import BloodTest, Doctor, MedicalService, TimeSlot
-from timetable.services import get_service_price_on_date
+from timetable.services import (
+    get_blood_tests_total_on_date,
+    get_service_price_on_date,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -335,6 +338,11 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                             AppointmentBloodTest.objects.create(
                                 appointment=appointment, blood_test_id=test_id
                             )
+
+                        appointment.total_with_blood_tests = (
+                            appointment.price_at_appointment or 0
+                        ) + appointment.get_tests_price
+                        appointment.save(update_fields=["total_with_blood_tests"])
 
                         if selected_test_ids and appointment.comment:
                             tests = BloodTest.objects.filter(id__in=selected_test_ids)
@@ -1680,27 +1688,16 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
                 )
                 raise forms.ValidationError("Неверный формат выбранных анализов")
 
-        total_sum = self.cleaned_data.get("total_sum")
-        if not total_sum:
-            tests_price = 0
-            if selected_test_ids:
-                from timetable.models import BloodTest
+        tests_price = get_blood_tests_total_on_date(selected_test_ids, appointment.date)
+        service_price = appointment.price_at_appointment or 0
+        total_sum = tests_price + service_price
 
-                tests_price = sum(
-                    BloodTest.objects.filter(id__in=selected_test_ids).values_list(
-                        "price", flat=True
-                    )
-                )
-
-            service_price = appointment.price_at_appointment or 0
-            total_sum = tests_price + service_price
-
-            logger.info(
-                "Сохранение ProceduralAppointmentForm: total_sum пересчитана автоматически service_price=%s tests_price=%s total_sum=%s",
-                service_price,
-                tests_price,
-                total_sum,
-            )
+        logger.info(
+            "Сохранение ProceduralAppointmentForm: total_sum пересчитана автоматически service_price=%s tests_price=%s total_sum=%s",
+            service_price,
+            tests_price,
+            total_sum,
+        )
 
         appointment.total_with_blood_tests = total_sum
 
@@ -1924,7 +1921,10 @@ class ProceduralAppointmentForm(ProceduralAppointmentBaseForm, forms.ModelForm):
             comment_lines.append(user_comment)
 
         if selected_blood_tests:
-            tests_price = sum(test.price for test in selected_blood_tests)
+            tests_price = get_blood_tests_total_on_date(
+                selected_blood_tests,
+                appointment.date,
+            )
             service_price = (
                 appointment.price_at_appointment or appointment.service.price
             )
@@ -2339,11 +2339,7 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
                     for id in test_ids_input.split(",")
                     if id.strip().isdigit()
                 ]
-                tests_price = sum(
-                    BloodTest.objects.filter(id__in=test_ids).values_list(
-                        "price", flat=True
-                    )
-                )
+                tests_price = get_blood_tests_total_on_date(test_ids, target_date)
                 service_price = (
                     get_service_price_on_date(service, target_date) if service else 0
                 )
@@ -2516,11 +2512,8 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
             ]
 
             if test_ids:
-                tests_price = sum(
-                    BloodTest.objects.filter(id__in=test_ids).values_list(
-                        "price", flat=True
-                    )
-                )
+                target_date = new_date or appointment.date
+                tests_price = get_blood_tests_total_on_date(test_ids, target_date)
 
         service_price = appointment.price_at_appointment or 0
         appointment.total_with_blood_tests = tests_price + service_price

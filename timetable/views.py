@@ -799,12 +799,7 @@ class DoctorReportView(AdminRequiredMixin, TemplateView):
                     )
                     if has_selected_blood_tests:
                         # Суммируем стоимость всех выбранных анализов
-                        tests_price = (
-                            selected_blood_tests.aggregate(total=Sum("blood_test__price"))[
-                                "total"
-                            ]
-                            or 0
-                        )
+                        tests_price = appointment.get_tests_price
                         total_analyses_sum += tests_price
 
                         # Добавляем также стоимость забора крови, если это отдельная услуга

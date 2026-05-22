@@ -15,6 +15,7 @@ class BloodTestSelection {
         this.searchTerm = '';
         this.bloodCollectionPrice = 150;
         this.servicePrice = parseFloat(options.initialServicePrice) || 0;
+        this.targetDate = options.targetDate || window.selectedDate || window.originalDate || '';
 
         this.init();
     }
@@ -51,8 +52,12 @@ class BloodTestSelection {
 
     async loadBloodTests() {
         try {
-            console.log('Loading blood tests from /appointments/api/blood-tests/');
-            const response = await fetch('/appointments/api/blood-tests/');
+            const dateParam = this.getTargetDate();
+            const url = dateParam
+                ? `/appointments/api/blood-tests/?date=${encodeURIComponent(dateParam)}`
+                : '/appointments/api/blood-tests/';
+            console.log(`Loading blood tests from ${url}`);
+            const response = await fetch(url);
             console.log('Response status:', response.status);
 
             const data = await response.json();
@@ -112,6 +117,25 @@ class BloodTestSelection {
             this.updateFormField();
             this.updateTotalSum();
         });
+
+        ['id_new_appointment_date', 'id_procedural_appointment_date'].forEach(fieldId => {
+            const dateInput = document.getElementById(fieldId);
+            if (dateInput) {
+                dateInput.addEventListener('change', async () => {
+                    this.targetDate = dateInput.value;
+                    await this.loadBloodTests();
+                    this.renderTests();
+                    this.renderSelectedTests();
+                });
+            }
+        });
+    }
+
+    getTargetDate() {
+        const dateInput = document.getElementById('id_procedural_appointment_date') ||
+            document.getElementById('id_new_appointment_date');
+
+        return (dateInput && dateInput.value) || this.targetDate || '';
     }
     // Метод для очистки всех выбранных анализов
     clearAllTests() {

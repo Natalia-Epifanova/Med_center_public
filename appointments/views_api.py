@@ -16,8 +16,8 @@ from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
-from timetable.models import Doctor, MedicalService, TimeSlot
-from timetable.services import get_service_price_on_date
+from timetable.models import BloodTestCategory, Doctor, MedicalService, TimeSlot
+from timetable.services import get_blood_test_price_on_date, get_service_price_on_date
 
 logger = logging.getLogger(__name__)
 
@@ -450,7 +450,41 @@ def get_blood_tests(request):
     """API для получения анализов крови с категориями"""
     try:
         logger.info("Запрос списка анализов крови")
-        categories_data = get_cached_blood_tests()
+        target_date = None
+        date_value = request.GET.get("date")
+        if date_value:
+            target_date = datetime.datetime.strptime(date_value, "%Y-%m-%d").date()
+
+        if target_date:
+            categories = (
+                BloodTestCategory.objects.filter(is_active=True)
+                .prefetch_related("tests")
+                .order_by("order")
+            )
+            categories_data = []
+            for category in categories:
+                tests_data = []
+                for test in category.tests.all().order_by("name"):
+                    tests_data.append(
+                        {
+                            "id": test.id,
+                            "code": test.code,
+                            "name": test.name,
+                            "biomaterial": test.biomaterial,
+                            "biomaterial_display": test.get_biomaterial_display(),
+                            "price": float(
+                                get_blood_test_price_on_date(test, target_date)
+                            ),
+                            "execution_time": test.execution_time,
+                            "category_id": category.id,
+                            "category_name": category.name,
+                        }
+                    )
+                categories_data.append(
+                    {"id": category.id, "name": category.name, "tests": tests_data}
+                )
+        else:
+            categories_data = get_cached_blood_tests()
         logger.info(
             "Список анализов крови успешно получен: categories_count=%s",
             len(categories_data),

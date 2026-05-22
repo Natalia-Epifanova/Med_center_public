@@ -4,12 +4,24 @@ function initializeBloodTestSelection() {
 
     if (!serviceSelect || !bloodTestSection) return;
 
+    const getAppointmentDate = () => {
+        const dateInput = document.getElementById('id_new_appointment_date');
+        if (dateInput && dateInput.value) {
+            return dateInput.value;
+        }
+        if (typeof originalDate !== 'undefined' && originalDate) {
+            return originalDate;
+        }
+        return window.originalDate || '';
+    };
+
     // Проверяем, есть ли уже экземпляр bloodTestSelection
     if (!window.bloodTestSelection) {
         // Загружаем класс BloodTestSelection если он не загружен
         if (typeof BloodTestSelection !== 'undefined') {
             window.bloodTestSelection = new BloodTestSelection({
-                initialTests: []
+                initialTests: [],
+                targetDate: getAppointmentDate()
             });
         } else {
             // Если класс не загружен, пытаемся загрузить скрипт
@@ -18,7 +30,8 @@ function initializeBloodTestSelection() {
             script.onload = function() {
                 if (typeof BloodTestSelection !== 'undefined') {
                     window.bloodTestSelection = new BloodTestSelection({
-                        initialTests: []
+                        initialTests: [],
+                        targetDate: getAppointmentDate()
                     });
                 }
             };

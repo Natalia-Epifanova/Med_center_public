@@ -571,7 +571,7 @@ def update_payment_method(request, pk):
     appointment = get_object_or_404(Appointment, pk=pk)
 
     # Проверяем права
-    if not (request.user.is_superuser or request.user.is_medical_admin):
+    if not (request.user.is_admin or request.user.is_medical_admin):
         return JsonResponse(
             {
                 "success": False,
@@ -579,13 +579,17 @@ def update_payment_method(request, pk):
             }
         )
 
-    payment_method = request.POST.get("payment_method")
+    payment_method = request.POST.get(
+        "payment_method", Appointment.PaymentMethod.NONE
+    )
+    if payment_method == "":
+        payment_method = Appointment.PaymentMethod.NONE
 
     # Валидация значения
     valid_methods = dict(Appointment.PaymentMethod.choices).keys()
     if payment_method in valid_methods:
         appointment.payment_method = payment_method
-        appointment.save()
+        appointment.save(update_fields=["payment_method"])
 
         return JsonResponse(
             {

@@ -370,3 +370,34 @@ class BloodTest(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.price} руб."
+
+
+class BloodTestPrice(models.Model):
+    blood_test = models.ForeignKey(
+        BloodTest,
+        on_delete=models.CASCADE,
+        related_name="prices",
+        verbose_name="Анализ крови",
+    )
+    valid_from = models.DateField(verbose_name="Действует с")
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+
+    class Meta:
+        verbose_name = "Цена анализа крови"
+        verbose_name_plural = "Цены анализов крови"
+        ordering = ["-valid_from"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["blood_test", "valid_from"],
+                name="uniq_blood_test_valid_from",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["blood_test", "valid_from"],
+                name="idx_blood_test_valid_from",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.blood_test.name}: {self.price} руб. с {self.valid_from}"

@@ -4,6 +4,7 @@ from django.contrib import admin
 from timetable.models import (
     BloodTest,
     BloodTestCategory,
+    BloodTestPrice,
     Cabinet,
     Doctor,
     MedicalService,
@@ -157,6 +158,12 @@ class MedicalServicePriceInline(admin.TabularInline):
     ordering = ("-valid_from",)
 
 
+class BloodTestPriceInline(admin.TabularInline):
+    model = BloodTestPrice
+    extra = 0
+    ordering = ("-valid_from",)
+
+
 @admin.register(MedicalService)
 class MedicalServiceAdmin(admin.ModelAdmin):
     list_display = (
@@ -195,3 +202,4 @@ class BloodTestAdmin(admin.ModelAdmin):
     )
     list_filter = ("category",)
     search_fields = ("name", "code")
+    inlines = [BloodTestPriceInline]

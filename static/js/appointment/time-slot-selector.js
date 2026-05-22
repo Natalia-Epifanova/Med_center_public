@@ -257,7 +257,10 @@ function initializeTimeSlotSelector() {
 
         if (allowTimeChangeInput) allowTimeChangeInput.value = 'false';
         if (newTimeSlotIdInput) newTimeSlotIdInput.value = '';
-        if (newAppointmentDateInput) newAppointmentDateInput.value = '';
+        if (newAppointmentDateInput) {
+            newAppointmentDateInput.value = '';
+            newAppointmentDateInput.dispatchEvent(new Event('change'));
+        }
 
         selectedSlot = null;
 
@@ -289,6 +292,7 @@ function initializeTimeSlotSelector() {
         allowTimeChangeInput.value = 'true';
         newTimeSlotIdInput.value = selectedSlot.id;
         newAppointmentDateInput.value = selectedSlot.date;
+        newAppointmentDateInput.dispatchEvent(new Event('change'));
 
         return true;
     }

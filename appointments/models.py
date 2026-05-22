@@ -1,10 +1,9 @@
 from django.db import models
-from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 
 from patients.models import Patient
 from timetable.models import BloodTest, MedicalService, TimeSlot
-from timetable.services import get_service_price_on_date
+from timetable.services import get_blood_test_price_on_date, get_service_price_on_date
 
 
 class AppointmentChain(models.Model):
@@ -219,13 +218,12 @@ class Appointment(models.Model):
     def get_tests_price(self):
         """Возвращает общую стоимость выбранных анализов"""
         if hasattr(self, "selected_blood_tests"):
-            total = (
-                self.selected_blood_tests.aggregate(total=Sum("blood_test__price"))[
-                    "total"
-                ]
-                or 0
+            return sum(
+                selected_test.actual_price
+                for selected_test in self.selected_blood_tests.select_related(
+                    "blood_test"
+                )
             )
-            return total
         return 0
 
     @property
@@ -514,6 +512,27 @@ class AppointmentBloodTest(models.Model):
     blood_test = models.ForeignKey(
         BloodTest, on_delete=models.CASCADE, verbose_name="Анализ крови"
     )
+    price_at_appointment = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Цена анализа на момент записи",
+        help_text="Цена анализа на дату приема",
+    )
+
+    @property
+    def actual_price(self):
+        return self.price_at_appointment or self.blood_test.price
+
+    def save(self, *args, **kwargs):
+        if not self.price_at_appointment and self.blood_test_id:
+            visit_date = self.appointment.date if self.appointment_id else None
+            self.price_at_appointment = get_blood_test_price_on_date(
+                self.blood_test,
+                visit_date,
+            )
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Выбранный анализ крови"

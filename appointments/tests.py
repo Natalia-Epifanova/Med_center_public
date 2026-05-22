@@ -21,6 +21,7 @@ from patients.views import DocumentGenerator
 from timetable.models import (
     BloodTest,
     BloodTestCategory,
+    BloodTestPrice,
     Cabinet,
     Doctor,
     MedicalService,
@@ -372,6 +373,27 @@ class ProceduralAppointmentUpdateFormTests(TestCase):
             valid_from=date(2026, 4, 1),
             price=Decimal("200.00"),
         )
+        self.blood_test_category = BloodTestCategory.objects.create(
+            name="Биохимия",
+            order=1,
+            is_active=True,
+        )
+        self.blood_test = BloodTest.objects.create(
+            code="BT-PRICE",
+            name="Тест с историей цены",
+            category=self.blood_test_category,
+            price=Decimal("100.00"),
+        )
+        BloodTestPrice.objects.create(
+            blood_test=self.blood_test,
+            valid_from=date(2026, 1, 1),
+            price=Decimal("100.00"),
+        )
+        BloodTestPrice.objects.create(
+            blood_test=self.blood_test,
+            valid_from=date(2026, 4, 1),
+            price=Decimal("250.00"),
+        )
 
         self.procedural_slot = TimeSlot.objects.create(
             doctor=self.nurse,
@@ -425,6 +447,44 @@ class ProceduralAppointmentUpdateFormTests(TestCase):
         self.assertEqual(appointment.price_at_appointment, Decimal("200.00"))
         self.assertEqual(appointment.total_with_blood_tests, Decimal("200.00"))
         self.assertEqual(appointment.time_slot.date, self.updated_date)
+
+    def test_save_uses_blood_test_price_history_for_new_date(self):
+        form = self.build_form(
+            selected_blood_tests_input=str(self.blood_test.id),
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        self.assertEqual(form.cleaned_data["total_sum"], Decimal("450.00"))
+        appointment = form.save()
+
+        selected_test = appointment.selected_blood_tests.get(
+            blood_test=self.blood_test
+        )
+        self.assertEqual(selected_test.price_at_appointment, Decimal("250.00"))
+        self.assertEqual(appointment.total_with_blood_tests, Decimal("450.00"))
+
+    def test_existing_selected_blood_test_keeps_price_snapshot(self):
+        selected_test = AppointmentBloodTest.objects.create(
+            appointment=self.appointment,
+            blood_test=self.blood_test,
+            price_at_appointment=Decimal("100.00"),
+        )
+        self.blood_test.price = Decimal("999.00")
+        self.blood_test.save(update_fields=["price"])
+
+        self.assertEqual(selected_test.actual_price, Decimal("100.00"))
+        self.assertEqual(self.appointment.get_tests_price, Decimal("100.00"))
+
+    def test_blood_tests_api_returns_price_for_requested_date(self):
+        response = self.client.get(
+            reverse("appointments:api_blood_tests"),
+            {"date": self.updated_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        tests = response.json()["categories"][0]["tests"]
+        test_data = next(test for test in tests if test["id"] == self.blood_test.id)
+        self.assertEqual(test_data["price"], 250.0)
 
     def test_update_page_renders_current_service_price_for_appointment_date(self):
         client = Client()
@@ -1031,6 +1091,29 @@ class AppointmentAjaxSecurityAndStatusTests(TestCase):
         self.assertEqual(
             self.appointment.status, Appointment.AppointmentStatus.SCHEDULED
         )
+
+    def test_update_payment_method_can_clear_existing_method(self):
+        self.appointment.payment_method = Appointment.PaymentMethod.CASH
+        self.appointment.save(update_fields=["payment_method"])
+        client = self.login(self.admin_user)
+
+        response = client.post(
+            reverse(
+                "appointments:update_payment_method",
+                kwargs={"pk": self.appointment.pk},
+            ),
+            data={"payment_method": Appointment.PaymentMethod.NONE},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.appointment.refresh_from_db()
+        self.assertEqual(
+            self.appointment.payment_method,
+            Appointment.PaymentMethod.NONE,
+        )
+        payload = response.json()
+        self.assertTrue(payload["success"])
+        self.assertEqual(payload["payment_method"], Appointment.PaymentMethod.NONE)
 
     def test_update_appointment_status_denies_anonymous_and_user_without_permissions(
         self,

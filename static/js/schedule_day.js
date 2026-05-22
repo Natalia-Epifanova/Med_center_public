@@ -650,6 +650,8 @@ function initPaymentMethods() {
             const selector = this.closest('.payment-method-selector');
             const appointmentId = selector.dataset.appointmentId;
             const method = this.dataset.method;
+            const previousMethod = getActivePaymentMethod(selector);
+            const nextMethod = previousMethod === method ? 'none' : method;
 
             // НЕМЕДЛЕННО меняем визуальное состояние
             // Снимаем активные классы со всех кнопок
@@ -659,15 +661,49 @@ function initPaymentMethods() {
             });
 
             // Применяем стиль к выбранной кнопке
-            applyActiveStyle(this, method);
+            if (nextMethod !== 'none') {
+                applyActiveStyle(this, nextMethod);
+            }
 
             // Отправляем на сервер
-            updatePaymentMethod(appointmentId, method, this);
+            updatePaymentMethodWithToggle(appointmentId, nextMethod, this, previousMethod);
         });
     });
 }
 
 // Функция для применения активного стиля
+function getActivePaymentMethod(selector) {
+    if (selector.querySelector('.payment-method-btn[data-method="cash"].active-cash')) {
+        return 'cash';
+    }
+    if (selector.querySelector('.payment-method-btn[data-method="card"].active-card')) {
+        return 'card';
+    }
+    return 'none';
+}
+
+function getPaymentButtonHtml(method) {
+    const icon = method === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card';
+    const text = method === 'cash' ? 'Нал' : 'Карта';
+    return `<i class="fas ${icon} me-1"></i>${text}`;
+}
+
+function restorePaymentButtons(selector, method) {
+    const allButtons = selector.querySelectorAll('.payment-method-btn');
+    allButtons.forEach(btn => {
+        resetButtonStyle(btn);
+        btn.innerHTML = getPaymentButtonHtml(btn.dataset.method);
+        btn.disabled = false;
+    });
+
+    if (method !== 'none') {
+        const activeButton = selector.querySelector(`.payment-method-btn[data-method="${method}"]`);
+        if (activeButton) {
+            applyActiveStyle(activeButton, method);
+        }
+    }
+}
+
 function applyActiveStyle(button, method) {
     if (method === 'cash') {
         button.classList.add('active-cash');
@@ -699,13 +735,13 @@ function resetButtonStyle(button) {
     button.style.fontWeight = '';
 }
 
-function updatePaymentMethod(appointmentId, paymentMethod, buttonElement) {
+function updatePaymentMethodWithToggle(appointmentId, paymentMethod, buttonElement, previousMethod = 'none') {
     const csrfToken = getCSRFToken();
+    const selector = buttonElement.closest('.payment-method-selector');
 
     if (!csrfToken) {
         showNotification('Ошибка безопасности', 'error');
-        // Сбрасываем выделение при ошибке
-        resetButtonStyle(buttonElement);
+        restorePaymentButtons(selector, previousMethod);
         return;
     }
 
@@ -713,8 +749,6 @@ function updatePaymentMethod(appointmentId, paymentMethod, buttonElement) {
     formData.append('payment_method', paymentMethod);
     formData.append('csrfmiddlewaretoken', csrfToken);
 
-    // Показываем индикатор загрузки
-    const originalHtml = buttonElement.innerHTML;
     buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>';
     buttonElement.disabled = true;
 
@@ -733,33 +767,21 @@ function updatePaymentMethod(appointmentId, paymentMethod, buttonElement) {
         return response.json();
     })
     .then(data => {
-        if (data.success) {
-            showNotification(`Способ оплаты: ${data.payment_method_display}`, 'success');
+        if (!data.success) {
+            throw new Error(data.error || 'Unknown payment update error');
+        }
 
-            // Восстанавливаем кнопку с сохранением стиля
-            const icon = paymentMethod === 'cash' ? 'fa-money-bill-wave' : 'fa-credit-card';
-            const text = paymentMethod === 'cash' ? 'Нал' : 'Карта';
-            buttonElement.innerHTML = `<i class="fas ${icon} me-1"></i>${text}`;
-            buttonElement.disabled = false;
-
-            // Убедимся, что стиль сохранился
-            applyActiveStyle(buttonElement, paymentMethod);
-
+        restorePaymentButtons(selector, paymentMethod);
+        if (paymentMethod === 'none') {
+            showNotification('Способ оплаты не выбран', 'success');
         } else {
-            showNotification('Ошибка: ' + (data.error || 'Неизвестная ошибка'), 'error');
-            // Сбрасываем выделение при ошибке
-            resetButtonStyle(buttonElement);
-            buttonElement.innerHTML = originalHtml;
-            buttonElement.disabled = false;
+            showNotification(`Способ оплаты: ${data.payment_method_display}`, 'success');
         }
     })
     .catch(error => {
         console.error('Payment method update error:', error);
         showNotification('Ошибка соединения', 'error');
-        // Сбрасываем выделение при ошибке
-        resetButtonStyle(buttonElement);
-        buttonElement.innerHTML = originalHtml;
-        buttonElement.disabled = false;
+        restorePaymentButtons(selector, previousMethod);
     });
 }
 

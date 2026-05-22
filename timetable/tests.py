@@ -1,15 +1,97 @@
 from datetime import date, time
 from decimal import Decimal
+from io import StringIO
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.cache import cache
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
 from appointments.models import Appointment
 from patients.models import Patient
-from timetable.models import Cabinet, Doctor, MedicalService, MedicalServiceCategory, TimeSlot
+from timetable.models import (
+    BloodTest,
+    BloodTestCategory,
+    BloodTestPrice,
+    Cabinet,
+    Doctor,
+    MedicalService,
+    MedicalServiceCategory,
+    TimeSlot,
+)
+
+
+class SeedBloodTestPriceHistoryCommandTests(TestCase):
+    def setUp(self):
+        self.category = BloodTestCategory.objects.create(
+            name="Биохимия",
+            order=1,
+            is_active=True,
+        )
+        self.glucose = BloodTest.objects.create(
+            code="GLU",
+            name="Глюкоза",
+            category=self.category,
+            price=Decimal("200.00"),
+        )
+        self.cholesterol = BloodTest.objects.create(
+            code="CHOL",
+            name="Холестерин",
+            category=self.category,
+            price=Decimal("350.00"),
+        )
+
+    def test_command_creates_missing_history_and_keeps_existing_rows(self):
+        BloodTestPrice.objects.create(
+            blood_test=self.glucose,
+            valid_from=date(2026, 1, 1),
+            price=Decimal("150.00"),
+        )
+        out = StringIO()
+
+        call_command("seed_blood_test_price_history", stdout=out)
+
+        self.assertEqual(
+            BloodTestPrice.objects.get(
+                blood_test=self.glucose,
+                valid_from=date(2026, 1, 1),
+            ).price,
+            Decimal("150.00"),
+        )
+        self.assertEqual(
+            BloodTestPrice.objects.get(
+                blood_test=self.cholesterol,
+                valid_from=date(2026, 1, 1),
+            ).price,
+            Decimal("350.00"),
+        )
+        self.assertIn("created=1", out.getvalue())
+        self.assertIn("skipped_existing=1", out.getvalue())
+
+    def test_command_updates_existing_rows_when_requested(self):
+        BloodTestPrice.objects.create(
+            blood_test=self.glucose,
+            valid_from=date(2026, 1, 1),
+            price=Decimal("150.00"),
+        )
+        out = StringIO()
+
+        call_command(
+            "seed_blood_test_price_history",
+            "--update-existing",
+            stdout=out,
+        )
+
+        self.assertEqual(
+            BloodTestPrice.objects.get(
+                blood_test=self.glucose,
+                valid_from=date(2026, 1, 1),
+            ).price,
+            Decimal("200.00"),
+        )
+        self.assertIn("updated=1", out.getvalue())
 
 
 class ScheduleDayDoctorDatesTests(TestCase):
