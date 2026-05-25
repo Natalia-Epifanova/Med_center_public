@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 
 from appointments.mixins import AppointmentFormMixin, PatientFieldsMixin
 from appointments.models import Appointment
+from appointments.services import AppointmentService
 from appointments.utils_for_caches import get_cached_doctor_services
 from appointments.validators import AppointmentValidator
 from timetable.mixins import StyleFormMixin  # ServiceBasedFormMixin,
@@ -146,7 +147,22 @@ class AppointmentChainBaseForm(
             visit_date = self.instance.time_slot.date
 
         if doctor_to_use:
-            services = doctor_to_use.get_available_services()
+            current_service = (
+                self.instance.service
+                if getattr(getattr(self, "instance", None), "pk", None)
+                else None
+            )
+            temp_form = type("TempForm", (), {})()
+            temp_form.fields = self.fields
+            temp_form.time_slot = self.time_slot or getattr(self.instance, "time_slot", None)
+
+            AppointmentService.initialize_service_queryset(
+                temp_form,
+                doctor_to_use,
+                current_service=current_service,
+            )
+
+            services = self.fields["service"].queryset
             self.fields["service"].queryset = services
             self.fields["additional_service"].queryset = services
 
@@ -308,6 +324,10 @@ class AppointmentChainBaseForm(
                         f"Ошибка в дополнительной записи #{i}: "
                         f"Услуга '{service.name}' недоступна врачу {doctor.surname}"
                     )
+
+                AppointmentService.validate_service_allowed_for_time_slot(
+                    service, time_slot
+                )
 
                 logger.info(
                     "Дополнительная запись прошла валидацию: form=%s index=%s doctor_id=%s service_id=%s time_slot_id=%s",

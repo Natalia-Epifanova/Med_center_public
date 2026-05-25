@@ -327,7 +327,7 @@ class Appointment(models.Model):
 
     def can_add_consecutive(self):
         """Проверяет, можно ли добавить следующую запись"""
-        if self.time_slot.slot_type != "working":
+        if self.time_slot.slot_type not in self.time_slot.BOOKABLE_SLOT_TYPES:
             return False
 
         # Проверяем, есть ли уже следующая запись

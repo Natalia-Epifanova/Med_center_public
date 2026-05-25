@@ -87,7 +87,7 @@ def delete_all_doctor_slots(request):
             doctor_id=doctor_id,
             cabinet_id=cabinet_id,
             date=date,
-            slot_type="working",  # можно удалить эту строку, если нужно удалять и перерывы
+            slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES,
         )
 
         deleted_count = slots.count()

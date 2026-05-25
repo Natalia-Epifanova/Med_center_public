@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 import datetime
-from appointments.services import AppointmentChainService
+from appointments.services import AppointmentChainService, AppointmentService
 from appointments.utils_for_caches import (
     get_cached_active_doctors,
     get_cached_blood_tests,
@@ -33,13 +33,15 @@ def get_doctor_services_api(request):
         data = json.loads(request.body)
         doctor_id = data.get("doctor_id")
         date_str = data.get("date")
+        time_slot_id = data.get("time_slot_id")
 
         logger.info(
-            "Запрос услуг врача: user_id=%s username=%s doctor_id=%s date=%s",
+            "Запрос услуг врача: user_id=%s username=%s doctor_id=%s date=%s time_slot_id=%s",
             user_id,
             username,
             doctor_id,
             date_str,
+            time_slot_id,
         )
 
         target_date = None
@@ -65,6 +67,12 @@ def get_doctor_services_api(request):
 
         doctor = Doctor.objects.get(id=doctor_id)
         services = get_cached_doctor_services(doctor)
+        time_slot = None
+
+        if time_slot_id:
+            time_slot = TimeSlot.objects.filter(id=time_slot_id, doctor=doctor).first()
+
+        services = AppointmentService.filter_services_for_time_slot(services, time_slot)
 
         services_data = []
         for service in services:

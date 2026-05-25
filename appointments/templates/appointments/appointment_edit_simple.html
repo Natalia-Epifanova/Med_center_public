@@ -431,7 +431,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     // ====== ДОБАВИТЬ: обновление цен услуг по выбранной дате ======
-    async function updateServicePricesForDate(visitDate) {
+    async function updateServicePricesForDate(visitDate, timeSlotId = null) {
         if (!visitDate) return;
 
         const serviceSelect = document.getElementById('id_service');
@@ -469,7 +469,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({
                     doctor_id: doctorIdForApi,
-                    date: visitDate
+                    date: visitDate,
+                    time_slot_id: timeSlotId
                 })
             });
 
@@ -639,7 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Ошибка сохранения выбранного времени');
                 return;
             }
-            updateServicePricesForDate(selectedSlot.date);
+            updateServicePricesForDate(selectedSlot.date, selectedSlot.id);
             toggleTimeChangeMode(false);
             updateOriginalDisplay(selectedSlot);
         });
@@ -651,6 +652,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             toggleTimeChangeMode(false);
             updateOriginalDisplay(null);
+            updateServicePricesForDate(originalSlotData.date, currentSlotId);
         });
     }
 

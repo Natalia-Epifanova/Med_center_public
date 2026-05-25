@@ -232,6 +232,28 @@ class ScheduleDayDoctorDatesTests(TestCase):
 
         self.assertEqual(statuses_by_date[target_date], "full")
 
+    def test_emergency_slot_is_bookable_and_visually_marked(self):
+        target_date = date(2026, 4, 13)
+        emergency_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=target_date,
+            start_time=time(12, 0),
+            end_time=time(12, 20),
+            slot_type="emergency",
+        )
+
+        self.assertTrue(emergency_slot.is_available())
+
+        response = self.client.get(
+            reverse("timetable:schedule_day"),
+            {"date": target_date.isoformat()},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "timetable-slot-emergency")
+        self.assertContains(response, "ЭКСТРЕННО")
+
 
 class WeeklySchedulePreviewTests(TestCase):
     def setUp(self):

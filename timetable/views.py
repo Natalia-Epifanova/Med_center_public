@@ -421,12 +421,12 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
             .annotate(
                 working_slots_count=Count(
                     "id",
-                    filter=Q(slot_type="working"),
+                    filter=Q(slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES),
                     distinct=True,
                 ),
                 booked_slots_count=Count(
                     "appointments",
-                    filter=Q(slot_type="working"),
+                    filter=Q(slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES),
                     distinct=True,
                 ),
             )
@@ -1091,7 +1091,7 @@ def move_doctor_to_cabinet(request):
                 cabinet=new_cabinet,
                 start_time__lt=slot.end_time,
                 end_time__gt=slot.start_time,
-                slot_type="working",
+                slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES,
             ).exclude(doctor=doctor)
 
             if conflicting_slots.exists():

@@ -898,26 +898,16 @@ AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorI
     const formElement = document.querySelector(`[data-form-index="${index}"]`);
     if (!formElement) return;
 
-    const serviceSelect = formElement.querySelector('.service-select');
     const doctorNameSpan = formElement.querySelector('.doctor-name');
 
     try {
         const dateInput = formElement.querySelector('.date-select');
         const selectedDate = dateInput ? dateInput.value : null;
 
-        const response = await fetch('/appointments/api/doctor-services/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': this.csrfToken
-            },
-            body: JSON.stringify({
-                doctor_id: doctorId,
-                date: selectedDate || null
-            })
+        const data = await this.fetchDoctorServices({
+            doctorId: doctorId,
+            date: selectedDate || null
         });
-
-        const data = await response.json();
         if (data.success) {
             if (doctorNameSpan && data.doctor) doctorNameSpan.textContent = data.doctor.name;
 
@@ -936,6 +926,78 @@ AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorI
             if (dateInput && dateInput.value) this.onDateSelect(index, dateInput.value);
         }
     } catch (error) {}
+};
+
+AppointmentChainManager.prototype.fetchDoctorServices = async function({doctorId, date = null, timeSlotId = null}) {
+    const response = await fetch('/appointments/api/doctor-services/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': this.csrfToken
+        },
+        body: JSON.stringify({
+            doctor_id: doctorId,
+            date: date,
+            time_slot_id: timeSlotId
+        })
+    });
+
+    return response.json();
+};
+
+AppointmentChainManager.prototype.replaceServiceOptions = function(serviceSelect, services, selectedValue = '') {
+    if (!serviceSelect) return;
+
+    serviceSelect.innerHTML = '<option value="">Выберите услугу...</option>';
+    services.forEach(service => {
+        const option = document.createElement('option');
+        option.value = service.id;
+        option.textContent = `${service.name} (${service.price} СЂСѓР±.)`;
+        option.dataset.price = service.price;
+        serviceSelect.appendChild(option);
+    });
+
+    const hasSelectedValue = selectedValue && services.some(service => String(service.id) === String(selectedValue));
+    serviceSelect.value = hasSelectedValue ? selectedValue : '';
+    serviceSelect.disabled = false;
+    serviceSelect.dispatchEvent(new Event('change'));
+};
+
+AppointmentChainManager.prototype.refreshServicesForForm = async function(index, {doctorId, date = null, timeSlotId = null}) {
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    if (!formElement) return;
+
+    const serviceSelect = formElement.querySelector('.service-select');
+    if (!serviceSelect || !doctorId) return;
+
+    try {
+        const currentServiceValue = serviceSelect.value;
+        const servicesData = await this.fetchDoctorServices({
+            doctorId: doctorId,
+            date: date,
+            timeSlotId: timeSlotId
+        });
+
+        if (servicesData.success && servicesData.services) {
+            this.replaceServiceOptions(serviceSelect, servicesData.services, currentServiceValue);
+        }
+    } catch (error) {}
+};
+
+AppointmentChainManager.prototype.refreshServicesForSelectedSlot = async function(index, slotId) {
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    if (!formElement) return;
+
+    const doctorSelect = formElement.querySelector('.doctor-select');
+    const dateInput = formElement.querySelector('.date-select');
+
+    if (!doctorSelect || !doctorSelect.value) return;
+
+    await this.refreshServicesForForm(index, {
+        doctorId: doctorSelect.value,
+        date: dateInput ? dateInput.value : null,
+        timeSlotId: slotId || null
+    });
 };
 
 AppointmentChainManager.prototype.onDateSelect = async function(index, date) {
@@ -1354,6 +1416,131 @@ AppointmentChainManager.prototype.saveFormData = function(index) {
 
 AppointmentChainManager.prototype.onCommentChange = function(index, comment) {
     this.saveFormData(index);
+};
+
+AppointmentChainManager.prototype.replaceServiceOptions = function(serviceSelect, services, selectedValue = '') {
+    if (!serviceSelect) return;
+
+    serviceSelect.innerHTML = '<option value="">Выберите услугу...</option>';
+    services.forEach(service => {
+        const option = document.createElement('option');
+        option.value = service.id;
+        option.textContent = `${service.name} (${service.price} руб.)`;
+        option.dataset.price = service.price;
+        serviceSelect.appendChild(option);
+    });
+
+    const hasSelectedValue = selectedValue && services.some(service => String(service.id) === String(selectedValue));
+    serviceSelect.value = hasSelectedValue ? selectedValue : '';
+    serviceSelect.disabled = false;
+    serviceSelect.dispatchEvent(new Event('change'));
+};
+
+AppointmentChainManager.prototype.onDoctorSelect = async function(index, doctorId) {
+    if (!doctorId) return;
+
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    if (!formElement) return;
+
+    const doctorNameSpan = formElement.querySelector('.doctor-name');
+
+    try {
+        const dateInput = formElement.querySelector('.date-select');
+        const selectedDate = dateInput ? dateInput.value : null;
+        const data = await this.fetchDoctorServices({
+            doctorId: doctorId,
+            date: selectedDate || null
+        });
+
+        if (data.success) {
+            if (doctorNameSpan && data.doctor) doctorNameSpan.textContent = data.doctor.name;
+
+            this.replaceServiceOptions(formElement.querySelector('.service-select'), data.services);
+
+            if (dateInput && dateInput.value) this.onDateSelect(index, dateInput.value);
+        }
+    } catch (error) {}
+};
+
+AppointmentChainManager.prototype.onSlotSelect = function(index, slotId) {
+    const formElement = document.querySelector(`[data-form-index="${index}"]`);
+    const slotSelect = formElement.querySelector('.slot-select');
+    const timeSpan = formElement.querySelector('.appointment-time');
+
+    if (!slotId) {
+        if (timeSpan) timeSpan.textContent = '\u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d\u043e';
+
+        const formData = this.getFormData(index);
+        if (formData && formData.time_slot_id) this.bookedSlots.delete(formData.time_slot_id.toString());
+
+        this.saveFormData(index);
+        this.refreshServicesForSelectedSlot(index, null);
+        return;
+    }
+
+    const selectedOption = slotSelect.options[slotSelect.selectedIndex];
+    if (!selectedOption) return;
+
+    if (window.AppointmentUtils && window.AppointmentUtils.PishchelevValidator) {
+        const doctorSelect = formElement.querySelector('.doctor-select');
+        const serviceSelect = formElement.querySelector('.service-select');
+
+        if (doctorSelect && serviceSelect) {
+            const doctorName = doctorSelect.options[doctorSelect.selectedIndex]?.textContent || '';
+            const serviceName = serviceSelect.options[serviceSelect.selectedIndex]?.textContent || '';
+
+            if (window.AppointmentUtils.PishchelevValidator.isPishchelevDoctor(doctorName) && serviceName) {
+                const timeText = selectedOption.dataset.time || '';
+                const slotDuration = window.AppointmentUtils.PishchelevValidator.getSlotDuration(timeText);
+
+                if (slotDuration !== null) {
+                    const validation = window.AppointmentUtils.PishchelevValidator.validateSlotForPishchelev(
+                        slotDuration, serviceName, doctorName
+                    );
+
+                    if (!validation.valid) {
+                        this.showPishchelevTimeError(formElement, validation.message, selectedOption);
+                        slotSelect.value = '';
+                        if (timeSpan) timeSpan.textContent = '\u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d\u043e';
+                        slotSelect.classList.add('is-invalid');
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    if (this.shouldCheckTimeOverlap()) {
+        const dateInput = formElement.querySelector('.date-select');
+        const slotDate = dateInput ? dateInput.value : null;
+
+        if (slotDate === window.originalDate && selectedOption.dataset.startTime && selectedOption.dataset.endTime) {
+            const isOverlapping = this.checkSlotTimeOverlap(
+                selectedOption.dataset.startTime,
+                selectedOption.dataset.endTime
+            );
+
+            if (isOverlapping) {
+                this.showTimeOverlapWarning(index, selectedOption);
+                slotSelect.value = '';
+                if (timeSpan) timeSpan.textContent = '\u043d\u0435 \u0432\u044b\u0431\u0440\u0430\u043d\u043e';
+                slotSelect.classList.add('is-invalid');
+                return;
+            }
+        }
+    }
+
+    if (selectedOption.dataset.time && timeSpan) timeSpan.textContent = selectedOption.dataset.time;
+
+    this.bookedSlots.add(slotId.toString());
+    slotSelect.classList.remove('is-invalid');
+    this.clearTimeOverlapError(index);
+
+    const noSlotsMessage = formElement.querySelector('.no-available-slots-message');
+    if (noSlotsMessage) noSlotsMessage.remove();
+
+    this.saveFormData(index);
+    this.refreshServicesForSelectedSlot(index, slotId);
 };
 
 window.AppointmentChainManager = AppointmentChainManager;

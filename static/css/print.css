@@ -150,7 +150,8 @@
     .timetable-slot-dms,
     .timetable-slot-oms,
     .timetable-slot-working,
-    .timetable-slot-break {
+    .timetable-slot-break,
+    .timetable-slot-emergency {
         background: white !important;
         color: black !important;
         border-left: none !important;

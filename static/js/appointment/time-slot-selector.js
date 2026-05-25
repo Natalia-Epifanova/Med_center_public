@@ -190,7 +190,7 @@ function initializeTimeSlotSelector() {
         return service.text;
     }
 
-    async function updateServicePricesForDate(visitDate) {
+    async function updateServicePricesForDate(visitDate, timeSlotId = null) {
         if (!visitDate) return;
 
         const serviceSelect = document.getElementById('id_service');
@@ -208,7 +208,8 @@ function initializeTimeSlotSelector() {
                 },
                 body: JSON.stringify({
                     doctor_id: doctorId,
-                    date: visitDate
+                    date: visitDate,
+                    time_slot_id: timeSlotId
                 })
             });
 
@@ -325,7 +326,7 @@ function initializeTimeSlotSelector() {
                     onSlotSelect: function(slotData) {
                         selectedSlot = slotData;
 
-                        updateServicePricesForDate(slotData.date);
+                        updateServicePricesForDate(slotData.date, slotData.id);
 
                         if (confirmBtn) confirmBtn.disabled = false;
 
@@ -382,7 +383,7 @@ function initializeTimeSlotSelector() {
 
             toggleTimeChangeMode(false);
             updateOriginalDisplay(null);
-            updateServicePricesForDate(originalSlotData.date);
+            updateServicePricesForDate(originalSlotData.date, currentSlotId);
         });
     }
 

@@ -184,6 +184,41 @@
     color: #c62828 !important;
 }
 
+/* Экстренные слоты */
+.timetable-slot-emergency {
+    background-color: #ff7a00 !important;
+    border-left: 5px solid #c75100;
+    color: #4a1f00 !important;
+    font-weight: 600;
+}
+
+.timetable-slot-emergency td,
+.timetable-slot-emergency small,
+.timetable-slot-emergency a {
+    color: #4a1f00 !important;
+}
+
+.timetable-slot-emergency:hover {
+    background-color: #ff922b !important;
+}
+
+.emergency-slot-note {
+    display: inline-block;
+    margin-top: 2px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background-color: #8f2d00;
+    color: #ffffff !important;
+    font-size: 0.68rem !important;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.timetable-slot-emergency .emergency-slot-note {
+    color: #ffffff !important;
+}
+
 /* ===== БЕЙДЖИ ТИПОВ ОПЛАТЫ ===== */
 .bg-pink {
     background-color: #e83e8c !important;

@@ -187,10 +187,16 @@ class TimeSlot(models.Model):
     start_time = models.TimeField(verbose_name="Время начала")
     end_time = models.TimeField(verbose_name="Время окончания")
 
-    # Тип слота: рабочий слот или перерыв
+    WORKING_SLOT = "working"
+    BREAK_SLOT = "break"
+    EMERGENCY_SLOT = "emergency"
+    BOOKABLE_SLOT_TYPES = (WORKING_SLOT, EMERGENCY_SLOT)
+
+    # Тип слота: рабочий слот, экстренный слот или перерыв
     SLOT_TYPE_CHOICES = (
-        ("working", "Рабочий слот"),
-        ("break", "Перерыв"),
+        (WORKING_SLOT, "Рабочий слот"),
+        (BREAK_SLOT, "Перерыв"),
+        (EMERGENCY_SLOT, "Экстренный слот"),
     )
     slot_type = models.CharField(
         max_length=10,
@@ -212,7 +218,7 @@ class TimeSlot(models.Model):
         ]
 
     def __str__(self):
-        slot_type_display = "Перерыв" if self.slot_type == "break" else "Слот"
+        slot_type_display = dict(self.SLOT_TYPE_CHOICES).get(self.slot_type, "Слот")
         return f"{self.date} {self.start_time}-{self.end_time} - {self.doctor.surname} ({slot_type_display})"
 
     def is_available(self, exclude_appointment_id=None, exclude_slot_id=None):
@@ -220,7 +226,7 @@ class TimeSlot(models.Model):
         from appointments.models import Appointment
 
         # Быстрая проверка типа слота
-        if self.slot_type != "working":
+        if self.slot_type not in self.BOOKABLE_SLOT_TYPES:
             return False
 
         # Проверяем наличие записей БЕЗ кэширования
@@ -246,7 +252,7 @@ class TimeSlot(models.Model):
             cabinet=self.cabinet,
             doctor=self.doctor,
             start_time=self.end_time,
-            slot_type="working",
+            slot_type__in=self.BOOKABLE_SLOT_TYPES,
         ).first()
 
     @classmethod
@@ -259,7 +265,7 @@ class TimeSlot(models.Model):
             # Ищем слоты, которые пересекаются с указанным временем
             start_time__lt=end_time,  # слот начинается до окончания нашего времени
             end_time__gt=start_time,  # слот заканчивается после начала нашего времени
-            slot_type="working",  # только рабочие слоты
+            slot_type__in=cls.BOOKABLE_SLOT_TYPES,  # только доступные для записи слоты
         )
 
         if cabinet:

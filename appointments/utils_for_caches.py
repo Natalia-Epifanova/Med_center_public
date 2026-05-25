@@ -383,7 +383,9 @@ def get_cached_doctor_slots(doctor_id, date, exclude_slot_ids=None):
             from timetable.models import TimeSlot
 
             slots = TimeSlot.objects.filter(
-                doctor_id=doctor_id, date=date_str, slot_type="working"
+                doctor_id=doctor_id,
+                date=date_str,
+                slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES,
             ).order_by("start_time")
 
             # Кэшируем ID слотов
@@ -433,7 +435,9 @@ def get_cached_doctor_slots_for_api(doctor_id, date, booked_slots=None):
     if slots_data is None:
         # Получаем ВСЕ слоты врача на дату
         all_slots = TimeSlot.objects.filter(
-            doctor_id=doctor_id, date=date_str, slot_type="working"
+            doctor_id=doctor_id,
+            date=date_str,
+            slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES,
         ).order_by("start_time")
 
         # Преобразуем в словари и проверяем доступность

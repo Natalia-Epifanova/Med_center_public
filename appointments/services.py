@@ -33,6 +33,13 @@ class AppointmentChainService:
         if time_slot.doctor != doctor:
             errors.append("Выбранный слот не принадлежит указанному врачу")
 
+        try:
+            AppointmentService.validate_service_allowed_for_time_slot(
+                service, time_slot
+            )
+        except ValidationError as exc:
+            errors.extend(exc.messages)
+
         return errors
 
     @staticmethod
@@ -48,6 +55,14 @@ class AppointmentChainService:
                 service = MedicalService.objects.get(id=appointment_data["service_id"])
                 time_slot = TimeSlot.objects.get(id=appointment_data["time_slot_id"])
                 comment = appointment_data.get("comment", "")
+
+                validation_errors = AppointmentChainService.validate_additional_appointment(
+                    doctor=doctor,
+                    service=service,
+                    time_slot=time_slot,
+                )
+                if validation_errors:
+                    raise forms.ValidationError("; ".join(validation_errors))
 
                 # Создаем запись
                 appointment = Appointment.objects.create(
@@ -110,6 +125,18 @@ class AppointmentChainService:
 
 class AppointmentService:
     """Сервис для работы с записями на прием"""
+
+    EMERGENCY_SERVICE_NAME_FRAGMENT = "в день обращения"
+
+    @staticmethod
+    def is_emergency_service(service):
+        """Проверяет, относится ли услуга к услугам для записи в день обращения."""
+        if not service or not getattr(service, "name", None):
+            return False
+
+        return (
+            AppointmentService.EMERGENCY_SERVICE_NAME_FRAGMENT in service.name.lower()
+        )
 
     @staticmethod
     @transaction.atomic
@@ -213,9 +240,11 @@ class AppointmentService:
         """Получить доступные слоты для врача на указанную дату"""
         from timetable.models import TimeSlot
 
-        # Получаем все рабочие слоты врача на дату
+        # Получаем все слоты врача на дату, доступные для записи
         slots = TimeSlot.objects.filter(
-            doctor=doctor, date=date, slot_type="working"
+            doctor=doctor,
+            date=date,
+            slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES,
         ).order_by("start_time")
 
         # Фильтруем доступные слоты
@@ -233,6 +262,9 @@ class AppointmentService:
 
         if doctor:
             services = get_cached_doctor_services(doctor, current_service)
+            services = AppointmentService.filter_services_for_time_slot(
+                services, getattr(form, "time_slot", None)
+            )
             form.fields["service"].queryset = services
 
             # Также обновляем queryset для additional_service если есть такое поле
@@ -247,6 +279,36 @@ class AppointmentService:
                     MedicalService.objects.none()
                 )
             return False
+
+    @staticmethod
+    def filter_services_for_time_slot(services, time_slot):
+        """Ограничивает список услуг для специальных типов слотов."""
+        if not time_slot or time_slot.slot_type != TimeSlot.EMERGENCY_SLOT:
+            return services.exclude(
+                name__icontains=AppointmentService.EMERGENCY_SERVICE_NAME_FRAGMENT
+            )
+
+        return services.filter(
+            name__icontains=AppointmentService.EMERGENCY_SERVICE_NAME_FRAGMENT
+        )
+
+    @staticmethod
+    def validate_service_allowed_for_time_slot(service, time_slot):
+        """Проверяет, можно ли выбрать услугу для конкретного слота."""
+        if not service or not time_slot:
+            return
+
+        is_emergency_service = AppointmentService.is_emergency_service(service)
+
+        if time_slot.slot_type == TimeSlot.EMERGENCY_SLOT and not is_emergency_service:
+            raise ValidationError(
+                'Для экстренного слота доступны только услуги с текстом "в день обращения".'
+            )
+
+        if time_slot.slot_type != TimeSlot.EMERGENCY_SLOT and is_emergency_service:
+            raise ValidationError(
+                'Услуги с текстом "в день обращения" доступны только для экстренного слота.'
+            )
 
     @staticmethod
     def get_doctor_for_form(form_instance):

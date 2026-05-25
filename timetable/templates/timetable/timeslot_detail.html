@@ -40,6 +40,8 @@
                             <p>
                                 {% if slot.slot_type == 'break' %}
                                 <span class="badge bg-warning text-dark">Перерыв</span>
+                                {% elif slot.slot_type == 'emergency' %}
+                                <span class="badge bg-info text-dark">Экстренный слот</span>
                                 {% else %}
                                 <span class="badge bg-success">Рабочий слот</span>
                                 {% endif %}

@@ -105,6 +105,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
         allow_time_change = cleaned_data.get("allow_time_change")
         new_time_slot_id = cleaned_data.get("new_time_slot_id")
         target_time_slot = self.time_slot
+        service = cleaned_data.get("service")
 
         logger.info(
             "AppointmentForm.clean: allow_time_change=%s new_time_slot_id=%s service_id=%s insurance_type=%s needs_procedural=%s",
@@ -144,6 +145,7 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
                     )
 
                 cleaned_data["new_time_slot"] = new_time_slot
+                target_time_slot = new_time_slot
 
                 logger.info(
                     "AppointmentForm.clean: новый слот принят new_time_slot_id=%s date=%s start=%s end=%s",
@@ -170,6 +172,10 @@ class AppointmentForm(AppointmentChainBaseForm, forms.ModelForm):
             raise forms.ValidationError(
                 "Выбранный временной слот уже занят. Пожалуйста, обновите страницу и выберите другое время."
             )
+
+        AppointmentService.validate_service_allowed_for_time_slot(
+            service, target_time_slot
+        )
 
         return cleaned_data
 
@@ -818,6 +824,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         self.appointment = kwargs.get("instance")
         super().__init__(*args, **kwargs)
+        self.time_slot = getattr(self.appointment, "time_slot", None)
 
         logger.info(
             "Инициализация AppointmentSimpleEditForm: appointment_id=%s doctor_id=%s service_id=%s time_slot_id=%s",
@@ -829,8 +836,11 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
         if self.appointment:
             if self.appointment.doctor:
-                self.fields["service"].queryset = get_cached_doctor_services(
-                    self.appointment.doctor
+                self.fields["service"].queryset = (
+                    AppointmentService.filter_services_for_time_slot(
+                        get_cached_doctor_services(self.appointment.doctor),
+                        self.time_slot,
+                    )
                 )
                 self.fields["service"].widget.attrs["data-doctor-id"] = str(
                     self.appointment.doctor.id
@@ -882,6 +892,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        target_time_slot = self.time_slot
 
         service = cleaned_data.get("service") or (
             self.instance.service if self.instance else None
@@ -966,6 +977,7 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     )
 
                 cleaned_data["new_time_slot"] = new_time_slot
+                target_time_slot = new_time_slot
 
                 logger.info(
                     "Проверка формы редактирования записи: новый слот принят appointment_id=%s new_time_slot_id=%s date=%s start=%s end=%s",
@@ -983,6 +995,10 @@ class AppointmentSimpleEditForm(forms.ModelForm):
                     new_time_slot_id,
                 )
                 raise forms.ValidationError("Выбранный временной слот не существует")
+
+        AppointmentService.validate_service_allowed_for_time_slot(
+            service, target_time_slot
+        )
 
         needs_procedural = cleaned_data.get("needs_procedural", False)
 

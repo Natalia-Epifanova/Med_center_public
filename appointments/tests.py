@@ -137,6 +137,7 @@ class AppointmentSimpleEditFormTests(TestCase):
             provided_services=[
                 MedicalServiceCategory.MEDICAL_BLOCKADES,
                 MedicalServiceCategory.JOINT_ULTRASOUND,
+                MedicalServiceCategory.FIRST_CONSULTATION,
             ],
         )
 
@@ -525,6 +526,7 @@ class AppointmentFormTests(TestCase):
             provided_services=[
                 MedicalServiceCategory.MEDICAL_BLOCKADES,
                 MedicalServiceCategory.JOINT_ULTRASOUND,
+                MedicalServiceCategory.FIRST_CONSULTATION,
             ],
         )
 
@@ -551,6 +553,31 @@ class AppointmentFormTests(TestCase):
             start_time=time(10, 0),
             end_time=time(10, 10),
             slot_type="working",
+        )
+
+        self.emergency_consult_service = MedicalService.objects.create(
+            code="EM-001",
+            name="Прием (осмотр, консультация) врача-ревматолога первичный в день обращения",
+            price=3500,
+            category=MedicalServiceCategory.FIRST_CONSULTATION,
+            is_active=True,
+        )
+
+        self.emergency_ultrasound_service = MedicalService.objects.create(
+            code="EM-002",
+            name="УЗИ суставов в день обращения",
+            price=2000,
+            category=MedicalServiceCategory.JOINT_ULTRASOUND,
+            is_active=True,
+        )
+
+        self.emergency_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(10, 10),
+            end_time=time(10, 20),
+            slot_type="emergency",
         )
 
     def test_creating_regular_appointment_does_not_create_procedural_appointment(self):
@@ -593,6 +620,77 @@ class AppointmentFormTests(TestCase):
                 time_slot__cabinet__number=6,
             ).exists()
         )
+
+    def test_emergency_slot_form_shows_only_services_with_day_of_visit_marker(self):
+        form = AppointmentForm(
+            time_slot=self.emergency_slot,
+            doctor=self.doctor,
+        )
+
+        service_ids = set(form.fields["service"].queryset.values_list("id", flat=True))
+
+        self.assertEqual(
+            service_ids,
+            {
+                self.emergency_consult_service.id,
+                self.emergency_ultrasound_service.id,
+            },
+        )
+
+    def test_regular_slot_form_hides_services_with_day_of_visit_marker(self):
+        form = AppointmentForm(
+            time_slot=self.main_slot,
+            doctor=self.doctor,
+        )
+
+        service_ids = set(form.fields["service"].queryset.values_list("id", flat=True))
+
+        self.assertEqual(service_ids, {self.us_service.id})
+        self.assertNotIn(self.emergency_consult_service.id, service_ids)
+        self.assertNotIn(self.emergency_ultrasound_service.id, service_ids)
+
+    def test_emergency_slot_form_shows_only_emergency_services_available_to_doctor(self):
+        self.doctor.provided_services = [MedicalServiceCategory.JOINT_ULTRASOUND]
+        self.doctor.save(update_fields=["provided_services"])
+        cache.clear()
+
+        form = AppointmentForm(
+            time_slot=self.emergency_slot,
+            doctor=self.doctor,
+        )
+
+        service_ids = set(form.fields["service"].queryset.values_list("id", flat=True))
+
+        self.assertEqual(service_ids, {self.emergency_ultrasound_service.id})
+
+    def test_emergency_slot_rejects_service_without_day_of_visit_marker(self):
+        form = AppointmentForm(
+            time_slot=self.emergency_slot,
+            doctor=self.doctor,
+            data={
+                "service": self.us_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Недопустимая услуга для экстренного слота",
+                "appointment_chain_type": "none",
+                "additional_appointments_data": "",
+                "procedural_appointments_data": "",
+                "needs_procedural": "",
+                "allow_time_change": "",
+                "new_time_slot_id": self.emergency_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "selected_blood_tests_input": "",
+                "total_sum": "1200.00",
+                "surname": "Сидорова",
+                "first_name": "Мария",
+                "last_name": "Ивановна",
+                "date_of_birth": "1985-05-20",
+                "phone": "",
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("service", form.errors)
 
     def test_creating_appointment_with_needs_procedural_creates_linked_procedural_appointment(
         self,
@@ -742,6 +840,78 @@ class AppointmentFormTests(TestCase):
 
         self.assertIsNotNone(chain)
         self.assertEqual(chain.order, 1)
+
+    def test_additional_doctor_appointment_rejects_emergency_service_for_regular_slot(
+        self,
+    ):
+        second_doctor_cabinet = Cabinet.objects.create(
+            number=2,
+            name_of_cabinet="Кабинет второго врача",
+        )
+
+        second_doctor = Doctor.objects.create(
+            first_name="Елена",
+            last_name="Петровна",
+            surname="Епифанова",
+            specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
+            provided_services=[
+                MedicalServiceCategory.JOINT_ULTRASOUND,
+                MedicalServiceCategory.FIRST_CONSULTATION,
+            ],
+        )
+
+        second_slot = TimeSlot.objects.create(
+            doctor=second_doctor,
+            cabinet=second_doctor_cabinet,
+            date=self.visit_date,
+            start_time=time(10, 10),
+            end_time=time(10, 20),
+            slot_type="working",
+        )
+
+        additional_data = json.dumps(
+            [
+                {
+                    "index": 1,
+                    "doctor_id": second_doctor.id,
+                    "service_id": self.emergency_consult_service.id,
+                    "time_slot_id": second_slot.id,
+                    "comment": "Недопустимая экстренная услуга в обычном слоте",
+                    "insurance_type": Appointment.InsuranceType.PAID,
+                }
+            ]
+        )
+
+        form = AppointmentForm(
+            time_slot=self.main_slot,
+            doctor=self.doctor,
+            data={
+                "service": self.us_service.id,
+                "insurance_type": Appointment.InsuranceType.PAID,
+                "needs_reschedule": "",
+                "comment": "Основная запись",
+                "appointment_chain_type": "another_doctor",
+                "additional_appointments_data": additional_data,
+                "procedural_appointments_data": "[]",
+                "needs_procedural": "",
+                "allow_time_change": "",
+                "new_time_slot_id": self.main_slot.id,
+                "new_appointment_date": self.visit_date.isoformat(),
+                "selected_blood_tests_input": "",
+                "total_sum": "1200.00",
+                "surname": "Сидорова",
+                "first_name": "Мария",
+                "last_name": "Ивановна",
+                "date_of_birth": "1985-05-20",
+                "phone": "",
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            'Услуги с текстом "в день обращения" доступны только для экстренного слота.',
+            form.non_field_errors(),
+        )
 
 
 class AppointmentAjaxSecurityAndStatusTests(TestCase):
