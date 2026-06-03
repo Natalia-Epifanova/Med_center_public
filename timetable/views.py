@@ -651,7 +651,7 @@ def save_cabinet_day_comment(request):
         return JsonResponse({"error": str(e)}, status=400)
 
 
-class DoctorReportView(AdminRequiredMixin, TemplateView):
+class DoctorReportView(MedicalAdminOrAdminRequiredMixin, TemplateView):
     template_name = "timetable/doctor_report.html"
 
     def get_context_data(self, **kwargs):

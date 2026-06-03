@@ -19,6 +19,10 @@ DOCUMENT_TYPES = {
         "informed_consent_physio_template",
         "Согласие_на_физио",
     ),
+    "consent_GKSP_IP": (
+        "informed_consent_GKSP_IP_template",
+        "Согласие_на_блокаду_ИП_Епифанова",
+    ),
     "consent_paid": (
         "informed_consent_paid_template",
         "Согласие_платно_и_омс",
