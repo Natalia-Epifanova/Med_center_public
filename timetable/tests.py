@@ -130,6 +130,7 @@ class ScheduleDayDoctorDatesTests(TestCase):
 
     def test_doctor_schedule_dates_marks_available_and_full_days(self):
         available_date = date(2026, 4, 10)
+        emergency_only_date = date(2026, 4, 12)
         full_date = date(2026, 4, 11)
 
         available_slot_1 = TimeSlot.objects.create(
@@ -155,6 +156,14 @@ class ScheduleDayDoctorDatesTests(TestCase):
             start_time=time(10, 0),
             end_time=time(10, 20),
             slot_type="working",
+        )
+        emergency_only_slot = TimeSlot.objects.create(
+            doctor=self.doctor,
+            cabinet=self.cabinet,
+            date=emergency_only_date,
+            start_time=time(11, 0),
+            end_time=time(11, 20),
+            slot_type="emergency",
         )
 
         Appointment.objects.create(
@@ -187,8 +196,10 @@ class ScheduleDayDoctorDatesTests(TestCase):
         }
 
         self.assertEqual(statuses_by_date[available_date], "available")
+        self.assertEqual(statuses_by_date[emergency_only_date], "emergency_only")
         self.assertEqual(statuses_by_date[full_date], "full")
         self.assertContains(response, "bg-success")
+        self.assertContains(response, "bg-orange")
         self.assertContains(response, "bg-danger")
 
     def test_doctor_schedule_dates_cache_is_invalidated_after_booking_last_slot(self):

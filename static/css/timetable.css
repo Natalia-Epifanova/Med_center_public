@@ -226,6 +226,12 @@
     font-weight: bold;
 }
 
+.bg-orange {
+    background-color: #ff7a00 !important;
+    color: white !important;
+    font-weight: bold;
+}
+
 .bg-purple {
     background-color: #6f42c1 !important;
     color: white !important;

@@ -419,12 +419,32 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
                 "date",
             )
             .annotate(
-                working_slots_count=Count(
+                regular_slots_count=Count(
+                    "id",
+                    filter=Q(slot_type=TimeSlot.WORKING_SLOT),
+                    distinct=True,
+                ),
+                regular_booked_slots_count=Count(
+                    "appointments",
+                    filter=Q(slot_type=TimeSlot.WORKING_SLOT),
+                    distinct=True,
+                ),
+                emergency_slots_count=Count(
+                    "id",
+                    filter=Q(slot_type=TimeSlot.EMERGENCY_SLOT),
+                    distinct=True,
+                ),
+                emergency_booked_slots_count=Count(
+                    "appointments",
+                    filter=Q(slot_type=TimeSlot.EMERGENCY_SLOT),
+                    distinct=True,
+                ),
+                bookable_slots_count=Count(
                     "id",
                     filter=Q(slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES),
                     distinct=True,
                 ),
-                booked_slots_count=Count(
+                booked_bookable_slots_count=Count(
                     "appointments",
                     filter=Q(slot_type__in=TimeSlot.BOOKABLE_SLOT_TYPES),
                     distinct=True,
@@ -439,14 +459,24 @@ class ScheduleDayView(LoginRequiredMixin, TemplateView):
 
         for slot in slots_this_month:
             doctor_key = f"{slot['doctor__surname']} {slot['doctor__first_name'][0]}.{slot['doctor__last_name'][0]}."
+            has_regular_availability = (
+                slot["regular_slots_count"] > slot["regular_booked_slots_count"]
+            )
+            has_emergency_availability = (
+                slot["emergency_slots_count"] > slot["emergency_booked_slots_count"]
+            )
+
+            if has_regular_availability:
+                status = "available"
+            elif has_emergency_availability:
+                status = "emergency_only"
+            else:
+                status = "full"
+
             doctor_dates[doctor_key].append(
                 {
                     "date": slot["date"],
-                    "status": (
-                        "available"
-                        if slot["working_slots_count"] > slot["booked_slots_count"]
-                        else "full"
-                    ),
+                    "status": status,
                 }
             )
             if doctor_key not in doctor_specializations:

@@ -196,7 +196,7 @@
                                         {% for date_item in doctor.dates %}
                                         {% with date=date_item.date %}
                                         <a href="?date={{ date_item.date|date:'Y-m-d' }}"
-                                           class="date-badge badge {% if date_item.date == selected_date %}bg-primary{% elif date_item.status == 'available' %}bg-success{% else %}bg-danger{% endif %} text-white text-decoration-none"
+                                           class="date-badge badge {% if date_item.date == selected_date %}bg-primary{% elif date_item.status == 'available' %}bg-success{% elif date_item.status == 'emergency_only' %}bg-orange{% else %}bg-danger{% endif %} text-white text-decoration-none"
                                            style="font-size: 0.75rem; padding: 0.2em 0.4em;"
                                            title="Перейти к расписанию на {{ date|date:'d.m.Y' }}">
                                             {{ date|date:"d" }}
