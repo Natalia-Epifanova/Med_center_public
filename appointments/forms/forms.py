@@ -2474,6 +2474,8 @@ class ProceduralAppointmentUpdateForm(forms.ModelForm):
         if date_changed or time_changed:
             from appointments.services import ProceduralAppointmentService
 
+            appointment.status = Appointment.AppointmentStatus.SCHEDULED
+
             time_slot = ProceduralAppointmentService.create_or_get_procedural_slot(
                 date=new_date,
                 start_time=start_time,

@@ -449,6 +449,36 @@ class ProceduralAppointmentUpdateFormTests(TestCase):
         self.assertEqual(appointment.total_with_blood_tests, Decimal("200.00"))
         self.assertEqual(appointment.time_slot.date, self.updated_date)
 
+    def test_moving_procedural_appointment_resets_status_to_scheduled(self):
+        self.appointment.status = Appointment.AppointmentStatus.CONFIRMED
+        self.appointment.save(update_fields=["status"])
+
+        form = self.build_form()
+
+        self.assertTrue(form.is_valid(), form.errors)
+        appointment = form.save()
+
+        self.assertEqual(appointment.time_slot.date, self.updated_date)
+        self.assertEqual(appointment.status, Appointment.AppointmentStatus.SCHEDULED)
+
+    def test_changing_procedural_time_on_same_day_resets_status_to_scheduled(self):
+        self.appointment.status = Appointment.AppointmentStatus.CONFIRMED
+        self.appointment.save(update_fields=["status"])
+
+        form = self.build_form(
+            procedural_appointment_date=self.original_date.isoformat(),
+            procedural_start_time="08:20",
+            procedural_end_time="08:40",
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        appointment = form.save()
+
+        self.assertEqual(appointment.time_slot.date, self.original_date)
+        self.assertEqual(appointment.time_slot.start_time, time(8, 20))
+        self.assertEqual(appointment.time_slot.end_time, time(8, 40))
+        self.assertEqual(appointment.status, Appointment.AppointmentStatus.SCHEDULED)
+
     def test_save_uses_blood_test_price_history_for_new_date(self):
         form = self.build_form(
             selected_blood_tests_input=str(self.blood_test.id),
