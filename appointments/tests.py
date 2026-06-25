@@ -790,7 +790,7 @@ class AppointmentFormTests(TestCase):
         second_doctor = Doctor.objects.create(
             first_name="Елена",
             last_name="Петровна",
-            surname="Епифанова",
+            surname="Смирнова",
             specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
             provided_services=[MedicalServiceCategory.JOINT_ULTRASOUND],
         )
@@ -882,7 +882,7 @@ class AppointmentFormTests(TestCase):
         second_doctor = Doctor.objects.create(
             first_name="Елена",
             last_name="Петровна",
-            surname="Епифанова",
+            surname="Смирнова",
             specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
             provided_services=[
                 MedicalServiceCategory.JOINT_ULTRASOUND,

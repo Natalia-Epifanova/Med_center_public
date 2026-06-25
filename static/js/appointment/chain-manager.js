@@ -156,7 +156,7 @@ function initializePatientSearch() {
                             <strong>${patient.full_name}</strong><br>
                             <small class="text-muted">
 
-                                ${patient.card_number ? `Номер карты (Ревмамед): ${patient.card_number}` : 'Без карты'}
+                                ${patient.card_number ? `Номер карты (клиника): ${patient.card_number}` : 'Без карты'}
                                 ${patient.date_of_birth ? ` | Дата рождения: ${patient.date_of_birth}` : ''}
                                 ${patient.phone_number ? ` | Телефон: ${patient.phone_number}` : ''}
                             </small>

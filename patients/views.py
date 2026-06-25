@@ -207,7 +207,7 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
         selected_tax_year = self.request.GET.get("tax_year", "").strip()
         tax_info_total = None
         tax_info_ip_total = None
-        tax_info_revmamed_total = None
+        tax_info_clinic_total = None
         tax_info_appointments = []
 
         # Получаем историю записей с оптимизацией запросов
@@ -229,13 +229,13 @@ class PatientDetailView(MedicalStaffRequiredMixin, DetailView):
                 tax_info = get_patient_tax_info_for_year(patient, selected_tax_year_int)
                 tax_info_total = tax_info["total"]
                 tax_info_ip_total = tax_info["ip_total"]
-                tax_info_revmamed_total = tax_info["revmamed_total"]
+                tax_info_clinic_total = tax_info["clinic_total"]
                 tax_info_appointments = tax_info["appointments"]
                 context["selected_tax_year"] = selected_tax_year_int
 
         context["tax_info_total"] = tax_info_total
         context["tax_info_ip_total"] = tax_info_ip_total
-        context["tax_info_revmamed_total"] = tax_info_revmamed_total
+        context["tax_info_clinic_total"] = tax_info_clinic_total
         context["tax_info_appointments"] = tax_info_appointments
         context["tax_info_calculated"] = tax_info_total is not None
         return context
@@ -719,7 +719,7 @@ def generate_document(request, pk, doc_type):
     multiple_appointments_context = None
 
     # Договоры поддерживают несколько записей
-    is_contract = doc_type in ["contract_revmamed", "contract_IP"]
+    is_contract = doc_type in ["contract_clinic", "contract_IP"]
 
     if appointment_ids:
         from appointments.models import Appointment

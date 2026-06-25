@@ -21,7 +21,7 @@ DOCUMENT_TYPES = {
     ),
     "consent_GKSP_IP": (
         "informed_consent_GKSP_IP_template",
-        "Согласие_на_блокаду_ИП_Епифанова",
+        "Согласие_на_блокаду_ИП_специалиста",
     ),
     "consent_paid": (
         "informed_consent_paid_template",
@@ -31,7 +31,7 @@ DOCUMENT_TYPES = {
         "informed_consent_ip_template",
         "Согласие_ип",
     ),
-    "contract_revmamed": ("contract_revmamed_template", "Договор_Ревмамед"),
+    "contract_clinic": ("contract_clinic_template", "Договор_Клиника"),
     "contract_IP": ("contract_IP_template", "Договор_ИП"),
     "contract_for_psych_support": (
         "contract_for_psych_support_template",

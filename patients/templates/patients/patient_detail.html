@@ -285,7 +285,7 @@
                                     <i class="fas fa-file-signature"></i> Согласие на физио
                                 </button>
                                 <button type="button" class="btn btn-outline-primary" onclick="generateDocument('consent_GKSP_IP')">
-                                    <i class="fas fa-file-signature"></i> Согласие на блокаду ИП Епифанова
+                                    <i class="fas fa-file-signature"></i> Согласие на блокаду ИП специалиста
                                 </button>
                             </div>
                         </div>
@@ -311,8 +311,8 @@
                         <div class="col-md-6 mb-3">
                             <h6 class="border-bottom pb-2">Договоры</h6>
                             <div class="d-grid gap-2">
-                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_revmamed')">
-                                    <i class="fas fa-file-contract"></i> Договор (Ревмамед)
+                                <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_clinic')">
+                                    <i class="fas fa-file-contract"></i> Договор (Клиника)
                                 </button>
                                 <button type="button" class="btn btn-outline-dark" onclick="generateDocument('contract_IP')">
                                     <i class="fas fa-file-contract"></i> Договор (ИП)
@@ -508,8 +508,8 @@
                                 <div class="fw-bold fs-5">{{ tax_info_ip_total }} руб.</div>
                             </div>
                             <div class="col-md-4">
-                                <div class="small text-muted">Сумма по Ревмамеду</div>
-                                <div class="fw-bold fs-5">{{ tax_info_revmamed_total }} руб.</div>
+                                <div class="small text-muted">Сумма по клинике</div>
+                                <div class="fw-bold fs-5">{{ tax_info_clinic_total }} руб.</div>
                             </div>
                         </div>
                     </div>

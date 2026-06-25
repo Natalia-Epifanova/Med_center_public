@@ -26,18 +26,14 @@ ENABLE_HTTPS_SECURITY = env_bool("ENABLE_HTTPS_SECURITY", default=False)
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
-    "192.168.8.180",
-    "192.168.8.122",
-    "192.168.0.96",
-    "medcenter-server",
 ]
 
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://192.168.8.180:8080",
-    "http://192.168.8.180",
-    "http://192.168.8.122",
-    "http://medcenter.local",
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
 
 # Safe for the current HTTP-only production.

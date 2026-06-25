@@ -254,10 +254,10 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
             name_of_cabinet="Процедурный кабинет",
         )
 
-        self.epifanova = Doctor.objects.create(
+        self.specialist_doctor = Doctor.objects.create(
             first_name="Ольга",
             last_name="Евгеньевна",
-            surname="Епифанова",
+            surname="Смирнова",
             specialization=Doctor.DoctorSpecialization.RHEUMATOLOGIST,
             provided_services=[MedicalServiceCategory.SECOND_CONSULTATION],
         )
@@ -279,7 +279,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
             provided_services=[MedicalServiceCategory.ANALYZES],
         )
 
-        self.epifanova_consultation = MedicalService.objects.create(
+        self.specialist_consultation = MedicalService.objects.create(
             code="CONS-EPI",
             name="Консультация ревматолога повторная",
             price=Decimal("2500.00"),
@@ -436,18 +436,18 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
 
         self.assertEqual(total, Decimal("500.00"))
 
-    def test_calculate_patient_paid_total_collapses_epifanova_two_slot_consultation(self):
+    def test_calculate_patient_paid_total_collapses_specialist_two_slot_consultation(self):
         self.create_appointment(
-            doctor=self.epifanova,
-            service=self.epifanova_consultation,
+            doctor=self.specialist_doctor,
+            service=self.specialist_consultation,
             start_time=time(9, 0),
             end_time=time(9, 20),
             price_at_appointment=Decimal("2500.00"),
             occupies_two_slots=True,
         )
         self.create_appointment(
-            doctor=self.epifanova,
-            service=self.epifanova_consultation,
+            doctor=self.specialist_doctor,
+            service=self.specialist_consultation,
             start_time=time(9, 20),
             end_time=time(9, 40),
             price_at_appointment=Decimal("2500.00"),
@@ -458,17 +458,17 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
 
         self.assertEqual(total, Decimal("2500.00"))
 
-    def test_calculate_patient_paid_total_collapses_manual_epifanova_consultation_duplicate(self):
+    def test_calculate_patient_paid_total_collapses_manual_specialist_consultation_duplicate(self):
         self.create_appointment(
-            doctor=self.epifanova,
-            service=self.epifanova_consultation,
+            doctor=self.specialist_doctor,
+            service=self.specialist_consultation,
             start_time=time(14, 0),
             end_time=time(14, 20),
             price_at_appointment=Decimal("2500.00"),
         )
         self.create_appointment(
-            doctor=self.epifanova,
-            service=self.epifanova_consultation,
+            doctor=self.specialist_doctor,
+            service=self.specialist_consultation,
             start_time=time(14, 20),
             end_time=time(14, 40),
             price_at_appointment=Decimal("2500.00"),
@@ -511,10 +511,10 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
 
         self.assertEqual(total, Decimal("920.00"))
 
-    def test_patient_tax_info_splits_ip_and_revmamed_totals(self):
+    def test_patient_tax_info_splits_ip_and_clinic_totals(self):
         self.create_appointment(
-            doctor=self.epifanova,
-            service=self.epifanova_consultation,
+            doctor=self.specialist_doctor,
+            service=self.specialist_consultation,
             start_time=time(12, 0),
             end_time=time(12, 20),
             price_at_appointment=Decimal("2600.00"),
@@ -538,12 +538,12 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
 
         self.assertEqual(tax_info["total"], Decimal("4100.00"))
         self.assertEqual(tax_info["ip_total"], Decimal("2600.00"))
-        self.assertEqual(tax_info["revmamed_total"], Decimal("1500.00"))
+        self.assertEqual(tax_info["clinic_total"], Decimal("1500.00"))
 
     def test_patient_detail_shows_tax_info_for_selected_year(self):
         self.create_appointment(
-            doctor=self.epifanova,
-            service=self.epifanova_consultation,
+            doctor=self.specialist_doctor,
+            service=self.specialist_consultation,
             start_time=time(10, 0),
             end_time=time(10, 20),
             price_at_appointment=Decimal("2600.00"),
@@ -576,12 +576,12 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
         self.assertContains(response, "4100,00 руб.")
         self.assertContains(response, "Сумма по ИП")
         self.assertContains(response, "2600,00 руб.")
-        self.assertContains(response, "Сумма по Ревмамеду")
+        self.assertContains(response, "Сумма по клинике")
         self.assertContains(response, "1500,00 руб.")
         self.assertContains(response, "17.03.2026")
         self.assertContains(response, "10:00")
         self.assertContains(response, "11:00")
-        self.assertContains(response, "Епифанова")
+        self.assertContains(response, "Смирнова")
         self.assertContains(response, "Пищелёв")
         self.assertContains(response, "Консультация ревматолога повторная")
         self.assertContains(response, "Консультация ортопеда")
@@ -589,7 +589,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
         self.assertContains(response, "Комментарий для налоговой")
         self.assertContains(response, "Куда учтено")
         self.assertContains(response, "ИП")
-        self.assertContains(response, "Ревмамед")
+        self.assertContains(response, "Клиника")
         tax_services = [
             appointment.service.name
             for appointment in response.context["tax_info_appointments"]
@@ -605,7 +605,7 @@ class PatientTaxInfoTests(PatientAccessBaseTestCase):
                 "Консультация ортопеда",
             ],
         )
-        self.assertEqual(tax_buckets, ["ИП", "Ревмамед"])
+        self.assertEqual(tax_buckets, ["ИП", "Клиника"])
 
 
 class PatientApiAccessTests(PatientAccessBaseTestCase):

@@ -95,7 +95,7 @@ pip install -r requirements.txt
 ```env
 SECRET_KEY=change-me
 DEBUG=True
-DATABASE_NAME=revmamed
+DATABASE_NAME=medcenter
 DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
 DATABASE_HOST=localhost

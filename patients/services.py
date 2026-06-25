@@ -365,7 +365,7 @@ def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, obje
     )
 
     included_appointments = []
-    last_kept_epifanova_consultation = {}
+    last_kept_specialist_consultation = {}
 
     for appointment in appointments:
         if _is_excluded_from_tax_info(appointment):
@@ -376,22 +376,22 @@ def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, obje
 
         amount = get_taxable_appointment_amount(appointment)
 
-        if _is_epifanova_consultation(appointment):
-            signature = _get_epifanova_consultation_signature(appointment, amount)
-            previous_appointment = last_kept_epifanova_consultation.get(signature)
+        if _is_specialist_consultation(appointment):
+            signature = _get_specialist_consultation_signature(appointment, amount)
+            previous_appointment = last_kept_specialist_consultation.get(signature)
 
             if previous_appointment and _are_neighboring_slots(
                 previous_appointment, appointment
             ):
                 continue
 
-            last_kept_epifanova_consultation[signature] = appointment
+            last_kept_specialist_consultation[signature] = appointment
 
         appointment.tax_amount = amount
         appointment.tax_bucket = (
             "ИП"
-            if _is_epifanova_doctor_appointment(appointment)
-            else "Ревмамед"
+            if _is_specialist_doctor_appointment(appointment)
+            else "Клиника"
         )
         included_appointments.append(appointment)
 
@@ -403,15 +403,15 @@ def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, obje
         (
             appointment.tax_amount
             for appointment in included_appointments
-            if _is_epifanova_doctor_appointment(appointment)
+            if _is_specialist_doctor_appointment(appointment)
         ),
         Decimal("0.00"),
     )
-    revmamed_total_amount = sum(
+    clinic_total_amount = sum(
         (
             appointment.tax_amount
             for appointment in included_appointments
-            if not _is_epifanova_doctor_appointment(appointment)
+            if not _is_specialist_doctor_appointment(appointment)
         ),
         Decimal("0.00"),
     )
@@ -419,7 +419,7 @@ def get_patient_tax_info_for_year(patient: Patient, year: int) -> dict[str, obje
     return {
         "total": total_amount,
         "ip_total": ip_total_amount,
-        "revmamed_total": revmamed_total_amount,
+        "clinic_total": clinic_total_amount,
         "appointments": included_appointments,
     }
 
@@ -438,7 +438,7 @@ def _is_linked_procedural_appointment(appointment) -> bool:
     )
 
 
-def _is_epifanova_consultation(appointment) -> bool:
+def _is_specialist_consultation(appointment) -> bool:
     doctor = getattr(getattr(appointment, "time_slot", None), "doctor", None)
     service = getattr(appointment, "service", None)
 
@@ -449,10 +449,10 @@ def _is_epifanova_consultation(appointment) -> bool:
     if "консультац" not in service_name:
         return False
 
-    return _is_epifanova_doctor_appointment(appointment)
+    return _is_specialist_doctor_appointment(appointment)
 
 
-def _is_epifanova_doctor_appointment(appointment) -> bool:
+def _is_specialist_doctor_appointment(appointment) -> bool:
     doctor = getattr(getattr(appointment, "time_slot", None), "doctor", None)
 
     if not doctor:
@@ -465,7 +465,7 @@ def _is_epifanova_doctor_appointment(appointment) -> bool:
     )
 
 
-def _get_epifanova_consultation_signature(
+def _get_specialist_consultation_signature(
     appointment, amount: Decimal
 ) -> tuple[int, int, object, int | None, Decimal]:
     return (

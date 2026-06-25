@@ -1,16 +1,16 @@
 import pandas as pd
 import os
-import sys
 from datetime import datetime
+from pathlib import Path
 from django.core.exceptions import ValidationError
 
 # Настройка Django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-sys.path.append("C:/Users/user/PycharmProjects/Revmamed")
-
 import django
 
 django.setup()
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 from patients.models import Patient
 from django.db import transaction, IntegrityError
@@ -647,7 +647,7 @@ def backup_patients():
 
 
 if __name__ == "__main__":
-    excel_file_path = "C:/Users/user/PycharmProjects/Revmamed/test_data_for_db.xlsx"
+    excel_file_path = BASE_DIR / "test_data_for_db.xlsx"
 
     if not os.path.exists(excel_file_path):
         print(f"Файл не найден: {excel_file_path}")
